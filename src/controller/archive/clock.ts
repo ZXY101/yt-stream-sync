@@ -1,13 +1,22 @@
 import type { ArchiveSample, ArchiveSettings, ArchiveState } from "./types.ts";
 
-/** The member the others follow: whoever the user touched last, else the current one. */
+/**
+ * Did the user act on this player since the last step? Actions from before it joined the
+ * group (a player paused before being added) don't count: it has no count to compare yet.
+ */
+export function wasTouched(state: ArchiveState, sample: ArchiveSample): boolean {
+  return sample.userActions > (state.seen[sample.id] ?? sample.userActions);
+}
+
+/**
+ * The member the others follow: whoever the user touched last, else the current one. A new
+ * group follows a playing member, so a stream added while paused doesn't pause everyone.
+ */
 export function pickReference(state: ArchiveState, members: readonly ArchiveSample[]): string {
-  const touched = members.find((sample) => sample.userActions > (state.seen[sample.id] ?? 0));
-  if (touched) {
-    return touched.id;
-  }
+  const touched = members.find((sample) => wasTouched(state, sample));
   const current = members.find((sample) => sample.id === state.reference);
-  return (current ?? (members[0] as ArchiveSample)).id;
+  const playing = members.find((sample) => sample.state === "playing");
+  return (touched ?? current ?? playing ?? (members[0] as ArchiveSample)).id;
 }
 
 function offset(settings: ArchiveSettings, id: string): number {

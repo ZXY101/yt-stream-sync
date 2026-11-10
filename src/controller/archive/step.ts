@@ -1,5 +1,5 @@
 import type { Action } from "../types.ts";
-import { assignBases, pickReference, shownMoment, targetPosition } from "./clock.ts";
+import { assignBases, pickReference, shownMoment, targetPosition, wasTouched } from "./clock.ts";
 import { follow, isPlaying } from "./follow.ts";
 import { regroup } from "./regroup.ts";
 import { ARCHIVE_TUNING } from "./tuning.ts";
@@ -84,7 +84,7 @@ function frame(
 
 /** Did the user just touch a player? Then their play or pause decides what happens next. */
 function touched(state: ArchiveState, members: readonly ArchiveSample[]) {
-  return members.find((sample) => sample.userActions > (state.seen[sample.id] ?? 0));
+  return members.find((sample) => wasTouched(state, sample));
 }
 
 function continueRegroup(state: ArchiveState, view: Frame, tuning: ArchiveTuning) {

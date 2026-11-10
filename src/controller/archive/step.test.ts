@@ -65,6 +65,7 @@ describe("stepArchive", () => {
   it("follows the user's play or pause while regrouping", () => {
     const regrouping: ArchiveState = {
       ...initialArchiveState(),
+      seen: { a: 0, b: 0 },
       regroup: { play: true, steps: 1 },
     };
     const samples = [
@@ -84,11 +85,8 @@ describe("stepArchive", () => {
   });
 
   it("keeps following the same reference until the user touches another player", () => {
-    const first = stepArchive(
-      initialArchiveState(),
-      [sample("a"), sample("b", { userActions: 1 })],
-      settings,
-    );
+    const joined: ArchiveState = { ...initialArchiveState(), seen: { a: 0, b: 0 } };
+    const first = stepArchive(joined, [sample("a"), sample("b", { userActions: 1 })], settings);
     const second = stepArchive(
       first.state,
       [sample("a"), sample("b", { userActions: 1 })],
@@ -105,5 +103,36 @@ describe("stepArchive", () => {
 
     expect(result.state.bases.a).toBe(1_000_000_000 + 100 - 50);
     expect(result.actions).toEqual([]);
+  });
+
+  it("doesn't count a pause from before a stream was added as the user's action", () => {
+    // a was paused (by the user) before being added; its action count is already 3.
+    const samples = [sample("a", { state: "paused", userActions: 3 }), sample("b")];
+
+    const result = stepArchive(initialArchiveState(), samples, settings);
+
+    expect(result.state.reference).toBe("b");
+    expect(result.actions).toEqual([{ type: "play", id: "a" }]);
+  });
+
+  it("follows a playing stream when the group forms, not a paused one", () => {
+    const samples = [sample("a", { state: "paused" }), sample("b")];
+
+    const result = stepArchive(initialArchiveState(), samples, settings);
+
+    expect(result.state.reference).toBe("b");
+    expect(result.actions).not.toContainEqual({ type: "pause", id: "b" });
+  });
+
+  it("still pauses everyone when the user pauses a stream after adding it", () => {
+    const first = stepArchive(initialArchiveState(), [sample("a"), sample("b")], settings);
+
+    const result = stepArchive(
+      first.state,
+      [sample("a", { state: "paused", userActions: 1 }), sample("b")],
+      settings,
+    );
+
+    expect(result.actions).toEqual([{ type: "pause", id: "b" }]);
   });
 });
