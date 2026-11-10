@@ -34,7 +34,7 @@ export async function launchFirefox(): Promise<FirefoxSession> {
     },
   });
   await browser.installExtension(DIST);
-  // newPage() hangs in this Firefox build, so tests reuse the window's first tab.
+  // newPage() for a tab hangs in this Firefox build (a new window works), so start in the first tab.
   const [page] = await browser.pages();
   if (!page) {
     throw new Error("Firefox started without a tab");

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Fake YouTube live player</title>
+  </head>
+  <body>
+    <!-- Mimics the parts of YouTube's live player the add-on reads: stats for nerds latency
+         that responds to the video's playback rate, the player state and pause/play. -->
+    <div id="movie_player"><video></video></div>
+    <script>
+      const params = new URLSearchParams(location.search);
+      const player = document.getElementById("movie_player");
+      const video = player.querySelector("video");
+      const STEP = 0.1;
+      let latency = Number(params.get("latency") ?? "5");
+      let stateCode = 1;
+
+      // Playing at rate r adds (1 - r) s of latency per second; paused adds 1 s per second.
+      setInterval(() => {
+        latency += stateCode === 1 ? (1 - video.playbackRate) * STEP : STEP;
+      }, STEP * 1000);
+
+      Object.assign(player, {
+        getStatsForNerds: () => ({
+          live_latency_style: "",
+          // Like YouTube, report 0 while paused.
+          live_latency_secs: stateCode === 2 ? "0.00s" : `${latency.toFixed(2)}s`,
+          buffer_health_seconds: "5.00 s",
+        }),
+        getPlayerState: () => stateCode,
+        getVideoData: () => ({
+          isLive: true,
+          title: params.get("title") ?? "Fake stream",
+          author: "Fake channel",
+        }),
+        playVideo: () => (stateCode = 1),
+        pauseVideo: () => (stateCode = 2),
+      });
+      window.fakeLatency = () => latency;
+      window.fakeState = () => stateCode;
+    </script>
+  </body>
+</html>

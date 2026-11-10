@@ -16,7 +16,9 @@ export const test = base.extend<Fixtures>({
   },
   openPopup: async ({ firefoxPage }, use) => {
     async function openPopup() {
-      return openExtensionPage(firefoxPage, "popup/index.html");
+      // Its own window: the first tab may hold the players, and newPage() for a tab hangs.
+      const page = await firefoxPage.browser().newPage({ type: "window" });
+      return openExtensionPage(page, "popup/index.html");
     }
     await use(openPopup);
   },
