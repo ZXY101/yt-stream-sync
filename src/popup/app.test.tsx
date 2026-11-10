@@ -29,9 +29,18 @@ function player(overrides: Partial<PlayerStatus>): PlayerStatus {
   };
 }
 
-function answer(players: PlayerStatus[], mixed = false): SyncStatus {
-  return { players, mixed, audio: { state: "waiting" } };
+function answer(
+  players: PlayerStatus[],
+  mixed = false,
+  audio: SyncStatus["audio"] = { state: "waiting" },
+): SyncStatus {
+  return { players, mixed, audio };
 }
+
+const pair = [
+  player({ id: "1:0", tabId: 1, title: "Stream A", inGroup: true, error: 0 }),
+  player({ id: "2:0", tabId: 2, title: "Stream B", inGroup: true, error: 0 }),
+];
 
 /** Answers like the background: keeps group membership and nudges between requests. */
 function fakeBackground(initial: PlayerStatus[]) {
@@ -222,5 +231,89 @@ describe("App", () => {
 
     expect(screen.getByText("No live stream or archive in this tab.")).toBeVisible();
     vi.useRealTimers();
+  });
+
+  describe("audio panel", () => {
+    it("only shows once two streams are in the group", async () => {
+      sendMessage.mockResolvedValue(answer([player({ inGroup: true })]));
+      render(<App />);
+
+      await screen.findByText("Collab stream");
+      expect(screen.queryByText("Auto-sync by audio")).not.toBeInTheDocument();
+    });
+
+    it("shows how long it still listens", async () => {
+      sendMessage.mockResolvedValue(answer(pair, false, { state: "listening", progress: 0.4 }));
+      render(<App />);
+
+      expect(await screen.findByText("Listening to line up the audio…")).toBeVisible();
+      expect(screen.getByRole("progressbar", { name: "Listening progress" })).toBeVisible();
+      expect(screen.getByRole("switch", { name: "Auto-sync by audio" })).toBeChecked();
+    });
+
+    it("offers to match again once matched, and turns matching off", async () => {
+      const user = userEvent.setup();
+      sendMessage.mockResolvedValue(
+        answer(pair, false, { state: "matched", lags: { "2:0": 0.4 } }),
+      );
+      render(<App />);
+
+      await user.click(await screen.findByRole("button", { name: "Match again" }));
+      await user.click(screen.getByRole("switch", { name: "Auto-sync by audio" }));
+
+      expect(sendMessage).toHaveBeenCalledWith({ type: "rematchAudio" });
+      expect(sendMessage).toHaveBeenCalledWith({ type: "setAudioSync", on: false });
+    });
+
+    it.each([
+      [{ state: "failed", reason: "no-shared-sound" }, /may not share any sound/],
+      [{ state: "failed", reason: "too-short" }, /Couldn't hear enough audio/],
+      [{ state: "blocked" }, /Click once inside each stream's video/],
+      [{ state: "unavailable" }, /can't be heard/],
+      [{ state: "off" }, /Matching by audio is off/],
+      [{ state: "matching" }, /Comparing the audio/],
+    ] as [SyncStatus["audio"], RegExp][])("explains %j", async (audio, text) => {
+      sendMessage.mockResolvedValue(answer(pair, false, audio));
+      render(<App />);
+
+      expect(await screen.findByText(text)).toBeVisible();
+    });
+
+    it("draws each stream's waveform on request", async () => {
+      const user = userEvent.setup();
+      const waveform = { end: 10_000, values: [0.1, 0.3, 0.05] };
+      const withAudio = pair.map((item) => ({ ...item, waveform }));
+      sendMessage.mockResolvedValue(answer(withAudio, false, { state: "matched", lags: {} }));
+      render(<App />);
+      expect(screen.queryAllByTestId("waveform")).toHaveLength(0);
+
+      await user.click(await screen.findByRole("button", { name: "Show audio" }));
+
+      expect(screen.getAllByTestId("waveform")).toHaveLength(2);
+      expect(screen.getByRole("button", { name: "Hide audio" })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
+    });
+
+    it("says which stream can't be heard", async () => {
+      const [first, second] = pair as [PlayerStatus, PlayerStatus];
+      sendMessage.mockResolvedValue(
+        answer(
+          [
+            { ...first, hearing: "unavailable" },
+            { ...second, hearing: "blocked" },
+          ],
+          false,
+          {
+            state: "unavailable",
+          },
+        ),
+      );
+      render(<App />);
+
+      expect(await screen.findByText(/Can't hear this stream yet/)).toBeVisible();
+      expect(screen.getByText(/Click once inside this stream's video/)).toBeVisible();
+    });
   });
 });

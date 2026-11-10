@@ -142,6 +142,8 @@ export interface PlayerStatus {
   error?: number;
   /** While the add-on listens to this player. */
   waveform?: Waveform;
+  /** Whether the add-on can hear this player, while it listens. */
+  hearing?: AudioReport["state"];
 }
 
 /** Where audio matching is at, for the popup. */

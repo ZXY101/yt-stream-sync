@@ -7,10 +7,13 @@ import type { PlayerStatus } from "../lib/messages.ts";
 import { describePlace, describeSync } from "./format.ts";
 import { NudgeButtons } from "./nudge-buttons.tsx";
 import { StreamCard } from "./stream-card.tsx";
+import { Waveform } from "./waveform.tsx";
 
 interface SyncGroupProps {
   members: PlayerStatus[];
   mixed: boolean;
+  /** Draw each stream's waveform, all ending at `now` (wall-clock ms). */
+  waveformsAt?: number;
   onRemove: (id: string) => void;
   onNudge: (id: string, seconds: number) => void;
 }
@@ -40,8 +43,55 @@ function Hint({ members, mixed }: Pick<SyncGroupProps, "members" | "mixed">) {
   return null;
 }
 
+function HearingNote({ hearing }: { hearing: PlayerStatus["hearing"] }) {
+  if (hearing !== "blocked" && hearing !== "unavailable") {
+    return null;
+  }
+  const text =
+    hearing === "blocked"
+      ? "Click once inside this stream's video so the add-on can hear it."
+      : "Can't hear this stream yet; trying again.";
+  return <p className="mt-1 text-xs text-destructive">{text}</p>;
+}
+
+interface MemberCardProps {
+  player: PlayerStatus;
+  waveformsAt: number | undefined;
+  onRemove: () => void;
+  onNudge: (seconds: number) => void;
+}
+
+function MemberCard({ player, waveformsAt, onRemove, onNudge }: MemberCardProps) {
+  const title = player.title || "Untitled stream";
+  return (
+    <StreamCard
+      player={player}
+      detail={`${describePlace(player)} · ${describeSync(player)}`}
+      actions={
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          aria-label={`Remove ${title} from sync`}
+          onClick={onRemove}
+        >
+          <X />
+        </Button>
+      }
+    >
+      {player.kind === "archive" && !player.hasStartTime && (
+        <p className="mt-1 text-xs text-muted-foreground">
+          No start time in embeds: aligned as it was when added.
+        </p>
+      )}
+      <HearingNote hearing={player.hearing} />
+      {waveformsAt !== undefined && <Waveform waveform={player.waveform} now={waveformsAt} />}
+      <NudgeButtons title={title} offset={player.offset} onNudge={onNudge} />
+    </StreamCard>
+  );
+}
+
 /** The streams the user added, with what the sync does to each. */
-export function SyncGroup({ members, mixed, onRemove, onNudge }: SyncGroupProps) {
+export function SyncGroup({ members, mixed, waveformsAt, onRemove, onNudge }: SyncGroupProps) {
   return (
     <section aria-labelledby="sync-group" className="flex flex-col gap-2">
       <h2
@@ -52,37 +102,15 @@ export function SyncGroup({ members, mixed, onRemove, onNudge }: SyncGroupProps)
       </h2>
       {members.length > 0 && (
         <ul className="flex flex-col gap-2" aria-label="Streams in sync">
-          {members.map((player) => {
-            const title = player.title || "Untitled stream";
-            return (
-              <StreamCard
-                key={player.id}
-                player={player}
-                detail={`${describePlace(player)} · ${describeSync(player)}`}
-                actions={
-                  <Button
-                    variant="ghost"
-                    size="icon-xs"
-                    aria-label={`Remove ${title} from sync`}
-                    onClick={() => onRemove(player.id)}
-                  >
-                    <X />
-                  </Button>
-                }
-              >
-                {player.kind === "archive" && !player.hasStartTime && (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    No start time in embeds: aligned as it was when added.
-                  </p>
-                )}
-                <NudgeButtons
-                  title={title}
-                  offset={player.offset}
-                  onNudge={(seconds) => onNudge(player.id, seconds)}
-                />
-              </StreamCard>
-            );
-          })}
+          {members.map((player) => (
+            <MemberCard
+              key={player.id}
+              player={player}
+              waveformsAt={waveformsAt}
+              onRemove={() => onRemove(player.id)}
+              onNudge={(seconds) => onNudge(player.id, seconds)}
+            />
+          ))}
         </ul>
       )}
       <Hint members={members} mixed={mixed} />

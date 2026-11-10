@@ -42,5 +42,13 @@ export function useSyncStatus() {
     setStatus(await request({ type: "nudge", id, seconds }));
   }
 
-  return { status, setInGroup, nudge };
+  async function setAudioSync(on: boolean) {
+    setStatus(await request({ type: "setAudioSync", on }));
+  }
+
+  async function rematchAudio() {
+    setStatus(await request({ type: "rematchAudio" }));
+  }
+
+  return { status, setInGroup, nudge, setAudioSync, rematchAudio };
 }

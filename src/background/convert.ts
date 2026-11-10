@@ -68,6 +68,7 @@ function kindDetails(report: PlayerReport): Partial<PlayerStatus> {
 export function toStatus(id: string, report: PlayerReport, sync: SyncInfo): PlayerStatus {
   const { kind, title, channel, state, playbackRate, videoId } = report;
   const tabId = tabOf(id);
-  const base = { id, tabId, videoId, kind, title, channel, state, playbackRate };
+  const hearing = report.audio?.state;
+  const base = { id, tabId, videoId, kind, title, channel, state, playbackRate, hearing };
   return { ...base, ...kindDetails(report), ...sync };
 }
