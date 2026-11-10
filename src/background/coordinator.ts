@@ -1,5 +1,6 @@
-import type { SyncSettings } from "../controller/types.ts";
+import type { Action, SyncSettings } from "../controller/types.ts";
 import type { PlayerCommand, PlayerReport, SyncStatus } from "../lib/messages.ts";
+import { createGroupAudio, type MemberView } from "./audio/group-audio.ts";
 import { createControllers } from "./controllers.ts";
 import { toCommand, toStatus, type SyncInfo } from "./convert.ts";
 import { createGroup } from "./group.ts";
@@ -21,6 +22,46 @@ function wasTouched(report: PlayerReport, previous: PlayerReport | undefined): b
   return report.userActions > previous.userActions;
 }
 
+type Reports = ReturnType<typeof createReportStore>;
+
+/** Sends each action, and assumes it done until the player reports back. */
+function sendAll(actions: Action[], send: CoordinatorOptions["send"], reports: Reports) {
+  for (const action of actions) {
+    const command = toCommand(action);
+    send(action.id, command);
+    reports.assume(action.id, command);
+  }
+}
+
+/** Live streams and archives are both in the group: they can't be synced together. */
+function isMixed(ids: readonly string[], reports: Reports): boolean {
+  return new Set(ids.map((id) => reports.get(id)?.kind)).size > 1;
+}
+
+function memberViews(ids: string[], reports: Reports, errors: Record<string, number>) {
+  return ids.flatMap((id): MemberView[] => {
+    const report = reports.get(id);
+    return report ? [{ id, report, error: errors[id] }] : [];
+  });
+}
+
+interface StatusParts {
+  reports: Reports;
+  group: ReturnType<typeof createGroup>;
+  audio: ReturnType<typeof createGroupAudio>;
+  errors: Record<string, number>;
+}
+
+function buildStatus({ reports, group, audio, errors }: StatusParts): Omit<SyncStatus, "mixed"> {
+  const players = reports.all().map(([id, report]) => {
+    const inGroup = group.has(id);
+    const waveform = inGroup ? audio.waveform(id) : undefined;
+    const sync: SyncInfo = { inGroup, offset: group.offset(id), error: errors[id], waveform };
+    return toStatus(id, report, sync);
+  });
+  return { players, audio: audio.status() };
+}
+
 /**
  * Knows every frame with a live stream or archive, and runs the matching controller over the
  * players the user opted in. Live streams and archives can't be synced together.
@@ -29,11 +70,13 @@ export function createCoordinator(options: CoordinatorOptions) {
   const reports = createReportStore(options.now);
   const group = createGroup((id) => reports.get(id)?.videoId);
   const controllers = createControllers();
+  const audio = createGroupAudio({ send: options.send, adjust: group.nudge, now: options.now });
   let errors: Record<string, number> = {};
 
   function remove(id: string) {
     reports.delete(id);
     group.remove(id);
+    audio.onReport(id, null);
   }
 
   function report(id: string, playerReport: PlayerReport | null) {
@@ -42,36 +85,28 @@ export function createCoordinator(options: CoordinatorOptions) {
       return;
     }
     const previous = reports.set(id, playerReport);
+    audio.onReport(id, playerReport);
     // The others follow what the user just did now, not on the next second.
     if (wasTouched(playerReport, previous) && group.has(id)) {
       tick();
     }
   }
 
-  function isMixed(ids: readonly string[]): boolean {
-    return new Set(ids.map((id) => reports.get(id)?.kind)).size > 1;
-  }
-
   function tick() {
     const ids = group.ids();
-    const groupIds = isMixed(ids) ? [] : ids;
+    const groupIds = isMixed(ids, reports) ? [] : ids;
     const settings = { ...options.settings(), group: groupIds, offsets: group.offsets() };
     const result = controllers.run(reports.fresh(), settings);
     errors = result.errors;
-    for (const action of result.actions) {
-      const command = toCommand(action);
-      options.send(action.id, command);
-      reports.assume(action.id, command);
-    }
-  }
-
-  function syncInfo(id: string): SyncInfo {
-    return { inGroup: group.has(id), offset: group.offset(id), error: errors[id] };
+    sendAll(result.actions, options.send, reports);
+    audio.afterTick(memberViews(groupIds, reports, errors));
   }
 
   function status(): SyncStatus {
-    const players = reports.all().map(([id, r]) => toStatus(id, r, syncInfo(id)));
-    return { players, mixed: isMixed(group.ids()) };
+    return {
+      ...buildStatus({ reports, group, audio, errors }),
+      mixed: isMixed(group.ids(), reports),
+    };
   }
 
   function nudge(id: string, seconds: number) {
@@ -80,5 +115,10 @@ export function createCoordinator(options: CoordinatorOptions) {
     tick();
   }
 
-  return { report, remove, setInGroup: group.set, nudge, tick, status };
+  const audioApi = {
+    receiveClip: audio.receiveClip,
+    setAudioSync: audio.setEnabled,
+    rematchAudio: audio.rematch,
+  };
+  return { report, remove, setInGroup: group.set, nudge, tick, status, ...audioApi };
 }

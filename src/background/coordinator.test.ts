@@ -15,11 +15,13 @@ function report(overrides: Partial<LiveReport> = {}): LiveReport {
   };
 }
 
-function setup() {
+function setup({ audio = false } = {}) {
   let clock = 0;
   const settings = { enabled: true, offsets: {}, safetyMargin: 0 };
   const send = vi.fn<(id: string, command: PlayerCommand) => void>();
   const coordinator = createCoordinator({ send, settings: () => settings, now: () => clock });
+  // Most tests are about syncing; audio matching would add listen commands to every step.
+  coordinator.setAudioSync(audio);
   function advance(seconds: number) {
     clock += seconds;
   }
@@ -230,6 +232,41 @@ describe("coordinator", () => {
     coordinator.tick();
 
     expect(coordinator.status().players[1]).toMatchObject({ position: 30, state: "paused" });
+  });
+
+  it("listens to the group's players and reports how audio matching is going", () => {
+    const { coordinator, send, join } = setup({ audio: true });
+    join({ "1:0": { latency: 5 }, "2:0": { latency: 5 } });
+
+    coordinator.tick();
+
+    expect(send.mock.calls).toContainEqual(["1:0", { type: "listen", on: true }]);
+    expect(send.mock.calls).toContainEqual(["2:0", { type: "listen", on: true }]);
+    expect(coordinator.status().audio).toMatchObject({ state: "listening" });
+  });
+
+  it("stops listening when audio sync is turned off", () => {
+    const { coordinator, send, join } = setup({ audio: true });
+    join({ "1:0": { latency: 5 }, "2:0": { latency: 5 } });
+    coordinator.tick();
+
+    coordinator.setAudioSync(false);
+    coordinator.tick();
+
+    expect(send.mock.calls).toContainEqual(["1:0", { type: "listen", on: false }]);
+    expect(coordinator.status().audio).toEqual({ state: "off" });
+  });
+
+  it("keeps the waveform of players in the group", () => {
+    const { coordinator, join } = setup();
+    const audio = { state: "listening" as const, envelope: [0.1, 0.5], end: 1_000 };
+    join({ "1:0": { audio }, "2:0": {} });
+    coordinator.report("3:0", report({ audio }));
+
+    const [first, , third] = coordinator.status().players;
+
+    expect(first?.waveform).toEqual({ end: 1_000, values: [0.1, 0.5] });
+    expect(third?.waveform).toBeUndefined();
   });
 });
 

@@ -4,7 +4,7 @@ import { ext } from "../lib/browser.ts";
 import type { PopupRequest, SyncStatus } from "../lib/messages.ts";
 
 const REFRESH_MS = 1000;
-const EMPTY: SyncStatus = { players: [], mixed: false };
+const EMPTY: SyncStatus = { players: [], mixed: false, audio: { state: "waiting" } };
 
 function request(message: PopupRequest): Promise<SyncStatus> {
   const response = ext.runtime.sendMessage(message) as Promise<SyncStatus | undefined>;

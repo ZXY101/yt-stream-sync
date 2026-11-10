@@ -1,8 +1,9 @@
 // Keeps nudges sane even if the user holds a button down for a while.
 const MAX_OFFSET = 600;
 
-function roundToTenth(value: number): number {
-  return Math.round(value * 10) / 10;
+// Keeps sums of ±0.1 nudges free of float dust (0.30000000000000004).
+function roundToMillisecond(value: number): number {
+  return Math.round(value * 1000) / 1000;
 }
 
 /**
@@ -42,9 +43,10 @@ export function createGroup(currentVideo: (id: string) => string | undefined) {
     return [...members.keys()];
   }
 
+  /** Moves a member's offset by `seconds` (the user's nudge, or an audio match). */
   function nudge(id: string, seconds: number) {
     if (has(id)) {
-      const next = roundToTenth((offsets.get(id) ?? 0) + seconds);
+      const next = roundToMillisecond((offsets.get(id) ?? 0) + seconds);
       offsets.set(id, Math.max(-MAX_OFFSET, Math.min(MAX_OFFSET, next)));
     }
   }

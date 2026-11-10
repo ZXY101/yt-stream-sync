@@ -30,7 +30,7 @@ function player(overrides: Partial<PlayerStatus>): PlayerStatus {
 }
 
 function answer(players: PlayerStatus[], mixed = false): SyncStatus {
-  return { players, mixed };
+  return { players, mixed, audio: { state: "waiting" } };
 }
 
 /** Answers like the background: keeps group membership and nudges between requests. */

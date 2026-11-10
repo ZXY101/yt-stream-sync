@@ -19,6 +19,8 @@ export function createListener(options: ListenerOptions) {
   const createTap = options.createTap ?? createAudioTap;
   let wanted = false;
   let tap: Tap | undefined;
+  // Set when listening to this video element failed; syncing must carry on regardless.
+  let failedOn: HTMLVideoElement | undefined;
 
   function stop() {
     tap?.stop();
@@ -30,9 +32,21 @@ export function createListener(options: ListenerOptions) {
     if (tap && (!wanted || tap.video !== video)) {
       stop();
     }
-    if (wanted && !tap && video && canTap(video)) {
-      tap = createTap(video);
+    if (wanted && !tap && video && video !== failedOn) {
+      tap = tryTap(video);
     }
+  }
+
+  function tryTap(video: HTMLVideoElement): Tap | undefined {
+    try {
+      if (canTap(video)) {
+        return createTap(video);
+      }
+    } catch (error) {
+      console.warn("yt-stream-sync: can't listen to this player", error);
+    }
+    failedOn = video;
+    return undefined;
   }
 
   function setWanted(on: boolean, video: HTMLVideoElement | null) {
@@ -42,7 +56,7 @@ export function createListener(options: ListenerOptions) {
 
   function audioReport(): AudioReport | undefined {
     if (!tap) {
-      return undefined;
+      return wanted && failedOn ? { state: "unavailable", envelope: [], end: 0 } : undefined;
     }
     const { end, values } = tap.ring.takeEnvelope();
     return { state: tap.state(), envelope: values, end };

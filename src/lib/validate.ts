@@ -24,6 +24,7 @@ const MAX_RATE = 16;
 const MAX_NUDGE = 60;
 const MAX_TEXT = 500;
 const MAX_ENVELOPE = 200;
+const AUDIO_STATES: ReadonlySet<unknown> = new Set(["listening", "blocked", "unavailable"]);
 const MAX_CLIP_SECONDS = 30;
 // 30 s of 4 kHz 16-bit PCM in base64, with room to spare.
 const MAX_PCM_TEXT = 400_000;
@@ -78,7 +79,7 @@ function isAudioReport(value: unknown): boolean {
   if (value === undefined) {
     return true;
   }
-  if (!isObject(value) || (value.state !== "listening" && value.state !== "blocked")) {
+  if (!isObject(value) || !AUDIO_STATES.has(value.state)) {
     return false;
   }
   const envelope = value.envelope;
@@ -149,6 +150,12 @@ export function isPopupRequest(value: unknown): value is PopupRequest {
   }
   if (value.type === "setInGroup") {
     return isText(value.id) && typeof value.inGroup === "boolean";
+  }
+  if (value.type === "setAudioSync") {
+    return typeof value.on === "boolean";
+  }
+  if (value.type === "rematchAudio") {
+    return true;
   }
   return value.type === "nudge" && isText(value.id) && isNudge(value.seconds);
 }

@@ -2,8 +2,11 @@ import type { PlayerState } from "../controller/types.ts";
 
 /** While the add-on listens to a player: its state and the loudness heard since the last report. */
 export interface AudioReport {
-  /** "blocked": the browser hasn't let the page play audio yet (needs a click in the page). */
-  state: "listening" | "blocked";
+  /**
+   * "blocked": the browser hasn't let the page play audio yet (needs a click in the page).
+   * "unavailable": this player can't be listened to at all.
+   */
+  state: "listening" | "blocked" | "unavailable";
   /** Loudness (0–1) per 50 ms, oldest first. */
   envelope: number[];
   /** Wall-clock time (ms) at the end of the last envelope value. */
@@ -102,7 +105,18 @@ export type PopupRequest =
   /** The user added a player to the sync group or removed it. */
   | { type: "setInGroup"; id: string; inGroup: boolean }
   /** The user nudged a player: positive moves it ahead (newer), negative back. */
-  | { type: "nudge"; id: string; seconds: number };
+  | { type: "nudge"; id: string; seconds: number }
+  /** Turn matching by audio on or off (kept between sessions). */
+  | { type: "setAudioSync"; on: boolean }
+  /** Match by audio again now. */
+  | { type: "rematchAudio" };
+
+/** Recent loudness of a player: one value (0–1) per 50 ms, oldest first. */
+export interface Waveform {
+  /** Wall-clock time (ms) at the end of the last value. */
+  end: number;
+  values: number[];
+}
 
 export interface PlayerStatus {
   id: string;
@@ -126,10 +140,29 @@ export interface PlayerStatus {
   offset: number;
   /** Seconds ahead of the group (negative: behind); missing while it isn't being synced. */
   error?: number;
+  /** While the add-on listens to this player. */
+  waveform?: Waveform;
 }
+
+/** Where audio matching is at, for the popup. */
+export type AudioStatus =
+  | { state: "off" }
+  /** Fewer than two streams in the group. */
+  | { state: "waiting" }
+  /** Hearing the streams play in sync; `progress` 0–1 until there's enough audio. */
+  | { state: "listening"; progress: number }
+  | { state: "matching" }
+  /** Lag measured per player (seconds, positive: was behind) and applied. */
+  | { state: "matched"; lags: Record<string, number> }
+  | { state: "failed"; reason: "too-short" | "no-shared-sound" }
+  /** The browser won't let a page play audio until the user clicks in it. */
+  | { state: "blocked" }
+  /** A player in the group can't be listened to. */
+  | { state: "unavailable" };
 
 export interface SyncStatus {
   players: PlayerStatus[];
+  audio: AudioStatus;
   /** Live streams and archives are both in the group: they can't be synced together. */
   mixed: boolean;
 }

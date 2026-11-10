@@ -56,7 +56,7 @@ export function assumeDone(report: PlayerReport, command: PlayerCommand): Player
   return report;
 }
 
-export type SyncInfo = Pick<PlayerStatus, "inGroup" | "offset" | "error">;
+export type SyncInfo = Pick<PlayerStatus, "inGroup" | "offset" | "error" | "waveform">;
 
 function kindDetails(report: PlayerReport): Partial<PlayerStatus> {
   if (report.kind === "live") {

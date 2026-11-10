@@ -84,4 +84,22 @@ describe("listener", () => {
 
     expect(clips).toEqual([]);
   });
+
+  it("carries on without audio when listening fails, and says so", () => {
+    const listener = createListener({
+      post: vi.fn<(clip: AudioClip) => void>(),
+      createTap: () => {
+        throw new Error("no audio here");
+      },
+    });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const video = capturable();
+
+    listener.setWanted(true, video);
+    listener.follow(video);
+
+    expect(listener.audioReport()).toEqual({ state: "unavailable", envelope: [], end: 0 });
+    expect(warn).toHaveBeenCalledOnce();
+    warn.mockRestore();
+  });
 });

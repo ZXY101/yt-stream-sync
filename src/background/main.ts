@@ -9,12 +9,13 @@ import {
   type PopupRequest,
   type ToContent,
 } from "../lib/messages.ts";
-import { isPlayerReport, isPopupRequest } from "../lib/validate.ts";
+import { isAudioClip, isPlayerReport, isPopupRequest } from "../lib/validate.ts";
 import { createCoordinator } from "./coordinator.ts";
 
 // Fixed until the popup gets its controls (milestone 5). Group and nudges are the coordinator's.
 const SETTINGS: Pick<SyncSettings, "enabled" | "safetyMargin"> = { enabled: true, safetyMargin: 0 };
 const ports = new Map<string, chrome.runtime.Port>();
+const AUDIO_SYNC_KEY = "audioSync";
 
 function send(id: string, command: PlayerCommand) {
   const message: ToContent = { type: "command", command };
@@ -44,9 +45,11 @@ ext.runtime.onConnect.addListener((port) => {
   ports.set(id, port);
   port.onMessage.addListener((message: unknown) => {
     // Content scripts run inside YouTube's pages, so their messages are checked here too.
-    const report = (message as { report?: unknown } | null)?.report;
+    const { report, clip } = (message ?? {}) as { report?: unknown; clip?: unknown };
     if (report === null || isPlayerReport(report)) {
       coordinator.report(id, report);
+    } else if (isAudioClip(clip)) {
+      coordinator.receiveClip(id, clip);
     }
   });
   port.onDisconnect.addListener(() => {
@@ -68,6 +71,11 @@ function handlePopupRequest(request: PopupRequest) {
     coordinator.setInGroup(request.id, request.inGroup);
   } else if (request.type === "nudge") {
     coordinator.nudge(request.id, request.seconds);
+  } else if (request.type === "setAudioSync") {
+    coordinator.setAudioSync(request.on);
+    void ext.storage.local.set({ [AUDIO_SYNC_KEY]: request.on });
+  } else if (request.type === "rematchAudio") {
+    coordinator.rematchAudio();
   }
 }
 
@@ -80,5 +88,13 @@ ext.runtime.onMessage.addListener((message: unknown, sender, sendResponse) => {
   }
   return false;
 });
+
+// Matching by audio is on unless the user turned it off.
+async function loadSettings() {
+  const stored = await ext.storage.local.get(AUDIO_SYNC_KEY);
+  coordinator.setAudioSync(stored[AUDIO_SYNC_KEY] !== false);
+}
+
+void loadSettings();
 
 setInterval(coordinator.tick, 1000);
