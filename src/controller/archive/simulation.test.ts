@@ -1,0 +1,114 @@
+import { runArchiveSync, type ArchiveTick } from "../../test/run-archive-sync.ts";
+import { SimulatedArchive } from "../../test/simulated-archive.ts";
+
+// The two real archives used for testing started 70 s apart.
+const START_A = 1_794_315_580;
+const START_B = START_A + 70;
+
+/** Broadcast moment each player shows, given its start time. */
+function moments(tick: ArchiveTick, starts: Record<string, number>): number[] {
+  return Object.entries(tick.positions).map(([id, position]) => (starts[id] ?? 0) + position);
+}
+
+function spread(values: number[]): number {
+  return Math.max(...values) - Math.min(...values);
+}
+
+describe("archive sync against simulated players", () => {
+  it("lines up two archives by their start times and settles at normal speed", () => {
+    const a = new SimulatedArchive({ id: "a", position: 100, startTime: START_A });
+    const b = new SimulatedArchive({ id: "b", position: 100, startTime: START_B });
+
+    const ticks = runArchiveSync({ players: [a, b], seconds: 30 });
+
+    const last = ticks.at(-1) as ArchiveTick;
+    expect(spread(moments(last, { a: START_A, b: START_B }))).toBeLessThan(0.1);
+    expect(last.rates).toEqual({ a: 1, b: 1 });
+    expect(ticks[0]?.actions).toEqual([{ type: "seek", id: "b", position: 30 }]);
+  });
+
+  it("follows the player the user seeks", () => {
+    const a = new SimulatedArchive({ id: "a", position: 100, startTime: START_A });
+    const b = new SimulatedArchive({ id: "b", position: 30, startTime: START_B });
+
+    const ticks = runArchiveSync({
+      players: [a, b],
+      seconds: 30,
+      events: { 3: () => b.user({ type: "seek", id: "b", position: 1000 }) },
+    });
+
+    const last = ticks.at(-1) as ArchiveTick;
+    expect(last.positions.b).toBeGreaterThan(1000);
+    expect(spread(moments(last, { a: START_A, b: START_B }))).toBeLessThan(0.1);
+  });
+
+  it("pauses and plays everyone with the player the user touched", () => {
+    const a = new SimulatedArchive({ id: "a", position: 100, startTime: START_A });
+    const b = new SimulatedArchive({ id: "b", position: 30, startTime: START_B });
+
+    const ticks = runArchiveSync({
+      players: [a, b],
+      seconds: 12,
+      events: {
+        3: () => b.user({ type: "pause", id: "b" }),
+        8: () => a.user({ type: "play", id: "a" }),
+      },
+    });
+
+    expect(ticks[5]?.states).toEqual({ a: "paused", b: "paused" });
+    expect(ticks[11]?.states).toEqual({ a: "playing", b: "playing" });
+  });
+
+  it("matches the speed the user picks", () => {
+    const a = new SimulatedArchive({ id: "a", position: 100, startTime: START_A });
+    const b = new SimulatedArchive({ id: "b", position: 30, startTime: START_B });
+
+    const ticks = runArchiveSync({
+      players: [a, b],
+      seconds: 30,
+      events: { 2: () => a.user({ type: "setRate", id: "a", rate: 1.5 }) },
+    });
+
+    const last = ticks.at(-1) as ArchiveTick;
+    expect(last.rates.b).toBeCloseTo(1.5);
+    expect(spread(moments(last, { a: START_A, b: START_B }))).toBeLessThan(0.2);
+  });
+
+  it("closes a small drift with a speed trim instead of a jump", () => {
+    const a = new SimulatedArchive({ id: "a", position: 100, startTime: START_A });
+    const b = new SimulatedArchive({ id: "b", position: 30.6, startTime: START_B });
+
+    const ticks = runArchiveSync({ players: [a, b], seconds: 40 });
+
+    expect(ticks.flatMap((tick) => tick.actions).some((action) => action.type === "seek")).toBe(
+      false,
+    );
+    expect(ticks[0]?.actions).toEqual([{ type: "setRate", id: "b", rate: 0.95 }]);
+    const last = ticks.at(-1) as ArchiveTick;
+    expect(spread(moments(last, { a: START_A, b: START_B }))).toBeLessThan(0.1);
+    expect(last.rates.b).toBe(1);
+  });
+
+  it("holds a stream that hadn't started yet at the start until its moment comes", () => {
+    const a = new SimulatedArchive({ id: "a", position: 20, startTime: START_A });
+    const b = new SimulatedArchive({ id: "b", position: 10, startTime: START_B });
+
+    const ticks = runArchiveSync({ players: [a, b], seconds: 60 });
+
+    expect(ticks[2]?.states.b).toBe("paused");
+    expect(ticks[2]?.positions.b).toBe(0);
+    const last = ticks.at(-1) as ArchiveTick;
+    expect(last.states.b).toBe("playing");
+    expect(spread(moments(last, { a: START_A, b: START_B }))).toBeLessThan(0.2);
+  });
+
+  it("keeps embeds without start times as they were when ticked, plus the nudge", () => {
+    const a = new SimulatedArchive({ id: "a", position: 500 });
+    const b = new SimulatedArchive({ id: "b", position: 200 });
+
+    const ticks = runArchiveSync({ players: [a, b], seconds: 30, settings: { offsets: { b: 2 } } });
+
+    const last = ticks.at(-1) as ArchiveTick;
+    expect((last.positions.a ?? 0) - (last.positions.b ?? 0)).toBeCloseTo(298, 1);
+  });
+});
