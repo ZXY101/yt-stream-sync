@@ -1,7 +1,14 @@
-import type { PlayerReport } from "../lib/messages.ts";
+import { createAudioRing } from "../audio/ring.ts";
+import type { AudioClip, PlayerReport } from "../lib/messages.ts";
 import { createFakePlayer } from "../test/fake-youtube.ts";
 import type { YouTubePlayer } from "./youtube.ts";
 import { createPageAgent } from "./agent.ts";
+import { createListener } from "./listener.ts";
+
+function fakeTap(video: HTMLVideoElement) {
+  const stop = vi.fn<() => void>();
+  return { ring: createAudioRing(), state: () => "listening" as const, stop, video };
+}
 
 function setup(player: YouTubePlayer | null) {
   const posted: (PlayerReport | null)[] = [];
@@ -9,6 +16,7 @@ function setup(player: YouTubePlayer | null) {
   const agent = createPageAgent({
     findPlayer: () => player,
     post: (report) => posted.push(report),
+    listener: createListener({ post: vi.fn<(clip: AudioClip) => void>(), createTap: fakeTap }),
     now: () => clock,
   });
   function advance(seconds: number) {
@@ -161,5 +169,29 @@ describe("page agent", () => {
     replacement.dispatchEvent(new Event("pause"));
 
     expect(posted.at(-1)).toMatchObject({ userActions: 1 });
+  });
+
+  it("starts listening on command and adds the loudness to reports", () => {
+    const fake = createFakePlayer();
+    (fake.video as HTMLVideoElement & { captureStream?: () => unknown }).captureStream = () => ({});
+    const { agent, posted } = setup(fake.element);
+
+    agent.run({ type: "listen", on: true });
+    agent.tick();
+
+    expect(posted.at(-1)).toMatchObject({ audio: { state: "listening", envelope: [] } });
+  });
+
+  it("reports how much of an archive is buffered ahead", () => {
+    const { element, video } = createFakePlayer({ isLive: false });
+    video.currentTime = 100;
+    Object.defineProperty(video, "buffered", {
+      value: { length: 2, start: (i: number) => [0, 90][i], end: (i: number) => [50, 130][i] },
+    });
+    const { agent, posted } = setup(element);
+
+    agent.tick();
+
+    expect(posted[0]).toMatchObject({ kind: "archive", bufferAhead: 30 });
   });
 });

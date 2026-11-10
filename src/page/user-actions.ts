@@ -2,7 +2,7 @@ import type { PlayerCommand } from "../lib/messages.ts";
 
 export type MediaEvent = "seeked" | "play" | "pause" | "ratechange";
 
-const EVENT_FOR: Record<PlayerCommand["type"], MediaEvent> = {
+const EVENT_FOR: Partial<Record<PlayerCommand["type"], MediaEvent>> = {
   seek: "seeked",
   play: "play",
   pause: "pause",
@@ -22,7 +22,10 @@ export function createUserActionTracker(now: () => number) {
 
   /** Call before carrying out one of our commands. */
   function expectFrom(command: PlayerCommand) {
-    expected.push({ event: EVENT_FOR[command.type], until: now() + OWN_EVENT_WINDOW });
+    const event = EVENT_FOR[command.type];
+    if (event) {
+      expected.push({ event, until: now() + OWN_EVENT_WINDOW });
+    }
   }
 
   /** Call for every media event; returns true when it was the user's doing. */

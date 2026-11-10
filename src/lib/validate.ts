@@ -1,7 +1,9 @@
+import { AUDIO_RATE } from "../audio/ring.ts";
 import type { PlayerState } from "../controller/types.ts";
 import {
   CONTENT_TAG,
   PAGE_TAG,
+  type AudioClip,
   type ContentMessage,
   type PageMessage,
   type PlayerCommand,
@@ -21,6 +23,12 @@ const MAX_SECONDS = 7 * 24 * 60 * 60;
 const MAX_RATE = 16;
 const MAX_NUDGE = 60;
 const MAX_TEXT = 500;
+const MAX_ENVELOPE = 200;
+const MAX_CLIP_SECONDS = 30;
+// 30 s of 4 kHz 16-bit PCM in base64, with room to spare.
+const MAX_PCM_TEXT = 400_000;
+// Wall-clock milliseconds before 2100.
+const MAX_WALL_TIME = 4_102_444_800_000;
 // Unix seconds between 2005 (YouTube's start) and 2100.
 const MIN_START = 1_104_537_600;
 const MAX_START = 4_102_444_800;
@@ -66,8 +74,33 @@ function hasKindFields(value: Fields): boolean {
   return timesOk && actionsOk && isStartTime(value.startTime);
 }
 
+function isAudioReport(value: unknown): boolean {
+  if (value === undefined) {
+    return true;
+  }
+  if (!isObject(value) || (value.state !== "listening" && value.state !== "blocked")) {
+    return false;
+  }
+  const envelope = value.envelope;
+  const valuesOk =
+    Array.isArray(envelope) &&
+    envelope.length <= MAX_ENVELOPE &&
+    envelope.every((level) => inRange(level, 1));
+  return valuesOk && inRange(value.end, MAX_WALL_TIME);
+}
+
 export function isPlayerReport(value: unknown): value is PlayerReport {
-  return isObject(value) && hasBaseFields(value) && hasKindFields(value);
+  const fieldsOk = isObject(value) && hasBaseFields(value) && hasKindFields(value);
+  return fieldsOk && isAudioReport(value.audio);
+}
+
+export function isAudioClip(value: unknown): value is AudioClip {
+  if (!isObject(value) || value.rate !== AUDIO_RATE) {
+    return false;
+  }
+  const textOk = typeof value.pcm === "string" && value.pcm.length <= MAX_PCM_TEXT;
+  const requestOk = Number.isSafeInteger(value.request) && (value.request as number) >= 0;
+  return textOk && requestOk && inRange(value.start, MAX_WALL_TIME);
 }
 
 export function isPlayerCommand(value: unknown): value is PlayerCommand {
@@ -80,12 +113,21 @@ export function isPlayerCommand(value: unknown): value is PlayerCommand {
   if (value.type === "seek") {
     return inRange(value.position, MAX_SECONDS);
   }
+  if (value.type === "listen") {
+    return typeof value.on === "boolean";
+  }
+  if (value.type === "clip") {
+    return Number.isSafeInteger(value.request) && inRange(value.seconds, MAX_CLIP_SECONDS);
+  }
   return value.type === "pause" || value.type === "play";
 }
 
 export function isPageMessage(value: unknown): value is PageMessage {
   if (!isObject(value) || value.tag !== PAGE_TAG) {
     return false;
+  }
+  if ("clip" in value) {
+    return isAudioClip(value.clip);
   }
   return value.report === null || isPlayerReport(value.report);
 }

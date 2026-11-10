@@ -83,4 +83,18 @@ describe("content bridge", () => {
 
     expect(ports).toHaveLength(2);
   });
+
+  it("forwards audio clips over the open port only", () => {
+    const { bridge, ports } = setup();
+    const clip = { request: 1, start: 1_000_000, rate: 4000, pcm: "AAAA" };
+    bridge.fromPage({ tag: PAGE_TAG, clip });
+    expect(ports).toHaveLength(0);
+
+    bridge.fromPage({ tag: PAGE_TAG, report });
+    bridge.fromPage({ tag: PAGE_TAG, clip });
+    bridge.fromPage({ tag: PAGE_TAG, clip: { ...clip, rate: 44_100 } });
+
+    expect(ports[0]?.port.postMessage).toHaveBeenLastCalledWith({ type: "clip", clip });
+    expect(ports[0]?.port.postMessage).toHaveBeenCalledTimes(2);
+  });
 });

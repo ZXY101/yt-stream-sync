@@ -50,7 +50,10 @@ export function assumeDone(report: PlayerReport, command: PlayerCommand): Player
       ? { ...report, position: command.position, bufferAhead: 0 }
       : report;
   }
-  return { ...report, state: command.type === "play" ? "playing" : "paused" };
+  if (command.type === "play" || command.type === "pause") {
+    return { ...report, state: command.type === "play" ? "playing" : "paused" };
+  }
+  return report;
 }
 
 export type SyncInfo = Pick<PlayerStatus, "inGroup" | "offset" | "error">;

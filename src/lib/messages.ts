@@ -1,5 +1,27 @@
 import type { PlayerState } from "../controller/types.ts";
 
+/** While the add-on listens to a player: its state and the loudness heard since the last report. */
+export interface AudioReport {
+  /** "blocked": the browser hasn't let the page play audio yet (needs a click in the page). */
+  state: "listening" | "blocked";
+  /** Loudness (0–1) per 50 ms, oldest first. */
+  envelope: number[];
+  /** Wall-clock time (ms) at the end of the last envelope value. */
+  end: number;
+}
+
+/** A recording of a player's last seconds of audio, for matching. */
+export interface AudioClip {
+  /** Which request this answers. */
+  request: number;
+  /** Wall-clock time (ms) of the first sample. */
+  start: number;
+  /** Always 4000. */
+  rate: number;
+  /** 16-bit PCM, base64. */
+  pcm: string;
+}
+
 interface ReportBase {
   state: PlayerState;
   playbackRate: number;
@@ -7,6 +29,7 @@ interface ReportBase {
   channel: string;
   /** YouTube's video id, so a frame that moved on to another video leaves the group. */
   videoId: string;
+  audio?: AudioReport;
 }
 
 /** What the page script reads from a live player once a second. */
@@ -35,17 +58,22 @@ export type PlayerCommand =
   | { type: "setRate"; rate: number }
   | { type: "seek"; position: number }
   | { type: "pause" }
-  | { type: "play" };
+  | { type: "play" }
+  /** Start or stop listening to the player's audio. */
+  | { type: "listen"; on: boolean }
+  /** Send back the last `seconds` of audio heard. */
+  | { type: "clip"; request: number; seconds: number };
 
 // window.postMessage between the page script (page world) and the content script.
 export const PAGE_TAG = "yt-stream-sync:page";
 export const CONTENT_TAG = "yt-stream-sync:content";
 
-/** Page script → content script. `null` when the frame has no stream player (any more). */
-export interface PageMessage {
-  tag: typeof PAGE_TAG;
-  report: PlayerReport | null;
-}
+/**
+ * Page script → content script: a report (`null` when the frame has no stream player any
+ * more), or an audio clip that was asked for.
+ */
+export type PageMessage =
+  { tag: typeof PAGE_TAG; report: PlayerReport | null } | { tag: typeof PAGE_TAG; clip: AudioClip };
 
 /** Content script → page script. */
 export interface ContentMessage {
@@ -64,7 +92,8 @@ export function tabOf(id: string): number {
 
 // Port messages between the content script and the background script.
 export const PLAYER_PORT = "player";
-export type ToBackground = { type: "report"; report: PlayerReport | null };
+export type ToBackground =
+  { type: "report"; report: PlayerReport | null } | { type: "clip"; clip: AudioClip };
 export type ToContent = { type: "command"; command: PlayerCommand };
 
 /** Popup → background requests, each answered with a `SyncStatus`. */

@@ -17,6 +17,8 @@ export default mergeConfig(
         exclude: [
           "src/test/**",
           "src/components/ui/**",
+          // Web Audio wiring only, which jsdom can't run; its logic is in audio/ring.ts.
+          "src/page/audio-tap.ts",
           "src/**/main.{ts,tsx}",
           "**/*.test.{ts,tsx}",
           "**/types.ts",

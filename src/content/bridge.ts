@@ -14,7 +14,7 @@ export interface BridgeOptions {
 }
 
 /**
- * Passes reports from the page script to the background and commands back. A frame only
+ * Passes reports and audio clips from the page script to the background and commands back. A frame only
  * joins the sync group (opens a port) once it has a live player to report.
  */
 export function createBridge(options: BridgeOptions) {
@@ -36,6 +36,11 @@ export function createBridge(options: BridgeOptions) {
 
   function fromPage(data: unknown) {
     if (!isPageMessage(data)) {
+      return;
+    }
+    if ("clip" in data) {
+      // Only asked for by the background, so a port is open already.
+      port?.postMessage({ type: "clip", clip: data.clip });
       return;
     }
     if (!port && data.report === null) {
