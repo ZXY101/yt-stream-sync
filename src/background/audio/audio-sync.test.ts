@@ -141,6 +141,7 @@ describe("audio sync", () => {
     sync.receiveClip("b", clipFor(first, 0, 3));
 
     sync.rematch();
+    expect(sync.status()).toEqual({ state: "listening", progress: 0 });
     run(5, playing);
     expect(sync.status()).toMatchObject({ state: "listening" });
     run(16, playing);

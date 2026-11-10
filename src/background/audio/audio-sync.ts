@@ -100,6 +100,9 @@ export function createAudioSync(options: AudioSyncOptions) {
     doneFor = undefined;
     collector.clear();
     readiness.reset();
+    if (enabled) {
+      status = { state: "listening", progress: 0 };
+    }
   }
 
   function setEnabled(on: boolean) {
