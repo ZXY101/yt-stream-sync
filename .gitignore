@@ -1,0 +1,20 @@
+# Node
+node_modules/
+dist/
+web-ext-artifacts/
+coverage/
+playwright-report/
+test-results/
+*.tsbuildinfo
+
+# Maintainer notes kept outside git (local symlinks)
+docs/PLAN.md
+docs/PROGRESS.md
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Claude Code local settings
+.claude/settings.local.json

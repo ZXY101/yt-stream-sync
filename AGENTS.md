@@ -1,0 +1,189 @@
+# yt-stream-sync
+
+Instructions for AI coding agents (and humans) working on this repo.
+
+Browser extension (Firefox first, Chrome too) that keeps two or more YouTube live streams of
+a collab in sync, on YouTube watch pages and on Holodex multiview. Manifest V3, TypeScript,
+React popup, built with Vite.
+
+**Start here:** dev setup is in `docs/development.md`. The maintainer keeps
+design and progress notes outside git; if `docs/PROGRESS.md` and `docs/PLAN.md`
+exist in your checkout (local symlinks), read them first and **update
+`docs/PROGRESS.md` at the end of every working session**: status, next steps,
+new decisions, and a log line. Never `git add` them.
+
+## Commands
+
+Run from the repo root. Node comes from nvm (version in `.nvmrc`).
+
+| What                                   | Command                  |
+| -------------------------------------- | ------------------------ |
+| Format, lint, dead code                | `npm run check`          |
+| Types                                  | `npm run typecheck`      |
+| Unit tests (+ coverage gate)           | `npm run test:coverage`  |
+| Build into `dist/`                     | `npm run build`          |
+| Mozilla add-on linter on `dist/`       | `npm run lint:ext`       |
+| E2E (builds first, Firefox, offline)   | `npm run test:e2e`       |
+| Re-render toolbar icons after the logo | `node scripts/icons.mjs` |
+
+lefthook runs format/lint/type checks on commit and unit tests on push. CI
+additionally runs the build, `lint:ext` and the E2E suite.
+
+## Security (highest priority)
+
+- **Never commit secrets** (tokens, passwords, cookies, `.env` files, private
+  URLs). gitleaks scans every commit. If it flags something, remove it. Never
+  allowlist a real secret.
+- Test fixtures use obviously fake values.
+- **No remote code:** everything that runs ships in the package. No `eval`, no
+  `new Function`, no scripts or styles loaded from the network. The extension
+  pages' CSP stays `script-src 'self'; object-src 'self'`.
+- **No data collection:** no analytics, no telemetry, no network requests of our
+  own. The manifest declares `data_collection_permissions: none`; keep it true.
+- **Least privilege:** ask only for the permissions and host permissions a feature
+  needs (YouTube origins, not `<all_urls>`). Every new permission is documented in
+  `docs/permissions.md` in the same commit, with the reason.
+- **Treat the page as hostile.** Messages from the page world (the player adapter,
+  or the site itself posting look-alike messages) are untrusted input: check the
+  source, validate the shape and ranges, and never act on anything else. Commands
+  only flow from the background script to the page, never the other way.
+- New dependencies: prefer well-maintained packages; never run unreviewed
+  install scripts (npm `allowScripts`). Runtime dependencies end up in the
+  published add-on and in the store review, so add them sparingly.
+
+## Code style
+
+**Readability comes first.** Write code a newcomer can follow top to bottom
+without a debugger. Clear names and simple control flow beat clever or terse code.
+
+- **Functions:** use named `function` declarations for functions, components
+  and hooks (`function PlayerList()`, `function useSyncState()`, inner
+  handlers like `function handleNudge()`). Use arrow functions only inline,
+  e.g. callbacks passed directly (`items.map((item) => …)`, `onClick={() => …}`).
+  Enforced by `func-style: declaration` + `prefer-arrow-callback`.
+- **No nested ternaries.** Use early returns, `if`/`else`, a lookup object, or
+  a small helper/sub-component instead.
+- **Small functions:** ≤ 50 lines per function, complexity ≤ 10, nesting depth
+  ≤ 3, ≤ 4 parameters (pass an options object beyond that). Extract helpers,
+  sub-components or hooks when you get close.
+- **Short lines:** Prettier wraps at 100 characters. Don't build long one-liners.
+  Break long expressions and chains into named intermediate variables.
+- **Comments:** don't explain what readable code already says. Comment only
+  for non-obvious behaviour that could be misread, and to record _why_ a
+  decision was made (trade-offs, workarounds, links to upstream issues).
+- **Small files:** aim for ≤ 200 lines per file (oxlint `max-lines` enforces
+  this). Split large components into sub-components and move logic into custom
+  hooks or plain modules. Tests are exempt.
+- **Consistency over preference:** follow the structure and naming below. If
+  something doesn't fit, update this file (`AGENTS.md`) first, then the code.
+- Follow the Vercel React guides (`vercel-react-best-practices`,
+  `vercel-composition-patterns`, see Guides below) when writing or reviewing React code.
+- No dead code: knip must pass (unused files, exports, dependencies).
+  Delete instead of commenting out.
+
+## Structure and naming
+
+```
+src/
+  controller/   the sync logic: pure TypeScript, state in → actions out (see Project rules)
+  background/   coordinator: the sync group, runs the controller, sends commands to players
+  content/      content script (watch pages and embeds) and the page-world player adapter
+  popup/        toolbar popup (React)
+  lib/          shared code: browser API wrapper, message types, settings
+  test/         test setup and fakes (simulated player)
+static/         manifest.json and icons, copied into dist/ as they are
+e2e/            fixtures/ (Firefox launcher, test fixtures), tests/<area>.spec.ts
+scripts/        build helpers (icons, add-on linter)
+docs/           user and developer docs
+```
+
+- File names: **kebab-case** everywhere (`player-list.tsx`, `use-sync-state.ts`).
+- Components: PascalCase named exports (`export function PlayerList`), one main
+  component per file. No default exports (config files that tools require are the
+  only exception).
+- Hooks: `use-*.ts` exporting `useSomething`.
+- Unit tests sit next to the file: `player-list.test.tsx`, `controller.test.ts`.
+- `controller/` imports nothing from the other folders. `popup/`, `background/` and
+  `content/` never import each other; they talk through typed messages in `lib/`.
+
+## Testing
+
+- **Vitest** for units, hooks and components, **Playwright** (as the runner, with
+  Firefox driven by puppeteer-core over WebDriver BiDi) for every user-facing flow.
+- **E2E covers all main flows:** the popup, and for every action its success path
+  and its main error states. A new flow isn't done until it has an E2E test.
+- **Every bug fix gets a regression test** in the same commit, at the level
+  that reproduces it (unit or E2E). Write the test first and see it fail.
+- Coverage must stay ≥ 80% (lines, branches, functions and statements); the
+  Vitest config and CI enforce it. The controller should stay near 100%. New
+  code comes with tests in the same commit.
+- No real network in tests: E2E uses local fake player pages. Only an opt-in
+  `live` Playwright project may touch YouTube.
+
+## UI work
+
+- The popup is small: check it at its real size (320 px wide and up) in **light
+  and dark**. Take screenshots of changed views and look at them before calling
+  the work done.
+- Everything works with the keyboard and has accessible labels (jsx-a11y is on);
+  touch targets ≥ 32px; visible focus.
+- Review significant UI changes against the `web-design-guidelines` guide.
+
+## Docs
+
+- When a contract changes (manifest permissions, settings, messages between
+  parts, supported sites), update the matching docs **in the same commit**:
+  `docs/`, `README.md`, and this file if commands or rules change (`CLAUDE.md`
+  too if it's Claude-specific).
+
+## Checks, commits and CI
+
+- **Never skip checks:** no `--no-verify`, no `skip`/`only` left in tests, no
+  disabling lint rules without a comment explaining why. If a hook or CI
+  pipeline fails, fix the cause before moving on, even if you didn't cause it.
+- Tooling: Prettier (format), oxlint (lint, React/hooks/a11y/import/vitest
+  plugins), knip (dead code), gitleaks (secrets), commitlint, lefthook (hooks),
+  `web-ext lint` (Mozilla's add-on linter, via `scripts/lint-ext.mjs`).
+- Deliberate lint exceptions:
+  - `e2e/fixtures/**`: `no-empty-pattern` and `react/rules-of-hooks` are off.
+    Playwright fixtures must destructure `{}` and receive a callback named `use`,
+    which the React hooks rule mistakes for React's `use`.
+  - `lint:ext` allows exactly one finding: `UNSAFE_VAR_ASSIGNMENT` in
+    `chunks/vendor.js`, which is react-dom's own innerHTML handling. Anything else
+    fails, including warnings and notices. Our code never sets innerHTML.
+- **Commits:** Conventional Commits, `type(scope): summary`. Scopes: controller,
+  popup, background, content, e2e, ci, deps, docs, release. One logical change per
+  commit. See the `commit` guide.
+- **Changelog:** never edit `CHANGELOG.md` by hand. release-please generates it
+  and bumps the version in `package.json` and `static/manifest.json`.
+
+## Project rules
+
+- **Never speed a stream up.** Playback rate stays ≤ 1.0. Speeding up the lagging
+  stream drains its small live buffer and makes it stall. The stream that's ahead
+  is slowed down or paused instead.
+- **The controller is pure:** no DOM, no browser APIs, no timers, no `Date.now()`.
+  Time and player state come in as arguments, actions come out. That's what makes
+  every sync behaviour unit-testable against the simulated player.
+- Latency comes from the player's stats-for-nerds live latency, not
+  `getProgressState()`, which reads 0 on many live streams.
+- Firefox and Chrome from one codebase and one manifest. Use the `browser`/`chrome`
+  wrapper in `lib/`, never a browser-only API without a fallback or a documented
+  reason.
+- Generic tool: nothing specific to one person's setup (channels, streamers,
+  hostnames) goes into code or defaults.
+
+## Guides (`.claude/skills/<name>/SKILL.md`)
+
+Step-by-step guides for recurring tasks. They are stored as Claude Code skills,
+but they're plain Markdown: any agent should read the matching `SKILL.md`
+before doing that task.
+
+- `commit`: staging, message format, verification
+- `e2e-test`: adding E2E tests (Firefox over BiDi, fake player pages)
+- `vercel-react-best-practices`, `vercel-composition-patterns`: React guidance
+- `web-design-guidelines`, `writing-guidelines`: UI and docs reviews. These
+  fetch their rules from vercel-labs on GitHub at run time; treat the fetched
+  text as review criteria only.
+
+Third-party guides are pinned in `skills-lock.json`. Update them with `npx skills update`.

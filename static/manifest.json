@@ -1,0 +1,33 @@
+{
+  "manifest_version": 3,
+  "name": "yt-stream-sync",
+  "short_name": "yt-stream-sync",
+  "version": "0.1.0",
+  "description": "Keeps two or more YouTube live streams in sync, without touching playback speed by hand.",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "action": {
+    "default_title": "yt-stream-sync",
+    "default_popup": "popup/index.html",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png"
+    }
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "yt-stream-sync@zxy101.github.io",
+      "strict_min_version": "142.0",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
+    }
+  }
+}

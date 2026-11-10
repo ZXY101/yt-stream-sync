@@ -1,0 +1,52 @@
+{
+  "name": "yt-stream-sync",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Firefox and Chrome extension that keeps two or more YouTube live streams in sync.",
+  "type": "module",
+  "scripts": {
+    "prepare": "lefthook install",
+    "build": "vite build",
+    "typecheck": "tsc -b",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "lint": "oxlint --deny-warnings",
+    "lint:ext": "node scripts/lint-ext.mjs",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "knip": "knip",
+    "check": "npm run format:check && npm run lint && npm run knip"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^21.2.4",
+    "@commitlint/config-conventional": "^21.2.4",
+    "@playwright/test": "^1.65.0",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@types/chrome": "^0.3.7",
+    "@types/node": "^26.6.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "@vitest/coverage-v8": "^5.1.0",
+    "jsdom": "^31.0.0",
+    "knip": "^6.45.0",
+    "lefthook": "^2.2.2",
+    "oxlint": "^1.93.0",
+    "prettier": "^3.9.10",
+    "puppeteer-core": "^25.17.0",
+    "typescript": "~7.0.2",
+    "vite": "^8.3.7",
+    "vitest": "^5.1.0",
+    "web-ext": "^10.8.0"
+  },
+  "dependencies": {
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "allowScripts": {
+    "lefthook@2.2.2": true
+  }
+}

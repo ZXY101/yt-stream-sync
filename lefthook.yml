@@ -1,0 +1,26 @@
+# Git hooks. Installed by `npm install` (runs `lefthook install`).
+# CI runs the same checks plus the build, `web-ext lint` and the E2E suite.
+pre-commit:
+  parallel: true
+  commands:
+    gitleaks:
+      run: gitleaks git --staged --redact --no-banner
+    prettier:
+      glob: "*.{ts,tsx,js,mjs,cjs,json,md,yml,yaml,css,html}"
+      run: npx --no -- prettier --check --ignore-unknown {staged_files}
+    oxlint:
+      glob: "*.{ts,tsx,js,mjs,cjs}"
+      run: npx --no -- oxlint --deny-warnings --no-error-on-unmatched-pattern {staged_files}
+    types:
+      glob: "*.{ts,tsx,mjs}"
+      run: npx --no -- tsc -b
+
+pre-push:
+  commands:
+    unit-tests:
+      run: npm run test:coverage
+
+commit-msg:
+  commands:
+    commitlint:
+      run: npx --no -- commitlint --edit {1}

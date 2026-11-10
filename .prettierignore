@@ -1,0 +1,14 @@
+node_modules/
+dist/
+coverage/
+playwright-report/
+test-results/
+web-ext-artifacts/
+package-lock.json
+CHANGELOG.md
+# Written by release-please, which doesn't follow Prettier's layout.
+static/manifest.json
+.release-please-manifest.json
+.claude/skills/vercel-*/
+.claude/skills/web-design-guidelines/
+.claude/skills/writing-guidelines/

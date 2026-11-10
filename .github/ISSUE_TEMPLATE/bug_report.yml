@@ -1,0 +1,44 @@
+name: Bug report
+description: Something doesn't work as it should
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Remove private links and personal details from anything you paste.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: yt-stream-sync version
+      description: Shown on the add-on's page in about:addons or chrome://extensions.
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and OS
+      placeholder: "Firefox 159 on Windows 11"
+    validations:
+      required: true
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where were the streams playing?
+      options:
+        - YouTube watch pages in separate tabs
+        - Holodex multiview
+        - Other
+  - type: textarea
+    id: log
+    attributes:
+      label: Console output
+      description: Anything from the browser console (F12) mentioning yt-stream-sync.
+      render: text
