@@ -167,10 +167,17 @@ docs/           user and developer docs
   (not even for players on the same page). Opting in is per video: a frame that moves on to
   another video leaves the group. Unticking hands a player back at normal speed, and a
   player the user paused is never resumed by us.
-- **Never speed a stream up.** Playback rate stays ≤ 1.0. Speeding up the lagging
-  stream drains its small live buffer and makes it stall. The stream that's ahead
+- **Never speed a live stream up.** Live playback rate stays ≤ 1.0. Speeding up the
+  lagging stream drains its small live buffer and makes it stall. The stream that's ahead
   is slowed down or paused instead.
-- **The controller is pure:** no DOM, no browser APIs, no timers, no `Date.now()`.
+- **Archives** (finished live streams) sync by broadcast time: start time (watch pages
+  only; embeds have none) + position. Followers jump to the reference's moment, small drift
+  is trimmed with ±5% speed. The reference is the player the user touched last, and the
+  user's seek, pause, play and speed changes on any ticked archive are mirrored to the
+  others; media events caused by our own commands must never count as user actions.
+  Live streams and archives are never synced together.
+- **The controllers are pure** (`src/controller/` live, `src/controller/archive/`): no DOM,
+  no browser APIs, no timers, no `Date.now()`.
   Time and player state come in as arguments, actions come out. That's what makes
   every sync behaviour unit-testable against the simulated player.
 - Latency comes from the player's stats-for-nerds live latency, not

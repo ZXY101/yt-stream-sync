@@ -2,6 +2,7 @@ import { PAGE_TAG, type PlayerCommand, type PlayerReport } from "../lib/messages
 import { createBridge, type BridgePort } from "./bridge.ts";
 
 const report: PlayerReport = {
+  kind: "live",
   latency: 4,
   bufferAhead: 3,
   state: "playing",
@@ -67,7 +68,7 @@ describe("content bridge", () => {
     bridge.fromPage({ tag: PAGE_TAG, report });
 
     ports[0]?.receive({ type: "command", command: { type: "pause" } });
-    ports[0]?.receive({ type: "command", command: { type: "setRate", rate: 3 } });
+    ports[0]?.receive({ type: "command", command: { type: "setRate", rate: 30 } });
     ports[0]?.receive(null);
 
     expect(sendToPage.mock.calls).toEqual([[{ type: "pause" }]]);

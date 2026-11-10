@@ -15,7 +15,11 @@ How the harness works:
   pinned by a pref, so extension page URLs are stable.
 - **Fake YouTube:** `openMultiview(page, streams)` (`e2e/fixtures/youtube.ts`) intercepts
   requests: a multiview page with one iframe per stream, and every
-  `https://www.youtube.com/embed/…` request answered with `e2e/pages/fake-player.html`.
+  `https://www.youtube.com/embed/…` request answered with `e2e/pages/fake-player.html`
+  (live, `{ id, latency }`) or `e2e/pages/fake-archive.html` (archive,
+  `{ id, position, start? }`; `start` stands in for a watch page's broadcast start).
+  `readArchive()` reads an archive's position, and `userAction()` seeks, pauses or plays it
+  the way a user would (popup helpers are in `e2e/fixtures/popup.ts`).
   The real manifest's content scripts run on it; everything else is blocked (no network).
   `streamFrame()` and `readStream()` read a fake player's latency, rate and state.
 - The fake player mimics YouTube: latency grows by `1 - playbackRate` per second while
@@ -45,6 +49,8 @@ Writing tests:
 - Cover the happy path, the main error state, and persistence where it applies.
 - Before calling it done, break the expectation once and see the test fail, and run
   `npm run test:e2e -- --repeat-each 3` for anything timing-based.
-- **Live project** (`e2e/live/`, opt-in): real YouTube embeds, needs network and a stream
-  that's live right now: `LIVE_STREAM=<id> npm run test:e2e:live`. Watch pages ask
-  automated browsers to sign in; embeds don't.
+- **Live project** (`e2e/live/`, opt-in, network): `LIVE_STREAM=<live id>` (two real
+  embeds) and/or `ARCHIVE_STREAMS=<id>,<id>` (two real watch pages, each in its own window;
+  close the popup after ticking, because media in unfocused headless windows stops). Run
+  with `npm run test:e2e:live`. Live watch pages ask automated browsers to sign in; embeds
+  and archive watch pages don't.

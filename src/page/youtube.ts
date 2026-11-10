@@ -5,8 +5,19 @@ export interface YouTubePlayer extends HTMLElement {
   getStatsForNerds(): Record<string, unknown>;
   getPlayerState(): number;
   getVideoData(): { isLive?: boolean; title?: string; author?: string; video_id?: string };
+  getPlayerResponse(): PlayerResponse | undefined;
+  getDuration(): number;
+  seekTo(seconds: number, allowSeekAhead: boolean): void;
   playVideo(): void;
   pauseVideo(): void;
+}
+
+/** The parts of the player response we read. Embeds have no `microformat`. */
+export interface PlayerResponse {
+  videoDetails?: { isLiveContent?: boolean };
+  microformat?: {
+    playerMicroformatRenderer?: { liveBroadcastDetails?: { startTimestamp?: string } };
+  };
 }
 
 // getPlayerState(): -1 unstarted, 0 ended, 1 playing, 2 paused, 3 buffering, 5 cued.
@@ -50,4 +61,18 @@ export function readLatency(stats: Record<string, unknown>): number | undefined 
 
 export function readBuffer(stats: Record<string, unknown>): number {
   return parseSeconds(stats.buffer_health_seconds) ?? 0;
+}
+
+/** A finished live stream (an archive), as opposed to a live one or a normal upload. */
+export function isArchive(player: YouTubePlayer): boolean {
+  const live = player.getVideoData().isLive === true;
+  return !live && player.getPlayerResponse()?.videoDetails?.isLiveContent === true;
+}
+
+/** When the broadcast started, in Unix seconds. Only watch pages have it. */
+export function readStartTime(player: YouTubePlayer): number | undefined {
+  const details = player.getPlayerResponse()?.microformat?.playerMicroformatRenderer;
+  const text = details?.liveBroadcastDetails?.startTimestamp;
+  const milliseconds = text ? Date.parse(text) : Number.NaN;
+  return Number.isFinite(milliseconds) ? milliseconds / 1000 : undefined;
 }

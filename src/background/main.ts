@@ -2,12 +2,17 @@
 // live player keeps a port open and reports each second, which also keeps this script awake.
 import type { SyncSettings } from "../controller/types.ts";
 import { ext } from "../lib/browser.ts";
-import { PLAYER_PORT, type PlayerCommand, type ToContent } from "../lib/messages.ts";
-import { isGroupRequest, isPlayerReport } from "../lib/validate.ts";
+import {
+  PLAYER_PORT,
+  type PlayerCommand,
+  type PopupRequest,
+  type ToContent,
+} from "../lib/messages.ts";
+import { isPlayerReport, isPopupRequest } from "../lib/validate.ts";
 import { createCoordinator } from "./coordinator.ts";
 
-// Fixed until the popup gets its controls (milestone 5). The group is the coordinator's.
-const SETTINGS: Omit<SyncSettings, "group"> = { enabled: true, offsets: {}, safetyMargin: 0 };
+// Fixed until the popup gets its controls (milestone 5). Group and nudges are the coordinator's.
+const SETTINGS: Pick<SyncSettings, "enabled" | "safetyMargin"> = { enabled: true, safetyMargin: 0 };
 const ports = new Map<string, chrome.runtime.Port>();
 
 function send(id: string, command: PlayerCommand) {
@@ -49,14 +54,19 @@ ext.runtime.onConnect.addListener((port) => {
   });
 });
 
-ext.runtime.onMessage.addListener((message: unknown, sender, sendResponse) => {
-  // Only the popup may change the group; content scripts run inside YouTube's pages.
-  const fromPopup = sender.url === ext.runtime.getURL("popup/index.html");
-  if (fromPopup && isGroupRequest(message)) {
-    coordinator.setInGroup(message.id, message.inGroup);
+function handlePopupRequest(request: PopupRequest) {
+  if (request.type === "setInGroup") {
+    coordinator.setInGroup(request.id, request.inGroup);
+  } else if (request.type === "nudge") {
+    coordinator.nudge(request.id, request.seconds);
   }
-  const type = (message as { type?: unknown } | null)?.type;
-  if (type === "getStatus" || type === "setInGroup") {
+}
+
+ext.runtime.onMessage.addListener((message: unknown, sender, sendResponse) => {
+  // Only the popup may talk to the background this way; content scripts use their port.
+  const fromPopup = sender.url === ext.runtime.getURL("popup/index.html");
+  if (fromPopup && isPopupRequest(message)) {
+    handlePopupRequest(message);
     sendResponse(coordinator.status());
   }
   return false;

@@ -41,7 +41,13 @@ uploaded alongside it, with these build steps: `npm ci && npm run build`.
 - **E2E:** `npm run test:e2e` builds `dist/`, starts Firefox with a fresh profile, installs
   the add-on and runs `e2e/tests/`. YouTube embed requests are answered with a local fake
   player (`e2e/pages/fake-player.html`), so it needs no network.
-- **Live E2E (opt-in):** `LIVE_STREAM=<id of a stream that is live now> npm run test:e2e:live`
-  plays that stream in two real embeds, opens a gap and checks the add-on closes it. YouTube
-  watch pages ask automated browsers to sign in, so it uses embeds. See the `e2e-test` guide in `.claude/skills/` for the
+- **Live E2E (opt-in, real YouTube):** `npm run test:e2e:live` with
+  - `LIVE_STREAM=<id of a stream that is live now>`: plays it in two real embeds, opens a gap
+    and checks the add-on closes it (watch pages ask automated browsers to sign in for live
+    streams, so this uses embeds);
+  - `ARCHIVE_STREAMS=<id>,<id>`: two archives of the same collab on real watch pages; checks
+    they line up by broadcast time, then that a seek and a pause carry over.
+
+  Each test is skipped when its variable isn't set. YouTube may throttle seeking for
+  automated browsers on some networks; then the archive test stalls after the first jump. See the `e2e-test` guide in `.claude/skills/` for the
   harness details and its quirks.

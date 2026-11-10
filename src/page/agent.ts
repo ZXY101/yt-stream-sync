@@ -1,6 +1,9 @@
 import type { PlayerCommand, PlayerReport } from "../lib/messages.ts";
 import { createLatencyTracker } from "./latency.ts";
-import { readBuffer, readLatency, readState, type YouTubePlayer } from "./youtube.ts";
+import { archiveReport, liveReport } from "./reports.ts";
+import { createMediaWatcher } from "./media-watcher.ts";
+import { createUserActionTracker } from "./user-actions.ts";
+import { isArchive, type YouTubePlayer } from "./youtube.ts";
 
 export interface PageAgentOptions {
   findPlayer: () => YouTubePlayer | null;
@@ -13,46 +16,58 @@ function findVideo(player: YouTubePlayer): HTMLVideoElement | null {
   return player.querySelector("video");
 }
 
-type VideoData = ReturnType<YouTubePlayer["getVideoData"]>;
-
-function describe(data: VideoData, video: HTMLVideoElement) {
-  return {
-    playbackRate: video.playbackRate,
-    title: data.title ?? "",
-    channel: data.author ?? "",
-    videoId: data.video_id ?? "",
-  };
+function carryOut(player: YouTubePlayer, video: HTMLVideoElement, command: PlayerCommand) {
+  if (command.type === "setRate") {
+    // Set on the video element: the player's setPlaybackRate() rounds 0.92 to 0.9.
+    video.playbackRate = command.rate;
+  } else if (command.type === "seek") {
+    player.seekTo(command.position, true);
+  } else if (command.type === "pause") {
+    player.pauseVideo();
+  } else {
+    player.playVideo();
+  }
 }
 
-/** Reads the frame's player once a second and carries out commands for it. */
+/**
+ * Reads the frame's player once a second (live streams and archives) and carries out
+ * commands for it. User actions on an archive are reported straight away, so the other
+ * players follow without waiting for the next second.
+ */
 export function createPageAgent(options: PageAgentOptions) {
-  const tracker = createLatencyTracker();
+  const latencyTracker = createLatencyTracker();
+  const userActions = createUserActionTracker(options.now);
+  const media = createMediaWatcher((event) => {
+    if (userActions.observe(event)) {
+      tick();
+    }
+  });
   let reportedNone = false;
 
-  function postNone() {
-    // One "no live player" message is enough; repeating it every second would be noise.
-    if (!reportedNone) {
-      options.post(null);
-      reportedNone = true;
+  function read(player: YouTubePlayer, video: HTMLVideoElement): PlayerReport | null | undefined {
+    if (player.getVideoData().isLive) {
+      return liveReport(player, video, latencyTracker, options.now());
     }
+    return isArchive(player) ? archiveReport(player, video, userActions.count()) : null;
   }
 
   function tick() {
     const player = options.findPlayer();
     const video = player && findVideo(player);
-    const data = player?.getVideoData();
-    if (!player || !video || !data?.isLive) {
-      postNone();
-      return;
+    const report = player && video ? read(player, video) : null;
+    if (video) {
+      media.watch(video);
     }
-    const stats = player.getStatsForNerds();
-    const state = readState(player);
-    const latency = tracker.update(readLatency(stats), state, options.now());
-    if (latency === undefined) {
-      return;
+    if (report === null) {
+      // One "no stream player" message is enough; repeating it every second would be noise.
+      if (!reportedNone) {
+        options.post(null);
+      }
+      reportedNone = true;
+    } else if (report) {
+      reportedNone = false;
+      options.post(report);
     }
-    reportedNone = false;
-    options.post({ latency, bufferAhead: readBuffer(stats), state, ...describe(data, video) });
   }
 
   function run(command: PlayerCommand) {
@@ -61,14 +76,8 @@ export function createPageAgent(options: PageAgentOptions) {
     if (!player || !video) {
       return;
     }
-    if (command.type === "setRate") {
-      // Set on the video element: the player's setPlaybackRate() rounds 0.92 to 0.9.
-      video.playbackRate = command.rate;
-    } else if (command.type === "pause") {
-      player.pauseVideo();
-    } else {
-      player.playVideo();
-    }
+    userActions.expectFrom(command);
+    carryOut(player, video, command);
   }
 
   return { tick, run };

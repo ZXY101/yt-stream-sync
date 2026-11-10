@@ -1,6 +1,7 @@
-import { initialState, step } from "../controller/controller.ts";
-import type { Action, PlayerSample, SyncSettings } from "../controller/types.ts";
-import type { PlayerCommand, PlayerReport, PlayerStatus } from "../lib/messages.ts";
+import type { SyncSettings } from "../controller/types.ts";
+import type { PlayerCommand, PlayerReport, SyncStatus } from "../lib/messages.ts";
+import { createControllers } from "./controllers.ts";
+import { toCommand, toStatus, type SyncInfo } from "./convert.ts";
 import { createGroup } from "./group.ts";
 
 // A player that hasn't reported for this long is left out until it reports again.
@@ -8,8 +9,8 @@ const STALE_AFTER = 3;
 
 export interface CoordinatorOptions {
   send: (id: string, command: PlayerCommand) => void;
-  /** Everything but the group, which the coordinator keeps itself. */
-  settings: () => Omit<SyncSettings, "group">;
+  /** Settings the user doesn't set per player (the group and nudges live here). */
+  settings: () => Pick<SyncSettings, "enabled" | "safetyMargin">;
   /** Seconds on a monotonic clock. */
   now: () => number;
 }
@@ -19,30 +20,29 @@ interface Entry {
   at: number;
 }
 
-function toCommand(action: Action): PlayerCommand {
-  if (action.type === "setRate") {
-    return { type: "setRate", rate: action.rate };
+/** The user just seeked, played, paused or changed speed on this archive. */
+function wasTouched(report: PlayerReport, previous: PlayerReport | undefined): boolean {
+  if (report.kind !== "archive" || previous?.kind !== "archive") {
+    return false;
   }
-  return { type: action.type };
+  return report.userActions > previous.userActions;
 }
 
-function toSample(id: string, report: PlayerReport): PlayerSample {
-  const { latency, bufferAhead, state, playbackRate } = report;
-  return { id, latency, bufferAhead, state, playbackRate };
+/** Reports recent enough to sync on: [player id, report, seconds since it came in]. */
+function freshReports(entries: Map<string, Entry>, now: number): [string, PlayerReport, number][] {
+  return [...entries]
+    .filter(([, entry]) => now - entry.at <= STALE_AFTER)
+    .map(([id, entry]) => [id, entry.report, now - entry.at]);
 }
 
-type SyncInfo = Pick<PlayerStatus, "inGroup" | "error">;
-
-function toStatus(id: string, report: PlayerReport, sync: SyncInfo): PlayerStatus {
-  const { title, channel, latency, state, playbackRate } = report;
-  return { id, title, channel, latency, state, playbackRate, ...sync };
-}
-
-/** Knows every frame with a live player and runs the controller over the opted-in ones. */
+/**
+ * Knows every frame with a live stream or archive, and runs the matching controller over the
+ * players the user opted in. Live streams and archives can't be synced together.
+ */
 export function createCoordinator(options: CoordinatorOptions) {
   const entries = new Map<string, Entry>();
   const group = createGroup((id) => entries.get(id)?.report.videoId);
-  let state = initialState();
+  const controllers = createControllers();
   let errors: Record<string, number> = {};
 
   function remove(id: string) {
@@ -51,34 +51,47 @@ export function createCoordinator(options: CoordinatorOptions) {
   }
 
   function report(id: string, playerReport: PlayerReport | null) {
-    if (playerReport) {
-      entries.set(id, { report: playerReport, at: options.now() });
-    } else {
+    if (!playerReport) {
       remove(id);
+      return;
+    }
+    const previous = entries.get(id)?.report;
+    entries.set(id, { report: playerReport, at: options.now() });
+    // The others follow what the user just did now, not on the next second.
+    if (wasTouched(playerReport, previous) && group.has(id)) {
+      tick();
     }
   }
 
-  function freshSamples(): PlayerSample[] {
-    const now = options.now();
-    const fresh = [...entries].filter(([, entry]) => now - entry.at <= STALE_AFTER);
-    return fresh.map(([id, entry]) => toSample(id, entry.report));
+  function isMixed(ids: readonly string[]): boolean {
+    return new Set(ids.map((id) => entries.get(id)?.report.kind)).size > 1;
   }
 
   function tick() {
-    const settings = { ...options.settings(), group: group.ids() };
-    const result = step(state, freshSamples(), settings);
-    state = result.state;
+    const ids = group.ids();
+    const groupIds = isMixed(ids) ? [] : ids;
+    const settings = { ...options.settings(), group: groupIds, offsets: group.offsets() };
+    const result = controllers.run(freshReports(entries, options.now()), settings);
     errors = result.errors;
     for (const action of result.actions) {
       options.send(action.id, toCommand(action));
     }
   }
 
-  function status(): PlayerStatus[] {
-    return [...entries].map(([id, entry]) =>
-      toStatus(id, entry.report, { inGroup: group.has(id), error: errors[id] }),
-    );
+  function syncInfo(id: string): SyncInfo {
+    return { inGroup: group.has(id), offset: group.offset(id), error: errors[id] };
   }
 
-  return { report, remove, setInGroup: group.set, tick, status };
+  function status(): SyncStatus {
+    const players = [...entries].map(([id, entry]) => toStatus(id, entry.report, syncInfo(id)));
+    return { players, mixed: isMixed(group.ids()) };
+  }
+
+  function nudge(id: string, seconds: number) {
+    group.nudge(id, seconds);
+    // Applied now, so the user sees each press take effect.
+    tick();
+  }
+
+  return { report, remove, setInGroup: group.set, nudge, tick, status };
 }

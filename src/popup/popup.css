@@ -59,3 +59,41 @@ body {
 .player-detail {
   opacity: 0.8;
 }
+
+.warning {
+  color: #b3261e;
+  opacity: 1;
+}
+
+@media (prefers-color-scheme: dark) {
+  .warning {
+    color: #f2b8b5;
+  }
+}
+
+.player-note {
+  margin: 2px 0 0 24px;
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.nudge {
+  border: 0;
+  padding: 0;
+  min-width: 0;
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  margin: 4px 0 0 24px;
+}
+
+.nudge button {
+  min-width: 40px;
+  min-height: 32px;
+  font: inherit;
+}
+
+.nudge-offset {
+  margin-left: 4px;
+  opacity: 0.8;
+}

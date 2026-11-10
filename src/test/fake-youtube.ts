@@ -1,4 +1,4 @@
-import type { YouTubePlayer } from "../page/youtube.ts";
+import type { PlayerResponse, YouTubePlayer } from "../page/youtube.ts";
 
 export interface FakePlayerState {
   stateCode: number;
@@ -9,6 +9,20 @@ export interface FakePlayerState {
   title: string;
   author: string;
   videoId: string;
+  /** A finished live stream. Set `isLive: false` too. */
+  isLiveContent: boolean;
+  /** ISO time like "2026-11-10T12:59:40+00:00"; embeds have none. */
+  startTimestamp?: string;
+  duration: number;
+}
+
+function playerResponse(fake: FakePlayerState): PlayerResponse {
+  const startTimestamp = fake.startTimestamp;
+  const broadcast = { playerMicroformatRenderer: { liveBroadcastDetails: { startTimestamp } } };
+  return {
+    videoDetails: { isLiveContent: fake.isLiveContent },
+    microformat: startTimestamp ? broadcast : undefined,
+  };
 }
 
 /** A `#movie_player` element with the YouTube methods the page script uses, plus a video. */
@@ -22,6 +36,8 @@ export function createFakePlayer(initial: Partial<FakePlayerState> = {}) {
     title: "Collab stream",
     author: "Someone",
     videoId: "abc123",
+    isLiveContent: true,
+    duration: 12_000,
     ...initial,
   };
   const element = document.createElement("div") as unknown as YouTubePlayer;
@@ -40,6 +56,12 @@ export function createFakePlayer(initial: Partial<FakePlayerState> = {}) {
       title: fake.title,
       author: fake.author,
       video_id: fake.videoId,
+    }),
+    getPlayerResponse: () => playerResponse(fake),
+    getDuration: () => fake.duration,
+    seekTo: vi.fn((seconds: number) => {
+      video.currentTime = seconds;
+      video.dispatchEvent(new Event("seeked"));
     }),
     playVideo: vi.fn(() => (fake.stateCode = 1)),
     pauseVideo: vi.fn(() => (fake.stateCode = 2)),

@@ -1,9 +1,6 @@
 import type { PlayerState } from "../controller/types.ts";
 
-/** What the page script reads from a live player once a second. */
-export interface PlayerReport {
-  latency: number;
-  bufferAhead: number;
+interface ReportBase {
   state: PlayerState;
   playbackRate: number;
   title: string;
@@ -12,14 +9,37 @@ export interface PlayerReport {
   videoId: string;
 }
 
+/** What the page script reads from a live player once a second. */
+export interface LiveReport extends ReportBase {
+  kind: "live";
+  latency: number;
+  bufferAhead: number;
+}
+
+/** What the page script reads from an archived stream's player. */
+export interface ArchiveReport extends ReportBase {
+  kind: "archive";
+  position: number;
+  duration: number;
+  /** Broadcast start in Unix seconds; watch pages have it, embeds don't. */
+  startTime?: number;
+  /** Goes up each time the user seeks, plays, pauses or changes speed on this player. */
+  userActions: number;
+}
+
+export type PlayerReport = LiveReport | ArchiveReport;
+
 export type PlayerCommand =
-  { type: "setRate"; rate: number } | { type: "pause" } | { type: "play" };
+  | { type: "setRate"; rate: number }
+  | { type: "seek"; position: number }
+  | { type: "pause" }
+  | { type: "play" };
 
 // window.postMessage between the page script (page world) and the content script.
 export const PAGE_TAG = "yt-stream-sync:page";
 export const CONTENT_TAG = "yt-stream-sync:content";
 
-/** Page script → content script. `null` when the frame has no live player (any more). */
+/** Page script → content script. `null` when the frame has no stream player (any more). */
 export interface PageMessage {
   tag: typeof PAGE_TAG;
   report: PlayerReport | null;
@@ -36,27 +56,37 @@ export const PLAYER_PORT = "player";
 export type ToBackground = { type: "report"; report: PlayerReport | null };
 export type ToContent = { type: "command"; command: PlayerCommand };
 
-/** Popup → background, answered with `PlayerStatus[]`. */
-export interface StatusRequest {
-  type: "getStatus";
-}
-
-/** Popup → background: the user ticked or unticked a player. Answered like `StatusRequest`. */
-export interface GroupRequest {
-  type: "setInGroup";
-  id: string;
-  inGroup: boolean;
-}
+/** Popup → background requests, each answered with a `SyncStatus`. */
+export type PopupRequest =
+  | { type: "getStatus" }
+  /** The user ticked or unticked a player. */
+  | { type: "setInGroup"; id: string; inGroup: boolean }
+  /** The user nudged a player: positive moves it ahead (newer), negative back. */
+  | { type: "nudge"; id: string; seconds: number };
 
 export interface PlayerStatus {
   id: string;
+  kind: PlayerReport["kind"];
   title: string;
   channel: string;
-  latency: number;
   state: PlayerState;
   playbackRate: number;
+  /** Live: seconds behind live. */
+  latency?: number;
+  /** Archive: seconds into the video. */
+  position?: number;
+  /** Archive: whether the broadcast start time is known (watch pages) or not (embeds). */
+  hasStartTime?: boolean;
   /** The user opted this player in. */
   inGroup: boolean;
-  /** Seconds ahead of the group; missing while the player isn't being synced. */
+  /** The user's nudge in seconds. */
+  offset: number;
+  /** Seconds ahead of the group (negative: behind); missing while it isn't being synced. */
   error?: number;
+}
+
+export interface SyncStatus {
+  players: PlayerStatus[];
+  /** Live streams and archives are both ticked: they can't be synced together. */
+  mixed: boolean;
 }

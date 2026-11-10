@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Fake YouTube archive player</title>
+  </head>
+  <body>
+    <!-- Mimics the parts of YouTube's player the add-on reads for an archived stream: the
+         position (which moves at the playback rate), the broadcast start time, seeking,
+         pause/play, and the media events a real video element fires. -->
+    <div id="movie_player"><video></video></div>
+    <script>
+      const params = new URLSearchParams(location.search);
+      const player = document.getElementById("movie_player");
+      const video = player.querySelector("video");
+      const start = params.get("start");
+      const STEP = 0.1;
+      let position = Number(params.get("position") ?? "0");
+      let stateCode = 1;
+
+      // The element has no media, so the position is kept here and reported through it.
+      Object.defineProperty(video, "currentTime", {
+        get: () => position,
+        set: (value) => (position = value),
+      });
+      setInterval(() => {
+        if (stateCode === 1) {
+          position += video.playbackRate * STEP;
+        }
+      }, STEP * 1000);
+
+      function fire(name) {
+        video.dispatchEvent(new Event(name));
+      }
+
+      Object.assign(player, {
+        getStatsForNerds: () => ({}),
+        getPlayerState: () => stateCode,
+        getVideoData: () => ({
+          isLive: false,
+          title: params.get("title") ?? "Fake archive",
+          author: "Fake channel",
+          video_id: location.pathname.split("/").pop(),
+        }),
+        getPlayerResponse: () => ({
+          videoDetails: { isLiveContent: true },
+          microformat: start
+            ? { playerMicroformatRenderer: { liveBroadcastDetails: { startTimestamp: start } } }
+            : undefined,
+        }),
+        getDuration: () => 20000,
+        seekTo: (seconds) => {
+          position = seconds;
+          fire("seeked");
+        },
+        playVideo: () => {
+          stateCode = 1;
+          fire("play");
+        },
+        pauseVideo: () => {
+          stateCode = 2;
+          fire("pause");
+        },
+      });
+      // What a user does on this player, for tests.
+      window.fakeUser = {
+        seek: (seconds) => player.seekTo(seconds),
+        pause: () => player.pauseVideo(),
+        play: () => player.playVideo(),
+      };
+      window.fakePosition = () => position;
+      window.fakeState = () => stateCode;
+    </script>
+  </body>
+</html>

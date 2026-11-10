@@ -1,28 +1,29 @@
 import { useEffect, useState } from "react";
 
 import { ext } from "../lib/browser.ts";
-import type { GroupRequest, PlayerStatus, StatusRequest } from "../lib/messages.ts";
+import type { PopupRequest, SyncStatus } from "../lib/messages.ts";
 
 const REFRESH_MS = 1000;
+const EMPTY: SyncStatus = { players: [], mixed: false };
 
-function request(message: StatusRequest | GroupRequest): Promise<PlayerStatus[]> {
-  const response = ext.runtime.sendMessage(message) as Promise<PlayerStatus[] | undefined>;
-  return response.then((players) => players ?? []);
+function request(message: PopupRequest): Promise<SyncStatus> {
+  const response = ext.runtime.sendMessage(message) as Promise<SyncStatus | undefined>;
+  return response.then((status) => status ?? EMPTY);
 }
 
 /**
- * The live players the background script knows about, refreshed every second, and a way to
- * opt one in or out of the sync group.
+ * The streams the background script knows about, refreshed every second, and the actions
+ * the popup offers on them.
  */
 export function usePlayerStatus() {
-  const [players, setPlayers] = useState<PlayerStatus[]>();
+  const [status, setStatus] = useState<SyncStatus>();
 
   useEffect(() => {
     let active = true;
     async function refresh() {
       const latest = await request({ type: "getStatus" });
       if (active) {
-        setPlayers(latest);
+        setStatus(latest);
       }
     }
     void refresh();
@@ -34,8 +35,12 @@ export function usePlayerStatus() {
   }, []);
 
   async function setInGroup(id: string, inGroup: boolean) {
-    setPlayers(await request({ type: "setInGroup", id, inGroup }));
+    setStatus(await request({ type: "setInGroup", id, inGroup }));
   }
 
-  return { players, setInGroup };
+  async function nudge(id: string, seconds: number) {
+    setStatus(await request({ type: "nudge", id, seconds }));
+  }
+
+  return { status, setInGroup, nudge };
 }
