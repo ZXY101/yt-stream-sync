@@ -66,10 +66,15 @@ interface Applied {
   adjust: AudioSyncOptions["adjust"];
 }
 
-/** Moves each matched player by its lag, notes the outcome, and says what comes next. */
+/**
+ * Moves each newly matched player by its lag, notes the outcome, and says what comes next.
+ * Players matched before are left alone: moving them again on a re-measurement would jump
+ * (and pause) the whole group every time an unmatched player is retried.
+ */
 function applyMatch({ reference, result, members, book, adjust }: Applied): AudioStatus {
-  Object.entries(result.lags).forEach(([id, lag]) => adjust(id, lag));
-  book.record(reference, result);
+  const fresh = Object.entries(result.lags).filter(([id]) => !book.isMatched(id));
+  fresh.forEach(([id, lag]) => adjust(id, lag));
+  book.record(reference, { ...result, lags: Object.fromEntries(fresh) });
   if (!members.every((id) => book.isDone(id))) {
     return { state: "listening", progress: 0 };
   }

@@ -44,12 +44,21 @@ describe("stepArchive", () => {
     expect(result.actions).toEqual([]);
   });
 
-  it("pauses everyone and doesn't jump a follower while it's still buffering", () => {
+  it("leaves a follower that's still loading alone, without pausing the others", () => {
     const samples = [sample("a"), sample("b", { position: 400, state: "buffering" })];
 
     const result = stepArchive(initialArchiveState(), samples, settings);
 
-    expect(result.actions).toEqual([{ type: "pause", id: "a" }]);
+    expect(result.actions).toEqual([]);
+    expect(result.state.regroup).toBeUndefined();
+  });
+
+  it("regroups once the loading follower plays and turns out to be off", () => {
+    const loaded = [sample("a"), sample("b", { position: 400 })];
+
+    const result = stepArchive(initialArchiveState(), loaded, settings);
+
+    expect(result.actions).toContainEqual({ type: "pause", id: "a" });
     expect(result.state.regroup).toEqual({ play: true, steps: 1 });
   });
 

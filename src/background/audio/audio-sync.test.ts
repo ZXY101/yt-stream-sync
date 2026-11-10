@@ -228,4 +228,25 @@ describe("audio sync", () => {
 
     expect(sync.status()).toEqual({ state: "matching" });
   });
+
+  it("doesn't move streams that are already matched while it retries another", () => {
+    const { sync, adjust, run, lastRequest } = setup();
+    const three = [member("a"), member("b"), member("c")];
+    run(31, three);
+    const first = lastRequest().request;
+    sync.receiveClip("a", clipFor(first, 0, 2));
+    sync.receiveClip("b", clipFor(first, 3, 3));
+    sync.receiveClip("c", unrelatedClip(first));
+    adjust.mockClear();
+
+    run(31, three);
+    const second = lastRequest().request;
+    // b is re-measured off by a little; it was matched already and must stay put.
+    sync.receiveClip("a", clipFor(second, 0, 2));
+    sync.receiveClip("b", clipFor(second, 0.4, 3));
+    sync.receiveClip("c", unrelatedClip(second));
+
+    expect(adjust).not.toHaveBeenCalled();
+    // Several real 30 s matches; slow under coverage instrumentation.
+  }, 30_000);
 });

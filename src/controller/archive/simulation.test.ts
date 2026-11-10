@@ -180,4 +180,40 @@ describe("archive sync against simulated players", () => {
     expect(last.states).toEqual({ a: "playing", b: "playing" });
     expect(spread(moments(last, { a: START_A, b: START_B }))).toBeLessThan(0.1);
   });
+
+  it("doesn't compound catch-up speeds when the user touches a catching-up stream", () => {
+    const a = new SimulatedArchive({ id: "a", position: 100, startTime: START_A });
+    // b is 0.5 s behind, so it gets sped up a little to catch up.
+    const b = new SimulatedArchive({ id: "b", position: 29.5, startTime: START_B });
+    const presses: Record<number, () => void> = {};
+    for (const second of [2, 4, 6, 8, 10]) {
+      // The user keeps pressing play on whichever stream is catching up.
+      presses[second] = () =>
+        (second % 4 === 2 ? b : a).user({ type: "play", id: second % 4 === 2 ? "b" : "a" });
+    }
+
+    const ticks = runArchiveSync({ players: [a, b], seconds: 40, events: presses });
+
+    const fastest = Math.max(...ticks.flatMap((tick) => Object.values(tick.rates)));
+    expect(fastest).toBeLessThanOrEqual(1.05 + 1e-9);
+    expect(ticks.at(-1)?.rates).toEqual({ a: 1, b: 1 });
+  });
+
+  it("plays everyone at once when the user presses play during a regroup", () => {
+    const a = new SimulatedArchive({ id: "a", position: 100, startTime: START_A, loadRate: 8 });
+    const b = new SimulatedArchive({ id: "b", position: 30, startTime: START_B, loadRate: 0.2 });
+
+    const ticks = runArchiveSync({
+      players: [a, b],
+      seconds: 12,
+      events: {
+        3: () => a.user({ type: "seek", id: "a", position: 900 }),
+        5: () => a.user({ type: "play", id: "a" }),
+      },
+    });
+
+    // b is far from buffered, but the user asked to play: both play from the next step on.
+    expect(ticks[5]?.actions.filter((action) => action.type === "play")).not.toHaveLength(0);
+    expect(ticks[7]?.states.a).toBe("playing");
+  });
 });

@@ -143,13 +143,14 @@ describe("page agent", () => {
 
   it("reports the user's seeks right away but not its own", () => {
     const { element, video } = createFakePlayer({ isLive: false });
-    const { agent, posted } = setup(element);
+    const { agent, posted, advance } = setup(element);
     agent.tick();
 
     agent.run({ type: "seek", position: 300 });
     expect(element.seekTo).toHaveBeenCalledWith(300, true);
     expect(posted).toHaveLength(1);
 
+    advance(2);
     video.currentTime = 900;
     video.dispatchEvent(new Event("seeked"));
 

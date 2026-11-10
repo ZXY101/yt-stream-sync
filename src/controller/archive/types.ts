@@ -57,6 +57,8 @@ export interface ArchiveState {
   /** Players that never finished buffering in a regroup. The others carry on without them
    * until they play again. */
   stuck?: Readonly<Record<string, boolean>>;
+  /** The speed the user chose (1 unless they changed it). Catch-up trims are on top. */
+  baseRate?: number;
 }
 
 export interface ArchiveStepResult {

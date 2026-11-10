@@ -9,6 +9,8 @@ export interface FollowInput {
   /** Where the follower should be right now. */
   target: number;
   trimming: boolean;
+  /** The speed the user chose; catch-up trims are relative to it, never to a trimmed rate. */
+  baseRate: number;
   tuning: ArchiveTuning;
 }
 
@@ -48,18 +50,23 @@ function matchPlayState(input: FollowInput): Action[] {
 }
 
 function trimmedRate(drift: number, input: FollowInput): { rate: number; trimming: boolean } {
-  const { tuning, reference } = input;
+  const { tuning, baseRate } = input;
   const limit = input.trimming ? tuning.stopError : tuning.startError;
   if (Math.abs(drift) <= limit) {
-    return { rate: reference.playbackRate, trimming: false };
+    return { rate: baseRate, trimming: false };
   }
   const factor = drift > 0 ? 1 - tuning.trim : 1 + tuning.trim;
-  return { rate: reference.playbackRate * factor, trimming: true };
+  return { rate: baseRate * factor, trimming: true };
 }
 
 /** Keeps one follower on the reference's moment while everyone plays normally. */
 export function follow(input: FollowInput): FollowResult {
   const { follower, target, tuning } = input;
+  // Still loading (after a jump, or a stall): jumping it again would only restart that.
+  // Once it plays, any distance it lost is fixed then, with a single regroup.
+  if (follower.state === "buffering") {
+    return { actions: [], trimming: false, needsJump: false };
+  }
   const drift = follower.position - spotFor(target);
   if (Math.abs(drift) > tuning.seekError && target <= follower.duration) {
     return { actions: [], trimming: false, needsJump: true };

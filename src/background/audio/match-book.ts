@@ -49,5 +49,5 @@ export function createMatchBook() {
     lags = {};
   }
 
-  return { isDone, record, status, clear };
+  return { isDone, isMatched: (id: string) => matched.has(id), record, status, clear };
 }

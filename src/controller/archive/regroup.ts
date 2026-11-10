@@ -11,6 +11,8 @@ export interface RegroupInput {
   play: boolean;
   steps: number;
   tuning: ArchiveTuning;
+  /** Finish now without waiting for buffers (the user pressed play). */
+  now?: boolean;
 }
 
 export interface RegroupResult {
@@ -29,12 +31,15 @@ function isReady(sample: ArchiveSample, tuning: ArchiveTuning): boolean {
   return nearEnd || sample.bufferAhead >= tuning.readyBuffer;
 }
 
-/** Pauses whoever plays and puts each follower on its spot. */
+/**
+ * Pauses whoever plays and puts each follower on its spot. When the user asked to play now,
+ * nobody is paused: that would undo their play press.
+ */
 function hold(input: RegroupInput): Action[] {
   const { members, reference, targets, tuning } = input;
   const actions: Action[] = [];
   for (const sample of members) {
-    if (sample.state === "playing") {
+    if (sample.state === "playing" && !input.now) {
       actions.push({ type: "pause", id: sample.id });
     }
     const target = targets[sample.id];
@@ -66,10 +71,11 @@ function playAll(input: RegroupInput): Action[] {
 export function regroup(input: RegroupInput): RegroupResult {
   const actions = hold(input);
   const notReady = input.members.filter((sample) => !isReady(sample, input.tuning));
-  const ready = actions.length === 0 && notReady.length === 0;
+  const ready = input.now === true || (actions.length === 0 && notReady.length === 0);
   if (!ready && input.steps < input.tuning.regroupSteps) {
     return { actions, done: false, stuck: [] };
   }
   const played = input.play ? [...actions, ...playAll(input)] : actions;
-  return { actions: played, done: true, stuck: notReady.map((sample) => sample.id) };
+  const stuck = input.now ? [] : notReady.map((sample) => sample.id);
+  return { actions: played, done: true, stuck };
 }

@@ -5,9 +5,10 @@ export const ARCHIVE_TUNING: ArchiveTuning = {
   // is invisible. A 1 s nudge still jumps, so nudging feels immediate.
   seekError: 0.8,
   alignError: 0.15,
-  // Two seconds buffered rides out the usual segment fetches after a jump.
-  readyBuffer: 2,
-  regroupSteps: 15,
+  // A second and a half buffered rides out the usual segment fetches after a jump; waiting
+  // longer than 8 s feels broken, so then everyone plays anyway.
+  readyBuffer: 1.5,
+  regroupSteps: 8,
   startError: 0.15,
   stopError: 0.05,
   // 5% closes a 1 s gap in 20 s and is hard to notice.
