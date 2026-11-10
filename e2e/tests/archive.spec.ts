@@ -15,6 +15,11 @@ async function gap(first: Frame, second: Frame): Promise<number> {
   return Math.abs(a.position - (b.position + APART));
 }
 
+async function states(first: Frame, second: Frame): Promise<number[]> {
+  const [a, b] = await Promise.all([readArchive(first), readArchive(second)]);
+  return [a.state, b.state];
+}
+
 async function openPair(firefoxPage: Parameters<typeof openMultiview>[0]) {
   await openMultiview(firefoxPage, [
     { id: "pov-a", position: 300, start: START_A },
@@ -45,6 +50,8 @@ test("follows the user's seek, pause and play on any archive", async ({
   const { first, second } = await openPair(firefoxPage);
   await addAllStreams(await openPopup(), 2);
   await expect.poll(() => gap(first, second), { timeout: 10_000 }).toBeLessThan(0.5);
+  // Adding them was a regroup; act once both play again.
+  await expect.poll(() => states(first, second), { timeout: 10_000 }).toEqual([1, 1]);
 
   await userAction(second, { type: "seek", position: 2000 });
   await expect.poll(async () => (await readArchive(first)).position).toBeGreaterThan(2060);

@@ -316,7 +316,7 @@ describe("App", () => {
       expect(screen.getByText(/Click once inside this stream's video/)).toBeVisible();
     });
 
-    it("hides waveforms while matching by audio is off", async () => {
+    it("hides waveforms and their button while matching by audio is off", async () => {
       const waveform = { end: 10_000, values: [0.1] };
       const withAudio = pair.map((item) => ({ ...item, waveform }));
       sendMessage.mockResolvedValue(answer(withAudio, false, { state: "off" }));
@@ -324,6 +324,7 @@ describe("App", () => {
 
       await screen.findByText(/Matching by audio is off/);
       expect(screen.queryAllByTestId("waveform")).toHaveLength(0);
+      expect(screen.queryByRole("button", { name: /audio$/ })).not.toBeInTheDocument();
     });
   });
 

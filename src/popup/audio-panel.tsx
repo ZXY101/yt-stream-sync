@@ -27,15 +27,17 @@ export function AudioPanel(props: AudioPanelProps) {
         <label htmlFor="audio-sync" className="flex-1 text-sm font-medium">
           Auto-sync by audio
         </label>
-        <Button
-          variant="ghost"
-          size="xs"
-          aria-pressed={showWaveforms}
-          onClick={props.onToggleWaveforms}
-        >
-          <AudioLines data-icon="inline-start" />
-          {showWaveforms ? "Hide audio" : "Show audio"}
-        </Button>
+        {on && (
+          <Button
+            variant="ghost"
+            size="xs"
+            aria-pressed={showWaveforms}
+            onClick={props.onToggleWaveforms}
+          >
+            <AudioLines data-icon="inline-start" />
+            {showWaveforms ? "Hide audio" : "Show audio"}
+          </Button>
+        )}
       </div>
       {message && (
         <div className="flex items-center gap-2 text-xs text-muted-foreground">

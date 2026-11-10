@@ -43,7 +43,8 @@ describe("matchClips", () => {
     const result = matchClips(clips, "a", { maxLag: 15, minSeconds: 15 });
 
     expect(result).toEqual({ lags: { b: expect.closeTo(9.5, 2) as number }, unmatched: ["c"] });
-  });
+    // Several real 30 s matches; slow under coverage instrumentation.
+  }, 30_000);
 
   it("refuses when the clips share no sound", () => {
     const clips = { a: heard(0, 30, 0, 2), b: { start: 0, samples: noise(30 * AUDIO_RATE, 77) } };
@@ -83,5 +84,6 @@ describe("matchClips", () => {
       lags: { b: expect.closeTo(2, 2) as number, c: expect.closeTo(-6, 2) as number },
       unmatched: [],
     });
-  });
+    // Several real 30 s matches; slow under coverage instrumentation.
+  }, 30_000);
 });
