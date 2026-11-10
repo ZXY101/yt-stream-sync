@@ -75,3 +75,36 @@ test("keeps the user's nudge between archives", async ({ firefoxPage, openPopup 
     .toBeLessThan(0.5);
   await removeStream(popup, "pov-b");
 });
+
+test("after a seek, waits for the slower stream to buffer and starts both together", async ({
+  firefoxPage,
+  openPopup,
+}) => {
+  await openMultiview(firefoxPage, [
+    { id: "fast", position: 300, start: START_A, load: 10 },
+    { id: "slow", position: 40, start: START_B, load: 1 },
+  ]);
+  const fast = await streamFrame(firefoxPage, "fast");
+  const slow = await streamFrame(firefoxPage, "slow");
+  await addAllStreams(await openPopup(), 2);
+  await expect.poll(() => gap(fast, slow), { timeout: 15_000 }).toBeLessThan(0.5);
+  // Adding them was a regroup too; seek once both are playing again.
+  await expect
+    .poll(async () => [(await readArchive(fast)).state, (await readArchive(slow)).state])
+    .toEqual([1, 1]);
+
+  await userAction(fast, { type: "seek", position: 5000 });
+
+  // The fast one has buffered long before the slow one, but it waits paused for it.
+  await expect.poll(async () => (await readArchive(fast)).state).toBe(2);
+  await expect
+    .poll(
+      async () => {
+        const [a, b] = await Promise.all([readArchive(fast), readArchive(slow)]);
+        return { bothPlaying: a.state === 1 && b.state === 1, near: b.position > 4900 };
+      },
+      { timeout: 15_000 },
+    )
+    .toEqual({ bothPlaying: true, near: true });
+  expect(await gap(fast, slow)).toBeLessThan(0.3);
+});

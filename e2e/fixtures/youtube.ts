@@ -12,7 +12,7 @@ const EMBED = "https://www.youtube.com/embed/";
 
 /** A fake live stream, or with `position` a fake archive (`start`: ISO broadcast start). */
 export type FakeStream =
-  { id: string; latency: number } | { id: string; position: number; start?: string };
+  { id: string; latency: number } | { id: string; position: number; start?: string; load?: number };
 
 function embedUrl(stream: FakeStream): string {
   const query = new URLSearchParams({ title: stream.id });
@@ -23,6 +23,9 @@ function embedUrl(stream: FakeStream): string {
     query.set("position", String(stream.position));
     if (stream.start) {
       query.set("start", stream.start);
+    }
+    if (stream.load !== undefined) {
+      query.set("load", String(stream.load));
     }
   }
   return `${EMBED}${stream.id}?${query}`;

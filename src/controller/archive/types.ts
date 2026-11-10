@@ -6,6 +6,8 @@ export interface ArchiveSample {
   /** Seconds into the video. */
   position: number;
   duration: number;
+  /** Seconds of video buffered ahead of the position. */
+  bufferAhead: number;
   /** When the broadcast started, in Unix seconds. Watch pages have it; embeds don't. */
   startTime?: number;
   state: PlayerState;
@@ -22,8 +24,14 @@ export interface ArchiveSettings {
 }
 
 export interface ArchiveTuning {
-  /** Jump instead of trimming the speed when a player is this many seconds off. */
+  /** Regroup (pause all, jump, wait for buffers, play all) past this many seconds off. */
   seekError: number;
+  /** While regrouping, jump a player again if it's this many seconds off its spot. */
+  alignError: number;
+  /** While regrouping, every player needs this many seconds buffered before all play. */
+  readyBuffer: number;
+  /** Give up waiting for buffers after this many steps (about seconds) and play anyway. */
+  regroupSteps: number;
   /** Start trimming the speed when a player is this many seconds off... */
   startError: number;
   /** ...and stop once it's within this. */
@@ -41,6 +49,14 @@ export interface ArchiveState {
   bases: Readonly<Record<string, number>>;
   /** Players whose speed is being trimmed. */
   trimming: Readonly<Record<string, boolean>>;
+  /**
+   * Set while regrouping: everyone is paused at their spot until all have buffered.
+   * `play`: whether to play once ready. `steps`: how long it has waited.
+   */
+  regroup?: { play: boolean; steps: number };
+  /** Players that never finished buffering in a regroup. The others carry on without them
+   * until they play again. */
+  stuck?: Readonly<Record<string, boolean>>;
 }
 
 export interface ArchiveStepResult {

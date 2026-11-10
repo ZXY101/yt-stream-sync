@@ -35,6 +35,17 @@ export function liveReport(
   return { kind: "live", latency, bufferAhead: readBuffer(stats), ...base };
 }
 
+/** Seconds buffered ahead of the playhead, from the video element's buffered ranges. */
+function bufferedAhead(video: HTMLVideoElement): number {
+  const { buffered, currentTime } = video;
+  for (let index = 0; index < buffered.length; index += 1) {
+    if (buffered.start(index) <= currentTime && currentTime <= buffered.end(index)) {
+      return buffered.end(index) - currentTime;
+    }
+  }
+  return 0;
+}
+
 export function archiveReport(
   player: YouTubePlayer,
   video: HTMLVideoElement,
@@ -44,6 +55,7 @@ export function archiveReport(
     kind: "archive",
     position: video.currentTime,
     duration: player.getDuration(),
+    bufferAhead: bufferedAhead(video),
     startTime: readStartTime(player),
     userActions,
     ...describe(player, video),

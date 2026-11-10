@@ -15,17 +15,29 @@ export interface FollowInput {
 export interface FollowResult {
   actions: Action[];
   trimming: boolean;
+  /** Too far off to fix by speed: the group has to regroup. */
+  needsJump: boolean;
 }
 
-function isPlaying(sample: ArchiveSample): boolean {
+export function isPlaying(sample: ArchiveSample): boolean {
   return sample.state === "playing" || sample.state === "buffering";
 }
 
-/** Play or pause the follower like the reference; wait at the start if it hasn't begun yet. */
-function matchPlayState(input: FollowInput, waiting: boolean): Action[] {
-  const { follower, reference } = input;
+/** The follower's broadcast hadn't started yet at the reference's moment. */
+export function isWaiting(target: number): boolean {
+  return target < 0;
+}
+
+/** Where a follower should sit: its target, or its start while it's waiting. */
+export function spotFor(target: number): number {
+  return Math.max(0, target);
+}
+
+/** Play or pause the follower like the reference; hold it at its start while it's waiting. */
+function matchPlayState(input: FollowInput): Action[] {
+  const { follower, reference, target } = input;
   const id = follower.id;
-  const shouldPlay = isPlaying(reference) && !waiting;
+  const shouldPlay = isPlaying(reference) && !isWaiting(target);
   if (shouldPlay && follower.state === "paused") {
     return [{ type: "play", id }];
   }
@@ -45,32 +57,20 @@ function trimmedRate(drift: number, input: FollowInput): { rate: number; trimmin
   return { rate: reference.playbackRate * factor, trimming: true };
 }
 
-/** Commands that keep one follower on the reference's moment. */
+/** Keeps one follower on the reference's moment while everyone plays normally. */
 export function follow(input: FollowInput): FollowResult {
-  const { follower, reference, target, tuning } = input;
-  const id = follower.id;
-  const waiting = target < 0;
-  const actions = matchPlayState(input, waiting);
-  if (waiting) {
-    // The follower's broadcast hadn't started yet at this moment: hold it at the start.
-    const atStart = follower.position < tuning.seekError;
-    return {
-      actions: atStart ? actions : [...actions, { type: "seek", id, position: 0 }],
-      trimming: false,
-    };
+  const { follower, target, tuning } = input;
+  const drift = follower.position - spotFor(target);
+  if (Math.abs(drift) > tuning.seekError && target <= follower.duration) {
+    return { actions: [], trimming: false, needsJump: true };
   }
-  const settling = follower.state === "buffering" || reference.state === "buffering";
-  if (settling || target > follower.duration) {
-    return { actions, trimming: input.trimming };
-  }
-  const drift = follower.position - target;
-  if (Math.abs(drift) > tuning.seekError) {
-    actions.push({ type: "seek", id, position: target });
-    return { actions, trimming: false };
+  const actions = matchPlayState(input);
+  if (isWaiting(target) || target > follower.duration) {
+    return { actions, trimming: false, needsJump: false };
   }
   const { rate, trimming } = trimmedRate(drift, input);
   if (Math.abs(follower.playbackRate - rate) > RATE_EPSILON) {
-    actions.push({ type: "setRate", id, rate });
+    actions.push({ type: "setRate", id: follower.id, rate });
   }
-  return { actions, trimming };
+  return { actions, trimming, needsJump: false };
 }

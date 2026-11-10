@@ -8,6 +8,7 @@ export interface ArchiveTick {
   positions: Record<string, number>;
   rates: Record<string, number>;
   states: Record<string, string>;
+  buffers: Record<string, number>;
   actions: Action[];
 }
 
@@ -48,6 +49,7 @@ export function runArchiveSync(options: ArchiveRunOptions): ArchiveTick[] {
       positions: snapshot(players, (player) => player.position),
       rates: snapshot(players, (player) => player.playbackRate),
       states: snapshot(players, (player) => player.state),
+      buffers: snapshot(players, (player) => player.bufferAhead),
       actions: result.actions,
     });
     for (let index = 0; index < SUBSTEPS; index += 1) {

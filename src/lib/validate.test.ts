@@ -83,6 +83,7 @@ describe("archive reports", () => {
     kind: "archive",
     position: 120.5,
     duration: 12_338,
+    bufferAhead: 8,
     startTime: 1_794_315_580,
     userActions: 2,
     state: "playing",

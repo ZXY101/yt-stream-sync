@@ -32,7 +32,25 @@ export function toArchiveSample(id: string, report: ArchiveReport, age: number):
   const { duration, startTime, state, playbackRate, userActions } = report;
   const moved = state === "playing" ? age * playbackRate : 0;
   const position = Math.min(duration, report.position + moved);
-  return { id, position, duration, startTime, state, playbackRate, userActions };
+  const bufferAhead = Math.max(0, report.bufferAhead - moved);
+  return { id, position, duration, bufferAhead, startTime, state, playbackRate, userActions };
+}
+
+/**
+ * What a player's report will say once it has carried out `command`. Reports sent before the
+ * command arrived would otherwise make the next step undo it (e.g. pause a player that was
+ * just told to play, because the reference still looked paused).
+ */
+export function assumeDone(report: PlayerReport, command: PlayerCommand): PlayerReport {
+  if (command.type === "setRate") {
+    return { ...report, playbackRate: command.rate };
+  }
+  if (command.type === "seek") {
+    return report.kind === "archive"
+      ? { ...report, position: command.position, bufferAhead: 0 }
+      : report;
+  }
+  return { ...report, state: command.type === "play" ? "playing" : "paused" };
 }
 
 export type SyncInfo = Pick<PlayerStatus, "inGroup" | "offset" | "error">;

@@ -8,6 +8,7 @@ function sample(id: string, overrides: Partial<ArchiveSample> = {}): ArchiveSamp
     id,
     position: 100,
     duration: 10_000,
+    bufferAhead: 10,
     startTime: 1_000_000_000,
     state: "playing",
     playbackRate: 1,
@@ -43,10 +44,28 @@ describe("stepArchive", () => {
     expect(result.actions).toEqual([]);
   });
 
-  it("leaves a buffering follower to settle before correcting it", () => {
+  it("pauses everyone and doesn't jump a follower while it's still buffering", () => {
     const samples = [sample("a"), sample("b", { position: 400, state: "buffering" })];
 
-    expect(stepArchive(initialArchiveState(), samples, settings).actions).toEqual([]);
+    const result = stepArchive(initialArchiveState(), samples, settings);
+
+    expect(result.actions).toEqual([{ type: "pause", id: "a" }]);
+    expect(result.state.regroup).toEqual({ play: true, steps: 1 });
+  });
+
+  it("follows the user's play or pause while regrouping", () => {
+    const regrouping: ArchiveState = {
+      ...initialArchiveState(),
+      regroup: { play: true, steps: 1 },
+    };
+    const samples = [
+      sample("a", { state: "paused", bufferAhead: 0 }),
+      sample("b", { state: "paused", userActions: 1, bufferAhead: 0 }),
+    ];
+
+    const result = stepArchive(regrouping, samples, settings);
+
+    expect(result.state.regroup).toEqual({ play: false, steps: 2 });
   });
 
   it("lets a follower that already ended stay ended", () => {

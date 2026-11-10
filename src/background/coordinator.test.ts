@@ -148,7 +148,8 @@ describe("coordinator", () => {
 
     coordinator.report("2:0", archive({ position: 500, startTime: 1_000_000_070, userActions: 1 }));
 
-    expect(send.mock.calls).toEqual([["1:0", { type: "seek", position: 570 }]]);
+    expect(send.mock.calls).toContainEqual(["1:0", { type: "seek", position: 570 }]);
+    expect(send.mock.calls).toContainEqual(["2:0", { type: "pause" }]);
   });
 
   it("won't sync live streams and archives together", () => {
@@ -201,9 +202,34 @@ describe("coordinator", () => {
     coordinator.nudge("2:0", 1);
 
     // The reference has played on 0.8 s since its last report; without that this would be 31.
-    expect(send.mock.calls).toEqual([
-      ["2:0", { type: "seek", position: expect.closeTo(31.8, 5) as number }],
+    expect(send.mock.calls).toContainEqual([
+      "2:0",
+      { type: "seek", position: expect.closeTo(31.8, 5) as number },
     ]);
+  });
+
+  it("doesn't undo its own commands before the players have reported back", () => {
+    const { coordinator, send, join } = setup();
+    join({ "1:0": { latency: 4 }, "2:0": { latency: 20 } });
+    coordinator.tick();
+    send.mockClear();
+
+    // No new reports yet: 1:0 was told to pause and must not be told again.
+    coordinator.tick();
+
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("assumes a jumped archive starts from an empty buffer until it reports", () => {
+    const { coordinator } = setup();
+    coordinator.report("1:0", archive({ position: 100, startTime: 1_000_000_000 }));
+    coordinator.report("2:0", archive({ position: 500, startTime: 1_000_000_070 }));
+    coordinator.setInGroup("1:0", true);
+    coordinator.setInGroup("2:0", true);
+
+    coordinator.tick();
+
+    expect(coordinator.status().players[1]).toMatchObject({ position: 30, state: "paused" });
   });
 });
 
@@ -212,6 +238,7 @@ function archive(overrides: Partial<ArchiveReport>): ArchiveReport {
     kind: "archive",
     position: 0,
     duration: 10_000,
+    bufferAhead: 10,
     userActions: 0,
     state: "playing",
     playbackRate: 1,

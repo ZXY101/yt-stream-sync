@@ -1,6 +1,7 @@
 import type { Action } from "../types.ts";
 import { assignBases, pickReference, shownMoment, targetPosition } from "./clock.ts";
-import { follow } from "./follow.ts";
+import { follow, isPlaying } from "./follow.ts";
+import { regroup } from "./regroup.ts";
 import { ARCHIVE_TUNING } from "./tuning.ts";
 import type {
   ArchiveSample,
@@ -29,10 +30,83 @@ function idle(state: ArchiveState, samples: readonly ArchiveSample[]): ArchiveSt
   return { state: { ...initialArchiveState(), seen: seenCounts(samples) }, actions, errors: {} };
 }
 
+interface Frame {
+  members: ArchiveSample[];
+  reference: ArchiveSample;
+  targets: Record<string, number>;
+  errors: Record<string, number>;
+  next: ArchiveState;
+}
+
+/** Where everyone should be, from the reference's moment. */
+function frame(state: ArchiveState, members: ArchiveSample[], settings: ArchiveSettings): Frame {
+  const referenceId = pickReference(state, members);
+  const reference = members.find((sample) => sample.id === referenceId) as ArchiveSample;
+  const bases = assignBases(state, members, referenceId);
+  const moment = shownMoment(reference, bases[referenceId] as number, settings);
+  const targets: Record<string, number> = {};
+  const errors: Record<string, number> = { [referenceId]: 0 };
+  for (const sample of members.filter((member) => member !== reference)) {
+    const target = targetPosition(moment, sample, bases[sample.id] as number, settings);
+    targets[sample.id] = target;
+    errors[sample.id] = sample.position - target;
+  }
+  const next = { ...state, reference: referenceId, seen: seenCounts(members), bases };
+  return { members, reference, targets, errors, next };
+}
+
+/** Did the user just touch a player? Then their play or pause decides what happens next. */
+function touched(state: ArchiveState, members: readonly ArchiveSample[]) {
+  return members.find((sample) => sample.userActions > (state.seen[sample.id] ?? 0));
+}
+
+function continueRegroup(state: ArchiveState, view: Frame, tuning: ArchiveTuning) {
+  const current = state.regroup as { play: boolean; steps: number };
+  const user = touched(state, view.members);
+  const play = user ? isPlaying(user) : current.play;
+  const result = regroup({ ...view, play, steps: current.steps, tuning });
+  const regroupState = result.done ? undefined : { play, steps: current.steps + 1 };
+  const stuck = Object.fromEntries(result.stuck.map((id) => [id, true]));
+  const next: ArchiveState = { ...view.next, trimming: {}, regroup: regroupState, stuck };
+  return { state: next, actions: result.actions, errors: view.errors };
+}
+
+function followAll(view: Frame, state: ArchiveState, tuning: ArchiveTuning) {
+  const actions: Action[] = [];
+  const trimming: Record<string, boolean> = {};
+  const stuck = stillStuck(state, view.members);
+  const followers = view.members.filter((sample) => sample !== view.reference && !stuck[sample.id]);
+  for (const follower of followers) {
+    const target = view.targets[follower.id] as number;
+    const wasTrimming = state.trimming[follower.id] ?? false;
+    const result = follow({
+      follower,
+      reference: view.reference,
+      target,
+      trimming: wasTrimming,
+      tuning,
+    });
+    if (result.needsJump) {
+      const regroupState = { play: isPlaying(view.reference), steps: 0 };
+      return continueRegroup({ ...state, regroup: regroupState }, view, tuning);
+    }
+    actions.push(...result.actions);
+    trimming[follower.id] = result.trimming;
+  }
+  return { state: { ...view.next, trimming, stuck }, actions, errors: view.errors };
+}
+
+/** Stuck players stay set aside until they play again; then they're synced like the rest. */
+function stillStuck(state: ArchiveState, members: readonly ArchiveSample[]) {
+  const stuck = members.filter((sample) => state.stuck?.[sample.id] && sample.state !== "playing");
+  return Object.fromEntries(stuck.map((sample) => [sample.id, true]));
+}
+
 /**
- * One step of archive sync: every opted-in player shows the same broadcast moment as the
- * reference (the player the user touched last). Plays, pauses and speed follow the
- * reference too. Pure, like the live controller.
+ * One step of archive sync: every added player shows the same broadcast moment as the
+ * reference (the player the user touched last); plays, pauses and speed follow it. Jumps
+ * happen as a regroup, so players that finish buffering at different times still start
+ * together. Pure, like the live controller.
  */
 export function stepArchive(
   state: ArchiveState,
@@ -45,21 +119,9 @@ export function stepArchive(
   if (!settings.enabled || onHold || members.length < 2) {
     return idle(state, samples);
   }
-  const referenceId = pickReference(state, members);
-  const reference = members.find((sample) => sample.id === referenceId) as ArchiveSample;
-  const bases = assignBases(state, members, referenceId);
-  const moment = shownMoment(reference, bases[referenceId] as number, settings);
-  const actions: Action[] = [];
-  const errors: Record<string, number> = { [referenceId]: 0 };
-  const trimming: Record<string, boolean> = {};
-  for (const follower of members.filter((sample) => sample !== reference)) {
-    const target = targetPosition(moment, follower, bases[follower.id] as number, settings);
-    const wasTrimming = state.trimming[follower.id] ?? false;
-    const result = follow({ follower, reference, target, trimming: wasTrimming, tuning });
-    actions.push(...result.actions);
-    trimming[follower.id] = result.trimming;
-    errors[follower.id] = follower.position - target;
+  const view = frame(state, members, settings);
+  if (state.regroup) {
+    return continueRegroup(state, view, tuning);
   }
-  const next: ArchiveState = { reference: referenceId, seen: seenCounts(samples), bases, trimming };
-  return { state: next, actions, errors };
+  return followAll(view, state, tuning);
 }

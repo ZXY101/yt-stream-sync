@@ -24,7 +24,12 @@ describe("archive sync against simulated players", () => {
     const last = ticks.at(-1) as ArchiveTick;
     expect(spread(moments(last, { a: START_A, b: START_B }))).toBeLessThan(0.1);
     expect(last.rates).toEqual({ a: 1, b: 1 });
-    expect(ticks[0]?.actions).toEqual([{ type: "seek", id: "b", position: 30 }]);
+    expect(ticks[0]?.actions).toEqual([
+      { type: "pause", id: "a" },
+      { type: "pause", id: "b" },
+      { type: "seek", id: "b", position: 30 },
+    ]);
+    expect(last.states).toEqual({ a: "playing", b: "playing" });
   });
 
   it("follows the player the user seeks", () => {
@@ -110,5 +115,69 @@ describe("archive sync against simulated players", () => {
 
     const last = ticks.at(-1) as ArchiveTick;
     expect((last.positions.a ?? 0) - (last.positions.b ?? 0)).toBeCloseTo(298, 1);
+  });
+
+  it("starts everyone together after a jump, even when one buffers much slower", () => {
+    const a = new SimulatedArchive({ id: "a", position: 100, startTime: START_A, loadRate: 8 });
+    const b = new SimulatedArchive({ id: "b", position: 30, startTime: START_B, loadRate: 1.5 });
+
+    const ticks = runArchiveSync({
+      players: [a, b],
+      seconds: 30,
+      events: { 5: () => b.user({ type: "seek", id: "b", position: 2000 }) },
+    });
+
+    const restart = ticks.findIndex(
+      (tick, index) => index > 5 && tick.actions.some((x) => x.type === "play"),
+    );
+    expect(ticks[restart]?.actions.filter((action) => action.type === "play")).toHaveLength(2);
+    expect(ticks.slice(6, restart).every((tick) => tick.states.a !== "playing")).toBe(true);
+    const after = ticks.slice(restart + 1);
+    expect(after.every((tick) => spread(moments(tick, { a: START_A, b: START_B })) < 0.05)).toBe(
+      true,
+    );
+    expect(after.flatMap((tick) => tick.actions).some((x) => x.type === "setRate")).toBe(false);
+  });
+
+  it("pauses everyone while one stream stalls, then carries on together", () => {
+    const a = new SimulatedArchive({ id: "a", position: 100, startTime: START_A });
+    const b = new SimulatedArchive({ id: "b", position: 30, startTime: START_B });
+
+    const ticks = runArchiveSync({
+      players: [a, b],
+      seconds: 30,
+      events: {
+        8: () => {
+          b.bufferAhead = 0;
+          b.state = "buffering";
+        },
+      },
+    });
+
+    const last = ticks.at(-1) as ArchiveTick;
+    expect(last.states).toEqual({ a: "playing", b: "playing" });
+    expect(spread(moments(last, { a: START_A, b: START_B }))).toBeLessThan(0.1);
+  });
+
+  it("carries on without a stream that never finishes buffering, and takes it back later", () => {
+    const a = new SimulatedArchive({ id: "a", position: 100, startTime: START_A });
+    const b = new SimulatedArchive({ id: "b", position: 30, startTime: START_B });
+
+    const ticks = runArchiveSync({
+      players: [a, b],
+      seconds: 80,
+      events: {
+        3: () => a.user({ type: "seek", id: "a", position: 500 }),
+        4: () => b.setLoadRate(0),
+        40: () => b.setLoadRate(4),
+      },
+    });
+
+    // Gave up after about 15 s and kept a playing on its own.
+    const alone = ticks.slice(25, 40);
+    expect(alone.every((tick) => tick.states.a === "playing")).toBe(true);
+    const last = ticks.at(-1) as ArchiveTick;
+    expect(last.states).toEqual({ a: "playing", b: "playing" });
+    expect(spread(moments(last, { a: START_A, b: START_B }))).toBeLessThan(0.1);
   });
 });

@@ -59,7 +59,9 @@ function hasKindFields(value: Fields): boolean {
   if (value.kind !== "archive") {
     return false;
   }
-  const timesOk = inRange(value.position, MAX_SECONDS) && inRange(value.duration, MAX_SECONDS);
+  const timesOk = [value.position, value.duration, value.bufferAhead].every((seconds) =>
+    inRange(seconds, MAX_SECONDS),
+  );
   const actionsOk = Number.isSafeInteger(value.userActions) && (value.userActions as number) >= 0;
   return timesOk && actionsOk && isStartTime(value.startTime);
 }

@@ -21,6 +21,8 @@ export interface ArchiveReport extends ReportBase {
   kind: "archive";
   position: number;
   duration: number;
+  /** Seconds buffered ahead of the position. */
+  bufferAhead: number;
   /** Broadcast start in Unix seconds; watch pages have it, embeds don't. */
   startTime?: number;
   /** Goes up each time the user seeks, plays, pauses or changes speed on this player. */
