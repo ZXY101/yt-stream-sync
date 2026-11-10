@@ -22,8 +22,9 @@ function newestAudio(members: PlayerStatus[]): number {
 export function App() {
   useColorScheme();
   const tabId = useCurrentTab();
-  const { status, setInGroup, nudge, setAudioSync, rematchAudio } = useSyncStatus();
-  const [showWaveforms, setShowWaveforms] = useState(false);
+  const { status, setInGroup, nudge, setAudioSync, rematchAudio, clearGroup } = useSyncStatus();
+  // Waveforms are shown by default while matching by audio is on.
+  const [showWaveforms, setShowWaveforms] = useState(true);
   const players = status?.players ?? [];
   const inTab = players.filter((player) => player.tabId === tabId);
   const members = players.filter((player) => player.inGroup);
@@ -52,7 +53,10 @@ export function App() {
           <SyncGroup
             members={members}
             mixed={status.mixed}
-            waveformsAt={showWaveforms ? newestAudio(members) : undefined}
+            waveformsAt={
+              showWaveforms && status.audio.state !== "off" ? newestAudio(members) : undefined
+            }
+            onClear={() => void clearGroup()}
             onRemove={(id) => void setInGroup(id, false)}
             onNudge={(id, seconds) => void nudge(id, seconds)}
           />

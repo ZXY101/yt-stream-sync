@@ -268,6 +268,19 @@ describe("coordinator", () => {
     expect(first?.waveform).toEqual({ end: 1_000, values: [0.1, 0.5] });
     expect(third?.waveform).toBeUndefined();
   });
+
+  it("clears the group and hands every player back at normal speed", () => {
+    const { coordinator, send, join } = setup();
+    join({ "1:0": { latency: 4 }, "2:0": { latency: 6 } });
+    coordinator.tick();
+    coordinator.report("1:0", report({ latency: 4.1, playbackRate: 0.92 }));
+    send.mockClear();
+
+    coordinator.clearGroup();
+
+    expect(send.mock.calls).toEqual([["1:0", { type: "setRate", rate: 1 }]]);
+    expect(coordinator.status().players.every((player) => !player.inGroup)).toBe(true);
+  });
 });
 
 function archive(overrides: Partial<ArchiveReport>): ArchiveReport {

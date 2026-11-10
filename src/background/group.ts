@@ -55,5 +55,18 @@ export function createGroup(currentVideo: (id: string) => string | undefined) {
     return offsets.get(id) ?? 0;
   }
 
-  return { set, has, ids, remove, nudge, offset, offsets: () => Object.fromEntries(offsets) };
+  function clear() {
+    [...members.keys()].forEach((id) => remove(id));
+  }
+
+  return {
+    set,
+    has,
+    ids,
+    remove,
+    clear,
+    nudge,
+    offset,
+    offsets: () => Object.fromEntries(offsets),
+  };
 }

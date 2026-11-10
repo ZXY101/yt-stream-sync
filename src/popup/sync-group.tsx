@@ -16,6 +16,7 @@ interface SyncGroupProps {
   waveformsAt?: number;
   onRemove: (id: string) => void;
   onNudge: (id: string, seconds: number) => void;
+  onClear: () => void;
 }
 
 function Hint({ members, mixed }: Pick<SyncGroupProps, "members" | "mixed">) {
@@ -91,15 +92,23 @@ function MemberCard({ player, waveformsAt, onRemove, onNudge }: MemberCardProps)
 }
 
 /** The streams the user added, with what the sync does to each. */
-export function SyncGroup({ members, mixed, waveformsAt, onRemove, onNudge }: SyncGroupProps) {
+export function SyncGroup(props: SyncGroupProps) {
+  const { members, mixed, waveformsAt, onRemove, onNudge } = props;
   return (
     <section aria-labelledby="sync-group" className="flex flex-col gap-2">
-      <h2
-        id="sync-group"
-        className="text-xs font-medium tracking-wide text-muted-foreground uppercase"
-      >
-        Sync group
-      </h2>
+      <div className="flex items-center justify-between">
+        <h2
+          id="sync-group"
+          className="text-xs font-medium tracking-wide text-muted-foreground uppercase"
+        >
+          Sync group
+        </h2>
+        {members.length > 0 && (
+          <Button variant="ghost" size="xs" onClick={props.onClear}>
+            Clear
+          </Button>
+        )}
+      </div>
       {members.length > 0 && (
         <ul className="flex flex-col gap-2" aria-label="Streams in sync">
           {members.map((player) => (

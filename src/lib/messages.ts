@@ -19,7 +19,7 @@ export interface AudioClip {
   request: number;
   /** Wall-clock time (ms) of the first sample. */
   start: number;
-  /** Always 4000. */
+  /** Always `AUDIO_RATE` (2000). */
   rate: number;
   /** 16-bit PCM, base64. */
   pcm: string;
@@ -109,7 +109,9 @@ export type PopupRequest =
   /** Turn matching by audio on or off (kept between sessions). */
   | { type: "setAudioSync"; on: boolean }
   /** Match by audio again now. */
-  | { type: "rematchAudio" };
+  | { type: "rematchAudio" }
+  /** Take every player out of the sync group. */
+  | { type: "clearGroup" };
 
 /** Recent loudness of a player: one value (0–1) per 50 ms, oldest first. */
 export interface Waveform {
@@ -154,8 +156,11 @@ export type AudioStatus =
   /** Hearing the streams play in sync; `progress` 0–1 until there's enough audio. */
   | { state: "listening"; progress: number }
   | { state: "matching" }
-  /** Lag measured per player (seconds, positive: was behind) and applied. */
-  | { state: "matched"; lags: Record<string, number> }
+  /**
+   * Lag measured per player (seconds, positive: was behind) and applied. `unmatched`: players
+   * that couldn't be matched even after retrying.
+   */
+  | { state: "matched"; lags: Record<string, number>; unmatched?: string[] }
   | { state: "failed"; reason: "too-short" | "no-shared-sound" }
   /** The browser won't let a page play audio until the user clicks in it. */
   | { state: "blocked" }

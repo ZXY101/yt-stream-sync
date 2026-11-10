@@ -24,6 +24,14 @@ function wasTouched(report: PlayerReport, previous: PlayerReport | undefined): b
 
 type Reports = ReturnType<typeof createReportStore>;
 
+/** `change`, then `after`: for user actions that should take effect straight away. */
+function thenRun<A extends unknown[]>(change: (...args: A) => void, after: () => void) {
+  return (...args: A) => {
+    change(...args);
+    after();
+  };
+}
+
 /** Sends each action, and assumes it done until the player reports back. */
 function sendAll(actions: Action[], send: CoordinatorOptions["send"], reports: Reports) {
   for (const action of actions) {
@@ -109,16 +117,14 @@ export function createCoordinator(options: CoordinatorOptions) {
     };
   }
 
-  function nudge(id: string, seconds: number) {
-    group.nudge(id, seconds);
-    // Applied now, so the user sees each press take effect.
-    tick();
-  }
+  // Applied now, so the user sees each press take effect. Clearing hands everyone back.
+  const nudge = thenRun(group.nudge, tick);
+  const clearGroup = thenRun(group.clear, tick);
 
   const audioApi = {
     receiveClip: audio.receiveClip,
     setAudioSync: audio.setEnabled,
     rematchAudio: audio.rematch,
   };
-  return { report, remove, setInGroup: group.set, nudge, tick, status, ...audioApi };
+  return { report, remove, setInGroup: group.set, clearGroup, nudge, tick, status, ...audioApi };
 }

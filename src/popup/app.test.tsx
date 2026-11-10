@@ -279,20 +279,20 @@ describe("App", () => {
       expect(await screen.findByText(text)).toBeVisible();
     });
 
-    it("draws each stream's waveform on request", async () => {
+    it("shows each stream's waveform by default and hides them on request", async () => {
       const user = userEvent.setup();
       const waveform = { end: 10_000, values: [0.1, 0.3, 0.05] };
       const withAudio = pair.map((item) => ({ ...item, waveform }));
       sendMessage.mockResolvedValue(answer(withAudio, false, { state: "matched", lags: {} }));
       render(<App />);
+      expect(await screen.findAllByTestId("waveform")).toHaveLength(2);
+
+      await user.click(screen.getByRole("button", { name: "Hide audio" }));
+
       expect(screen.queryAllByTestId("waveform")).toHaveLength(0);
-
-      await user.click(await screen.findByRole("button", { name: "Show audio" }));
-
-      expect(screen.getAllByTestId("waveform")).toHaveLength(2);
-      expect(screen.getByRole("button", { name: "Hide audio" })).toHaveAttribute(
+      expect(screen.getByRole("button", { name: "Show audio" })).toHaveAttribute(
         "aria-pressed",
-        "true",
+        "false",
       );
     });
 
@@ -315,5 +315,25 @@ describe("App", () => {
       expect(await screen.findByText(/Can't hear this stream yet/)).toBeVisible();
       expect(screen.getByText(/Click once inside this stream's video/)).toBeVisible();
     });
+
+    it("hides waveforms while matching by audio is off", async () => {
+      const waveform = { end: 10_000, values: [0.1] };
+      const withAudio = pair.map((item) => ({ ...item, waveform }));
+      sendMessage.mockResolvedValue(answer(withAudio, false, { state: "off" }));
+      render(<App />);
+
+      await screen.findByText(/Matching by audio is off/);
+      expect(screen.queryAllByTestId("waveform")).toHaveLength(0);
+    });
+  });
+
+  it("clears the whole group", async () => {
+    const user = userEvent.setup();
+    sendMessage.mockResolvedValue(answer(pair));
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: "Clear" }));
+
+    expect(sendMessage).toHaveBeenCalledWith({ type: "clearGroup" });
   });
 });

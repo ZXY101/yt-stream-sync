@@ -76,6 +76,8 @@ function handlePopupRequest(request: PopupRequest) {
     void ext.storage.local.set({ [AUDIO_SYNC_KEY]: request.on });
   } else if (request.type === "rematchAudio") {
     coordinator.rematchAudio();
+  } else if (request.type === "clearGroup") {
+    coordinator.clearGroup();
   }
 }
 

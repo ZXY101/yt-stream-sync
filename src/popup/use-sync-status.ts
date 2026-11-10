@@ -50,5 +50,9 @@ export function useSyncStatus() {
     setStatus(await request({ type: "rematchAudio" }));
   }
 
-  return { status, setInGroup, nudge, setAudioSync, rematchAudio };
+  async function clearGroup() {
+    setStatus(await request({ type: "clearGroup" }));
+  }
+
+  return { status, setInGroup, nudge, setAudioSync, rematchAudio, clearGroup };
 }
