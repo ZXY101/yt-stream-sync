@@ -56,4 +56,32 @@ describe("matchClips", () => {
 
     expect(matchClips(clips, "a", options)).toEqual({ lags: {}, unmatched: ["b"], tooShort: true });
   });
+
+  it("matches a player through another matched player when it shares no sound with the reference", () => {
+    const side = noise(60 * AUDIO_RATE, 50);
+    // b hears the main call and a side call; c hears only the side call.
+    function mixed(behind: number, seed: number, main: number, sideShare: number) {
+      const own = noise(30 * AUDIO_RATE, seed);
+      const first = Math.round((15 - behind) * AUDIO_RATE);
+      return {
+        start: 0,
+        samples: Float32Array.from(own, (value, index) => {
+          const shared = main * (voices[first + index] as number);
+          return shared + sideShare * (side[first + index] as number) + 0.3 * value;
+        }),
+      };
+    }
+    const clips = {
+      a: mixed(0, 2, 0.7, 0),
+      b: mixed(2, 3, 0.4, 0.4),
+      c: mixed(-6, 4, 0, 0.7),
+    };
+
+    const result = matchClips(clips, "a", { maxLag: 15, minSeconds: 15 });
+
+    expect(result).toEqual({
+      lags: { b: expect.closeTo(2, 2) as number, c: expect.closeTo(-6, 2) as number },
+      unmatched: [],
+    });
+  });
 });

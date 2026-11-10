@@ -32,7 +32,7 @@ function commonStretch(clips: Record<string, Clip>): Record<string, Float32Array
 
 /**
  * How many seconds each player's audio lags behind the reference's, from clips recorded at
- * the same time. Each player is matched on its own, so one that can't be matched (no shared
+ * the same time. Players are matched one by one, so one that can't be matched (no shared
  * sound right now) doesn't hold the others back.
  */
 export function matchClips(
@@ -46,18 +46,38 @@ export function matchClips(
   if (reference.length < options.minSeconds * AUDIO_RATE) {
     return { lags: {}, unmatched: others, tooShort: true };
   }
-  const result: MatchResult = { lags: {}, unmatched: [] };
-  for (const id of others) {
-    const match = gccPhat(reference, cut[id] as Float32Array, {
+  const lags: Record<string, number> = { [referenceId]: 0 };
+  // Each pass matches what it can against everyone matched so far, so a player that shares
+  // sound with a matched player but not with the reference still gets in (lags add up).
+  let waiting = others;
+  while (waiting.length > 0) {
+    const stillWaiting = waiting.filter((id) => !matchToAny(id, cut, lags, options.maxLag));
+    if (stillWaiting.length === waiting.length) {
+      break;
+    }
+    waiting = stillWaiting;
+  }
+  delete lags[referenceId];
+  return { lags, unmatched: waiting };
+}
+
+/** Tries `id` against each matched player; on a match, records its lag to the reference. */
+function matchToAny(
+  id: string,
+  cut: Record<string, Float32Array>,
+  lags: Record<string, number>,
+  maxLag: number,
+): boolean {
+  for (const [anchor, anchorLag] of Object.entries(lags)) {
+    const match = gccPhat(cut[anchor] as Float32Array, cut[id] as Float32Array, {
       sampleRate: AUDIO_RATE,
-      maxLagSeconds: options.maxLag,
+      maxLagSeconds: maxLag,
       windows: WINDOWS,
     });
     if (match.confidence >= MIN_CONFIDENCE && match.uniqueness >= MIN_UNIQUENESS) {
-      result.lags[id] = match.lag;
-    } else {
-      result.unmatched.push(id);
+      lags[id] = anchorLag + match.lag;
+      return true;
     }
   }
-  return result;
+  return false;
 }
