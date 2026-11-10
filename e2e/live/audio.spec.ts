@@ -54,7 +54,7 @@ async function audioStatus(popup: Page): Promise<unknown> {
 
 test("matches two real archives in embeds by their audio", async ({ firefoxPage, openPopup }) => {
   test.skip(STREAMS.length !== 2, "set AUDIO_STREAMS to two archives with start times");
-  test.setTimeout(180_000);
+  test.setTimeout(300_000);
   const [first, second] = STREAMS as unknown as [{ start: number }, { start: number }];
   const at = 600;
   const secondAt = Math.round(at + first.start - second.start - OUT_OF_STEP);
@@ -68,7 +68,7 @@ test("matches two real archives in embeds by their audio", async ({ firefoxPage,
   const popup = await openPopup();
   await addAllStreams(popup, 2);
   await expect
-    .poll(() => audioStatus(popup), { timeout: 90_000, intervals: [3_000] })
+    .poll(() => audioStatus(popup), { timeout: 120_000, intervals: [3_000] })
     .toMatchObject({ state: "matched" });
   console.warn("first match", JSON.stringify(await audioStatus(popup)));
   // Let the correction (a regroup) play out before listening again.
@@ -81,7 +81,7 @@ test("matches two real archives in embeds by their audio", async ({ firefoxPage,
     await api.runtime.sendMessage({ type: "rematchAudio" });
   });
   await expect
-    .poll(() => audioStatus(popup), { timeout: 90_000, intervals: [3_000] })
+    .poll(() => audioStatus(popup), { timeout: 120_000, intervals: [3_000] })
     .toMatchObject({ state: "matched" });
   const again = (await audioStatus(popup)) as { lags: Record<string, number> };
   console.warn("second match", JSON.stringify(again), "start-time gap now", await behind(a, b));

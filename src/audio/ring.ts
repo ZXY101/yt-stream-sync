@@ -21,7 +21,7 @@ export interface EnvelopeChunk {
  * The last `seconds` of a player's audio at 4 kHz, with the wall-clock time of the newest
  * sample, so clips from different players can be lined up by when they played.
  */
-export function createAudioRing(seconds = 30) {
+export function createAudioRing(seconds = 36) {
   const buffer = new Float32Array(seconds * AUDIO_RATE);
   let written = 0;
   let newestWall = 0;

@@ -5,9 +5,12 @@ import { decide, type Situation } from "./decide.ts";
 import { createListenSet } from "./listen-set.ts";
 import { createReadiness } from "./readiness.ts";
 
-/** Seconds of audio compared. Longer is more reliable; the page keeps 30. */
-const CLIP_SECONDS = 20;
+/** Seconds of audio compared. Longer is more reliable; the page keeps 36. */
+const CLIP_SECONDS = 30;
 const LIMITS = { maxLag: 8, minSeconds: CLIP_SECONDS / 2 };
+// Shared sound comes and goes in collabs, so a stretch without it is retried with fresh
+// audio this many times before giving up.
+const ATTEMPTS = 4;
 const TIMING = { clipSeconds: CLIP_SECONDS, clipTimeout: 5 };
 
 export interface AudioSyncOptions {
@@ -46,6 +49,15 @@ function situation(
   return { ...TIMING, ...state, members: members.length, blocked, unavailable };
 }
 
+/** After a match attempt: try again with fresh audio, or apply the result and stop. */
+function settle(result: MatchResult, attempts: number, adjust: AudioSyncOptions["adjust"]) {
+  const retry = !result.matched && result.reason === "no-shared-sound" && attempts < ATTEMPTS;
+  if (retry) {
+    return { status: { state: "listening", progress: 0 } as AudioStatus, done: false };
+  }
+  return { status: applyMatch(result, adjust), done: true };
+}
+
 function pickReference(reference: string | undefined, ids: string[]): string {
   return reference && ids.includes(reference) ? reference : (ids[0] as string);
 }
@@ -62,13 +74,15 @@ export function createAudioSync(options: AudioSyncOptions) {
   let enabled = true;
   let status: AudioStatus = { state: "waiting" };
   let doneFor: string | undefined;
+  let attempts = 0;
 
   function finish(key: string | undefined, result: MatchResult) {
-    doneFor = key;
     collector.clear();
-    status = applyMatch(result, options.adjust);
-    // A later match must hear audio played after this took effect.
-    readiness.reset();
+    readiness.reset(); // A later match must hear audio played after this one.
+    const outcome = settle(result, attempts + 1, options.adjust);
+    status = outcome.status;
+    doneFor = outcome.done ? key : undefined;
+    attempts = outcome.done ? 0 : attempts + 1;
   }
 
   /** Call after every sync step with the group's members and its reference player. */
@@ -96,19 +110,17 @@ export function createAudioSync(options: AudioSyncOptions) {
   }
 
   /** Forget the last match: match again with fresh audio. */
-  function rematch() {
+  function rematch(next: AudioStatus = { state: "listening", progress: 0 }) {
     doneFor = undefined;
+    attempts = 0;
     collector.clear();
     readiness.reset();
-    if (enabled) {
-      status = { state: "listening", progress: 0 };
-    }
+    status = enabled ? next : { state: "off" };
   }
 
   function setEnabled(on: boolean) {
     enabled = on;
-    rematch();
-    status = { state: on ? "waiting" : "off" };
+    rematch({ state: "waiting" });
   }
 
   return { update, receiveClip, setEnabled, rematch, status: () => status };

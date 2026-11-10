@@ -1,8 +1,11 @@
 import { gccPhat } from "./gcc-phat.ts";
 import { AUDIO_RATE, type Clip } from "./ring.ts";
 
-/** Below this, the recordings don't share enough sound to trust the match. */
-const MIN_CONFIDENCE = 10;
+// Tuned on real collab audio (two POVs of one stream): the true lag scored 18–23 with the
+// next-best peak at 10–13, while single windows managed only 7–10.
+const MIN_CONFIDENCE = 12;
+const MIN_UNIQUENESS = 1.3;
+const WINDOWS = { window: 15, hop: 2.5 };
 
 export type MatchResult =
   | { matched: true; lags: Record<string, number> }
@@ -41,8 +44,12 @@ export function matchClips(
     if (id === referenceId) {
       continue;
     }
-    const match = gccPhat(reference, samples, AUDIO_RATE, options.maxLag);
-    if (match.confidence < MIN_CONFIDENCE) {
+    const match = gccPhat(reference, samples, {
+      sampleRate: AUDIO_RATE,
+      maxLagSeconds: options.maxLag,
+      windows: WINDOWS,
+    });
+    if (match.confidence < MIN_CONFIDENCE || match.uniqueness < MIN_UNIQUENESS) {
       return { matched: false, reason: "no-shared-sound" };
     }
     lags[id] = match.lag;

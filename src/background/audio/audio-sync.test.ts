@@ -4,11 +4,11 @@ import type { PlayerCommand } from "../../lib/messages.ts";
 import { noise } from "../../test/noise.ts";
 import { createAudioSync, type AudioMember } from "./audio-sync.ts";
 
-const voices = noise(40 * AUDIO_RATE, 1);
+const voices = noise(60 * AUDIO_RATE, 1);
 
-/** 20 s of what a player heard, `behind` seconds behind the shared sound. */
+/** 30 s of what a player heard, `behind` seconds behind the shared sound. */
 function clipFor(request: number, behind: number, seed: number) {
-  const own = noise(20 * AUDIO_RATE, seed);
+  const own = noise(30 * AUDIO_RATE, seed);
   const first = Math.round((10 - behind) * AUDIO_RATE);
   const samples = Float32Array.from(own, (v, i) => 0.6 * (voices[first + i] as number) + 0.4 * v);
   return { request, start: 1_000_000, rate: AUDIO_RATE, pcm: encodePcm(samples) };
@@ -43,7 +43,7 @@ function clipRequest(sent: [string, PlayerCommand][]) {
 }
 
 describe("audio sync", () => {
-  it("listens, waits for 20 s of settled audio, then matches and adjusts once", () => {
+  it("listens, waits for 30 s of settled audio, then matches and adjusts once", () => {
     const { sync, sent, adjust, run } = setup();
 
     run(5, playing);
@@ -51,9 +51,9 @@ describe("audio sync", () => {
       ["a", { type: "listen", on: true }],
       ["b", { type: "listen", on: true }],
     ]);
-    expect(sync.status()).toEqual({ state: "listening", progress: 0.2 });
+    expect(sync.status()).toEqual({ state: "listening", progress: 4 / 30 });
 
-    run(16, playing);
+    run(26, playing);
     expect(sync.status()).toEqual({ state: "matching" });
     const request = clipRequest(sent);
     sync.receiveClip("a", clipFor(request, 0, 2));
@@ -67,14 +67,21 @@ describe("audio sync", () => {
     expect(sent.filter(([, command]) => command.type === "clip")).toHaveLength(2);
   });
 
-  it("says when the streams share no sound, and changes nothing", () => {
+  it("listens again when a stretch shares no sound, and gives up after 4 tries", () => {
     const { sync, sent, adjust, run } = setup();
-    run(21, playing);
-    const request = clipRequest(sent);
-    const unrelated = { ...clipFor(request, 0, 2), pcm: encodePcm(noise(20 * AUDIO_RATE, 9)) };
+    function failOnce() {
+      run(31, playing);
+      const request = clipRequest(sent.splice(0));
+      const unrelated = { ...clipFor(request, 0, 2), pcm: encodePcm(noise(30 * AUDIO_RATE, 9)) };
+      sync.receiveClip("a", clipFor(request, 0, 2));
+      sync.receiveClip("b", unrelated);
+    }
 
-    sync.receiveClip("a", clipFor(request, 0, 2));
-    sync.receiveClip("b", unrelated);
+    failOnce();
+    expect(sync.status()).toEqual({ state: "listening", progress: 0 });
+    failOnce();
+    failOnce();
+    failOnce();
 
     expect(adjust).not.toHaveBeenCalled();
     expect(sync.status()).toEqual({ state: "failed", reason: "no-shared-sound" });
@@ -82,7 +89,7 @@ describe("audio sync", () => {
 
   it("gives up on clips that never arrive", () => {
     const { sync, run } = setup();
-    run(21, playing);
+    run(31, playing);
 
     run(6, playing);
 
@@ -91,7 +98,7 @@ describe("audio sync", () => {
 
   it("ignores clips it didn't ask for", () => {
     const { sync, adjust, run } = setup();
-    run(21, playing);
+    run(31, playing);
 
     sync.receiveClip("a", clipFor(999, 0, 2));
     sync.receiveClip("z", clipFor(1, 0, 2));
@@ -99,7 +106,7 @@ describe("audio sync", () => {
     expect(adjust).not.toHaveBeenCalled();
   });
 
-  it("starts the 20 s again whenever a player stops playing in sync", () => {
+  it("starts the 30 s again whenever a player stops playing in sync", () => {
     const { sync, run } = setup();
     run(15, playing);
     run(1, [playing[0] as AudioMember, { id: "b", settled: false, blocked: false }]);
@@ -135,7 +142,7 @@ describe("audio sync", () => {
 
   it("matches again on request, with fresh audio", () => {
     const { sync, sent, run } = setup();
-    run(21, playing);
+    run(31, playing);
     const first = clipRequest(sent);
     sync.receiveClip("a", clipFor(first, 0, 2));
     sync.receiveClip("b", clipFor(first, 0, 3));
@@ -144,7 +151,7 @@ describe("audio sync", () => {
     expect(sync.status()).toEqual({ state: "listening", progress: 0 });
     run(5, playing);
     expect(sync.status()).toMatchObject({ state: "listening" });
-    run(16, playing);
+    run(26, playing);
 
     expect(sync.status()).toEqual({ state: "matching" });
   });

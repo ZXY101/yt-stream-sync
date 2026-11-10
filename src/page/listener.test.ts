@@ -85,11 +85,21 @@ describe("listener", () => {
     expect(clips).toEqual([]);
   });
 
-  it("carries on without audio when listening fails, and says so", () => {
+  it("carries on without audio when listening fails, says so, and tries again later", () => {
+    let attempts = 0;
     const listener = createListener({
       post: vi.fn<(clip: AudioClip) => void>(),
-      createTap: () => {
-        throw new Error("no audio here");
+      createTap: (video) => {
+        attempts += 1;
+        if (attempts === 1) {
+          throw new Error("no audio track yet");
+        }
+        return {
+          ring: createAudioRing(),
+          state: () => "listening" as const,
+          stop: vi.fn<() => void>(),
+          video,
+        };
       },
     });
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
@@ -101,5 +111,10 @@ describe("listener", () => {
     expect(listener.audioReport()).toEqual({ state: "unavailable", envelope: [], end: 0 });
     expect(warn).toHaveBeenCalledOnce();
     warn.mockRestore();
+    for (let step = 0; step < 6; step += 1) {
+      listener.follow(video);
+    }
+    expect(attempts).toBe(2);
+    expect(listener.audioReport()?.state).toBe("listening");
   });
 });

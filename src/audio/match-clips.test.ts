@@ -2,8 +2,8 @@ import { noise } from "../test/noise.ts";
 import { matchClips } from "./match-clips.ts";
 import { AUDIO_RATE } from "./ring.ts";
 
-// Ten seconds of the shared sound (the collab's voices).
-const voices = noise(30 * AUDIO_RATE, 1);
+// The shared sound (the collab's voices).
+const voices = noise(60 * AUDIO_RATE, 1);
 
 /** What one player heard from wall time `startMs`, `behind` seconds behind the event. */
 function heard(startMs: number, seconds: number, behind: number, seed: number) {
@@ -15,14 +15,14 @@ function heard(startMs: number, seconds: number, behind: number, seed: number) {
   return { start: startMs, samples };
 }
 
-const options = { maxLag: 4, minSeconds: 5 };
+const options = { maxLag: 4, minSeconds: 15 };
 
 describe("matchClips", () => {
   it("measures each player's lag against the reference, from clips that start apart", () => {
     const clips = {
-      a: heard(0, 12, 0, 2),
-      b: heard(250, 12, 0.42, 3),
-      c: heard(-500, 12, -1.1, 4),
+      a: heard(0, 30, 0, 2),
+      b: heard(250, 30, 0.42, 3),
+      c: heard(-500, 30, -1.1, 4),
     };
 
     const result = matchClips(clips, "a", options);
@@ -34,13 +34,13 @@ describe("matchClips", () => {
   });
 
   it("refuses when the clips share no sound", () => {
-    const clips = { a: heard(0, 12, 0, 2), b: { start: 0, samples: noise(12 * AUDIO_RATE, 77) } };
+    const clips = { a: heard(0, 30, 0, 2), b: { start: 0, samples: noise(30 * AUDIO_RATE, 77) } };
 
     expect(matchClips(clips, "a", options)).toEqual({ matched: false, reason: "no-shared-sound" });
   });
 
   it("refuses when the clips overlap too little", () => {
-    const clips = { a: heard(0, 6, 0, 2), b: heard(4000, 6, 0, 3) };
+    const clips = { a: heard(0, 20, 0, 2), b: heard(10_000, 20, 0, 3) };
 
     expect(matchClips(clips, "a", options)).toEqual({ matched: false, reason: "too-short" });
   });
