@@ -1,4 +1,4 @@
-import { actionsFor, nextMode } from "./player-step.ts";
+import { actionsFor, nextMode, releaseActions } from "./player-step.ts";
 import { computeErrors } from "./target.ts";
 import { DEFAULT_TUNING } from "./tuning.ts";
 import type {
@@ -26,24 +26,19 @@ function isSynced(sample: PlayerSample, mode: Mode): boolean {
   return sample.state !== "paused" || mode === "paused";
 }
 
-/** Hands every player back at normal speed and playing. Used when syncing is off or on hold. */
-function release(
-  state: ControllerState,
-  samples: readonly PlayerSample[],
-  tuning: Tuning,
-): StepResult {
-  const actions: Action[] = [];
-  for (const sample of samples) {
-    const mode = state.modes[sample.id];
-    if (mode && mode !== "normal") {
-      actions.push(...actionsFor(sample, "normal", tuning));
-    }
-  }
-  return { state: initialState(), actions, errors: {} };
+/** Hands players back unchanged. Used for players outside the group, or for all of them. */
+function release(state: ControllerState, samples: readonly PlayerSample[]): Action[] {
+  return samples.flatMap((sample) => releaseActions(sample, state.modes[sample.id] ?? "normal"));
+}
+
+function idle(state: ControllerState, samples: readonly PlayerSample[]): StepResult {
+  return { state: initialState(), actions: release(state, samples), errors: {} };
 }
 
 /**
  * One control step, run about once a second: player readings in, commands out.
+ * Only players in `settings.group` (the ones the user opted in) are synced, and only once
+ * there are two of them.
  * Pure: no clock, no browser APIs. The caller applies the actions and keeps the new state.
  */
 export function step(
@@ -52,18 +47,20 @@ export function step(
   settings: SyncSettings,
   tuning: Tuning = DEFAULT_TUNING,
 ): StepResult {
+  const members = samples.filter((sample) => settings.group.includes(sample.id));
   // During an ad the gap can't be measured; it is fixed once the ad ends.
-  const onHold = samples.some((sample) => sample.state === "ad");
+  const onHold = members.some((sample) => sample.state === "ad");
   if (!settings.enabled || onHold) {
-    return release(state, samples, tuning);
+    return idle(state, samples);
   }
-  const synced = samples.filter((sample) => isSynced(sample, state.modes[sample.id] ?? "normal"));
-  if (synced.length === 0) {
-    return { state: initialState(), actions: [], errors: {} };
+  const synced = members.filter((sample) => isSynced(sample, state.modes[sample.id] ?? "normal"));
+  if (synced.length < 2) {
+    return idle(state, samples);
   }
+  const others = samples.filter((sample) => !synced.includes(sample));
   const errors = computeErrors(synced, settings, tuning.minBuffer + settings.safetyMargin);
   const modes: Record<string, Mode> = {};
-  const actions: Action[] = [];
+  const actions = release(state, others);
   for (const sample of synced) {
     const mode = nextMode(state.modes[sample.id] ?? "normal", errors[sample.id] ?? 0, tuning);
     modes[sample.id] = mode;

@@ -1,5 +1,11 @@
 import { CONTENT_TAG, PAGE_TAG, type PlayerReport } from "./messages.ts";
-import { isContentMessage, isPageMessage, isPlayerCommand, isPlayerReport } from "./validate.ts";
+import {
+  isContentMessage,
+  isGroupRequest,
+  isPageMessage,
+  isPlayerCommand,
+  isPlayerReport,
+} from "./validate.ts";
 
 const report: PlayerReport = {
   latency: 4.2,
@@ -8,6 +14,7 @@ const report: PlayerReport = {
   playbackRate: 1,
   title: "Collab stream",
   channel: "Someone",
+  videoId: "abc123",
 };
 
 describe("isPlayerReport", () => {
@@ -25,6 +32,7 @@ describe("isPlayerReport", () => {
     ["an absurd rate", { ...report, playbackRate: 40 }],
     ["a huge title", { ...report, title: "x".repeat(501) }],
     ["a missing channel", { ...report, channel: undefined }],
+    ["a missing video id", { ...report, videoId: 42 }],
   ])("rejects %s", (_name, value) => {
     expect(isPlayerReport(value)).toBe(false);
   });
@@ -63,5 +71,18 @@ describe("window messages", () => {
     expect(isContentMessage({ tag: CONTENT_TAG, command: { type: "setRate", rate: 2 } })).toBe(
       false,
     );
+  });
+});
+
+describe("isGroupRequest", () => {
+  it.each([
+    [{ type: "setInGroup", id: "3:0", inGroup: true }, true],
+    [{ type: "setInGroup", id: "3:0", inGroup: false }, true],
+    [{ type: "setInGroup", id: 3, inGroup: true }, false],
+    [{ type: "setInGroup", id: "3:0", inGroup: "yes" }, false],
+    [{ type: "getStatus" }, false],
+    [null, false],
+  ])("%j → %s", (value, expected) => {
+    expect(isGroupRequest(value)).toBe(expected);
   });
 });

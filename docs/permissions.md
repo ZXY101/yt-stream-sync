@@ -11,7 +11,8 @@ in `static/manifest.json`.
 Two scripts run in those frames: `page.js` in the page's own JavaScript world (YouTube's
 player methods are only reachable there) and `content.js` in the isolated world, which talks
 to the background script. Messages from the page are validated before use, and the page
-script only ever receives commands, never data from other tabs.
+script only ever receives commands, never data from other tabs. Nothing is changed on any
+player until the user ticks it in the popup; only the popup can change the sync group.
 
 The add-on collects no data (`data_collection_permissions: none`) and makes no network
 requests of its own.

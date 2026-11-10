@@ -6,8 +6,11 @@ export function formatLatency(seconds: number): string {
 
 /** What the sync is doing to a player, in words. */
 export function describeSync(player: PlayerStatus): string {
-  if (player.error === undefined) {
+  if (!player.inGroup) {
     return "Not synced";
+  }
+  if (player.error === undefined) {
+    return "Waiting";
   }
   if (player.state === "paused") {
     return `Paused, ${player.error.toFixed(1)} s ahead`;

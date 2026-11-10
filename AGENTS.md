@@ -162,6 +162,11 @@ docs/           user and developer docs
 
 ## Project rules
 
+- **Syncing is always opt-in.** A player is only ever touched after the user ticks it in
+  the popup, and syncing only starts with two or more ticked. Never add automatic grouping
+  (not even for players on the same page). Opting in is per video: a frame that moves on to
+  another video leaves the group. Unticking hands a player back at normal speed, and a
+  player the user paused is never resumed by us.
 - **Never speed a stream up.** Playback rate stays ≤ 1.0. Speeding up the lagging
   stream drains its small live buffer and makes it stall. The stream that's ahead
   is slowed down or paused instead.

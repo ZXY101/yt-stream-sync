@@ -33,6 +33,7 @@ describe("page agent", () => {
         playbackRate: 0.92,
         title: "Collab stream",
         channel: "Someone",
+        videoId: "abc123",
       },
     ]);
   });

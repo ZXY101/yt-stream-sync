@@ -1,13 +1,15 @@
 import { initialState, step } from "../controller/controller.ts";
 import type { Action, PlayerSample, SyncSettings } from "../controller/types.ts";
 import type { PlayerCommand, PlayerReport, PlayerStatus } from "../lib/messages.ts";
+import { createGroup } from "./group.ts";
 
 // A player that hasn't reported for this long is left out until it reports again.
 const STALE_AFTER = 3;
 
 export interface CoordinatorOptions {
   send: (id: string, command: PlayerCommand) => void;
-  settings: () => SyncSettings;
+  /** Everything but the group, which the coordinator keeps itself. */
+  settings: () => Omit<SyncSettings, "group">;
   /** Seconds on a monotonic clock. */
   now: () => number;
 }
@@ -24,38 +26,47 @@ function toCommand(action: Action): PlayerCommand {
   return { type: action.type };
 }
 
-/** Keeps the sync group (every frame with a live player) and runs the controller over it. */
+function toSample(id: string, report: PlayerReport): PlayerSample {
+  const { latency, bufferAhead, state, playbackRate } = report;
+  return { id, latency, bufferAhead, state, playbackRate };
+}
+
+type SyncInfo = Pick<PlayerStatus, "inGroup" | "error">;
+
+function toStatus(id: string, report: PlayerReport, sync: SyncInfo): PlayerStatus {
+  const { title, channel, latency, state, playbackRate } = report;
+  return { id, title, channel, latency, state, playbackRate, ...sync };
+}
+
+/** Knows every frame with a live player and runs the controller over the opted-in ones. */
 export function createCoordinator(options: CoordinatorOptions) {
   const entries = new Map<string, Entry>();
+  const group = createGroup((id) => entries.get(id)?.report.videoId);
   let state = initialState();
   let errors: Record<string, number> = {};
+
+  function remove(id: string) {
+    entries.delete(id);
+    group.remove(id);
+  }
 
   function report(id: string, playerReport: PlayerReport | null) {
     if (playerReport) {
       entries.set(id, { report: playerReport, at: options.now() });
     } else {
-      entries.delete(id);
+      remove(id);
     }
-  }
-
-  function remove(id: string) {
-    entries.delete(id);
   }
 
   function freshSamples(): PlayerSample[] {
     const now = options.now();
     const fresh = [...entries].filter(([, entry]) => now - entry.at <= STALE_AFTER);
-    return fresh.map(([id, { report: r }]) => ({
-      id,
-      latency: r.latency,
-      bufferAhead: r.bufferAhead,
-      state: r.state,
-      playbackRate: r.playbackRate,
-    }));
+    return fresh.map(([id, entry]) => toSample(id, entry.report));
   }
 
   function tick() {
-    const result = step(state, freshSamples(), options.settings());
+    const settings = { ...options.settings(), group: group.ids() };
+    const result = step(state, freshSamples(), settings);
     state = result.state;
     errors = result.errors;
     for (const action of result.actions) {
@@ -64,16 +75,10 @@ export function createCoordinator(options: CoordinatorOptions) {
   }
 
   function status(): PlayerStatus[] {
-    return [...entries].map(([id, { report: r }]) => ({
-      id,
-      title: r.title,
-      channel: r.channel,
-      latency: r.latency,
-      state: r.state,
-      playbackRate: r.playbackRate,
-      error: errors[id],
-    }));
+    return [...entries].map(([id, entry]) =>
+      toStatus(id, entry.report, { inGroup: group.has(id), error: errors[id] }),
+    );
   }
 
-  return { report, remove, tick, status };
+  return { report, remove, setInGroup: group.set, tick, status };
 }

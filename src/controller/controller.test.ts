@@ -1,7 +1,12 @@
 import { initialState, step } from "./controller.ts";
 import type { ControllerState, PlayerSample, SyncSettings } from "./types.ts";
 
-const settings: SyncSettings = { enabled: true, offsets: {}, safetyMargin: 0 };
+const settings: SyncSettings = {
+  enabled: true,
+  group: ["a", "b", "c", "d"],
+  offsets: {},
+  safetyMargin: 0,
+};
 
 function sample(id: string, overrides: Partial<PlayerSample> = {}): PlayerSample {
   return { id, latency: 5, bufferAhead: 3, state: "playing", playbackRate: 1, ...overrides };
@@ -21,11 +26,12 @@ describe("step", () => {
       sample("a", { latency: 2, state: "paused" }),
       sample("b", { latency: 3, state: "ended" }),
       sample("c"),
+      sample("d"),
     ];
 
     const result = step(initialState(), samples, settings);
 
-    expect(result.errors).toEqual({ c: 0 });
+    expect(result.errors).toEqual({ c: 0, d: 0 });
     expect(result.actions).toEqual([]);
   });
 
@@ -49,11 +55,11 @@ describe("step", () => {
   });
 
   it("forgets players that left the group", () => {
-    const state: ControllerState = { modes: { gone: "slowing", b: "normal" } };
+    const state: ControllerState = { modes: { gone: "slowing", a: "normal", b: "normal" } };
 
-    const result = step(state, [sample("b")], settings);
+    const result = step(state, [sample("a"), sample("b")], settings);
 
-    expect(result.state.modes).toEqual({ b: "normal" });
+    expect(result.state.modes).toEqual({ a: "normal", b: "normal" });
   });
 
   it("resumes and restores every player it changed when syncing is off", () => {
@@ -80,5 +86,49 @@ describe("step", () => {
 
     expect(result.actions).toEqual([]);
     expect(result.errors).toEqual({});
+  });
+
+  it("never touches players the user didn't opt in", () => {
+    const samples = [sample("a", { latency: 4 }), sample("b"), sample("x", { latency: 2 })];
+
+    const result = step(initialState(), samples, { ...settings, group: ["a", "b"] });
+
+    expect(result.actions).toEqual([{ type: "setRate", id: "a", rate: 0.92 }]);
+    expect(Object.keys(result.errors)).toEqual(["a", "b"]);
+  });
+
+  it("does nothing with fewer than two players in the group", () => {
+    const samples = [sample("a", { latency: 2 }), sample("x")];
+
+    const result = step(initialState(), samples, { ...settings, group: ["a"] });
+
+    expect(result).toEqual({ state: initialState(), actions: [], errors: {} });
+  });
+
+  it("hands back a player that was taken out of the group", () => {
+    const state: ControllerState = { modes: { a: "slowing", b: "normal", c: "normal" } };
+    const samples = [sample("a", { playbackRate: 0.92 }), sample("b"), sample("c")];
+
+    const result = step(state, samples, { ...settings, group: ["b", "c"] });
+
+    expect(result.actions).toEqual([{ type: "setRate", id: "a", rate: 1 }]);
+    expect(result.state.modes).toEqual({ b: "normal", c: "normal" });
+  });
+
+  it("doesn't resume a player the user paused when handing it back", () => {
+    const state: ControllerState = { modes: { a: "slowing", b: "normal" } };
+    const samples = [sample("a", { state: "paused", playbackRate: 0.92 }), sample("b")];
+
+    const result = step(state, samples, { ...settings, enabled: false });
+
+    expect(result.actions).toEqual([{ type: "setRate", id: "a", rate: 1 }]);
+  });
+
+  it("ignores ads outside the group", () => {
+    const samples = [sample("a", { latency: 4 }), sample("b"), sample("x", { state: "ad" })];
+
+    const result = step(initialState(), samples, { ...settings, group: ["a", "b"] });
+
+    expect(result.actions).toEqual([{ type: "setRate", id: "a", rate: 0.92 }]);
   });
 });

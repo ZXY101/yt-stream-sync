@@ -1,21 +1,28 @@
 import { useEffect, useState } from "react";
 
 import { ext } from "../lib/browser.ts";
-import type { PlayerStatus, StatusRequest } from "../lib/messages.ts";
+import type { GroupRequest, PlayerStatus, StatusRequest } from "../lib/messages.ts";
 
 const REFRESH_MS = 1000;
 
-/** The sync group as the background script sees it, refreshed every second. */
-export function usePlayerStatus(): PlayerStatus[] | undefined {
+function request(message: StatusRequest | GroupRequest): Promise<PlayerStatus[]> {
+  const response = ext.runtime.sendMessage(message) as Promise<PlayerStatus[] | undefined>;
+  return response.then((players) => players ?? []);
+}
+
+/**
+ * The live players the background script knows about, refreshed every second, and a way to
+ * opt one in or out of the sync group.
+ */
+export function usePlayerStatus() {
   const [players, setPlayers] = useState<PlayerStatus[]>();
 
   useEffect(() => {
     let active = true;
     async function refresh() {
-      const request: StatusRequest = { type: "getStatus" };
-      const response = (await ext.runtime.sendMessage(request)) as PlayerStatus[] | undefined;
+      const latest = await request({ type: "getStatus" });
       if (active) {
-        setPlayers(response ?? []);
+        setPlayers(latest);
       }
     }
     void refresh();
@@ -26,5 +33,9 @@ export function usePlayerStatus(): PlayerStatus[] | undefined {
     };
   }, []);
 
-  return players;
+  async function setInGroup(id: string, inGroup: boolean) {
+    setPlayers(await request({ type: "setInGroup", id, inGroup }));
+  }
+
+  return { players, setInGroup };
 }

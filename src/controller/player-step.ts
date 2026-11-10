@@ -20,6 +20,22 @@ function rateFor(mode: Mode, tuning: Tuning): number {
 }
 
 /**
+ * Commands that hand a player back as it was: normal speed, and playing again only if the
+ * controller paused it. A player the user paused stays paused.
+ */
+export function releaseActions(sample: PlayerSample, mode: Mode): Action[] {
+  const { id } = sample;
+  const actions: Action[] = [];
+  if (mode === "paused" && sample.state === "paused") {
+    actions.push({ type: "play", id });
+  }
+  if (mode !== "normal" && Math.abs(sample.playbackRate - 1) > RATE_EPSILON) {
+    actions.push({ type: "setRate", id, rate: 1 });
+  }
+  return actions;
+}
+
+/**
  * Commands that bring a player into `mode`. Rates are re-sent whenever the player reports a
  * different one, which also undoes YouTube's own low-latency catch-up speed changes.
  */

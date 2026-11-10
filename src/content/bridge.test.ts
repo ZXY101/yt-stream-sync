@@ -8,6 +8,7 @@ const report: PlayerReport = {
   playbackRate: 1,
   title: "Stream",
   channel: "Someone",
+  videoId: "abc123",
 };
 
 function fakePort() {

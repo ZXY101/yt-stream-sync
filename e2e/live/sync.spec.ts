@@ -3,6 +3,7 @@ import type { AddressInfo } from "node:net";
 
 import type { Frame } from "puppeteer-core";
 
+import { tickAllStreams } from "../fixtures/popup.ts";
 import { expect, test } from "../fixtures/test.ts";
 
 // Opt-in: needs network and a stream that is live right now, e.g.
@@ -41,7 +42,7 @@ function setPaused(frame: Frame, paused: boolean): Promise<void> {
   }, paused);
 }
 
-test("closes a real gap between two live players", async ({ firefoxPage }) => {
+test("closes a real gap between two live players", async ({ firefoxPage, openPopup }) => {
   test.skip(!STREAM, "set LIVE_STREAM to a live video id");
   test.setTimeout(150_000);
   const server = await serveMultiview();
@@ -57,6 +58,8 @@ test("closes a real gap between two live players", async ({ firefoxPage }) => {
       },
     )
     .toBe(true);
+
+  await tickAllStreams(await openPopup(), 2);
 
   // A user pause takes a player out of the group; when it plays again it's 3 s behind.
   await setPaused(second, true);

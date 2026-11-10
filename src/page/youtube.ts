@@ -4,7 +4,7 @@ import type { PlayerState } from "../controller/types.ts";
 export interface YouTubePlayer extends HTMLElement {
   getStatsForNerds(): Record<string, unknown>;
   getPlayerState(): number;
-  getVideoData(): { isLive?: boolean; title?: string; author?: string };
+  getVideoData(): { isLive?: boolean; title?: string; author?: string; video_id?: string };
   playVideo(): void;
   pauseVideo(): void;
 }

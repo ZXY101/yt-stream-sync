@@ -13,6 +13,17 @@ function findVideo(player: YouTubePlayer): HTMLVideoElement | null {
   return player.querySelector("video");
 }
 
+type VideoData = ReturnType<YouTubePlayer["getVideoData"]>;
+
+function describe(data: VideoData, video: HTMLVideoElement) {
+  return {
+    playbackRate: video.playbackRate,
+    title: data.title ?? "",
+    channel: data.author ?? "",
+    videoId: data.video_id ?? "",
+  };
+}
+
 /** Reads the frame's player once a second and carries out commands for it. */
 export function createPageAgent(options: PageAgentOptions) {
   const tracker = createLatencyTracker();
@@ -41,10 +52,7 @@ export function createPageAgent(options: PageAgentOptions) {
       return;
     }
     reportedNone = false;
-    const bufferAhead = readBuffer(stats);
-    const title = data.title ?? "";
-    const channel = data.author ?? "";
-    options.post({ latency, bufferAhead, state, playbackRate: video.playbackRate, title, channel });
+    options.post({ latency, bufferAhead: readBuffer(stats), state, ...describe(data, video) });
   }
 
   function run(command: PlayerCommand) {

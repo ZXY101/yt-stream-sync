@@ -13,6 +13,8 @@ export interface PlayerSample {
 
 export interface SyncSettings {
   enabled: boolean;
+  /** Ids of the players the user opted in. Nothing outside this list is ever touched. */
+  group: readonly string[];
   /** Extra seconds per player id. Positive shows that player later (manual nudge). */
   offsets: Readonly<Record<string, number>>;
   /** Extra seconds of buffer every player keeps, for shaky streams (0–3). */

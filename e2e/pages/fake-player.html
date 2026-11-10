@@ -32,6 +32,7 @@
         getVideoData: () => ({
           isLive: true,
           title: params.get("title") ?? "Fake stream",
+          video_id: location.pathname.split("/").pop(),
           author: "Fake channel",
         }),
         playVideo: () => (stateCode = 1),

@@ -125,7 +125,7 @@ describe("sync against simulated live players", () => {
 
   it("hands players back at normal speed when syncing is turned off", () => {
     const group = players(4, 6);
-    const settings = { enabled: true, offsets: {}, safetyMargin: 0 };
+    const settings = { enabled: true, group: ["p0", "p1"], offsets: {}, safetyMargin: 0 };
     const ticks = runSync({
       players: group,
       seconds: 10,

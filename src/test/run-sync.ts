@@ -22,7 +22,6 @@ export interface RunOptions {
 }
 
 const SUBSTEPS = 10;
-const DEFAULTS: SyncSettings = { enabled: true, offsets: {}, safetyMargin: 0 };
 
 function snapshot<T>(
   players: SimulatedPlayer[],
@@ -40,7 +39,14 @@ export function runSync(options: RunOptions): Tick[] {
   for (let second = 0; second < seconds; second += 1) {
     options.events?.[second]?.();
     // Read every second, so a test can change settings mid-run.
-    const settings: SyncSettings = { ...DEFAULTS, ...options.settings };
+    const group = players.map((player) => player.id);
+    const settings: SyncSettings = {
+      enabled: true,
+      group,
+      offsets: {},
+      safetyMargin: 0,
+      ...options.settings,
+    };
     const samples = players.map((player) => player.sample());
     const result = step(state, samples, settings, tuning);
     state = result.state;

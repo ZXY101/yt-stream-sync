@@ -8,6 +8,8 @@ export interface PlayerReport {
   playbackRate: number;
   title: string;
   channel: string;
+  /** YouTube's video id, so a frame that moved on to another video leaves the group. */
+  videoId: string;
 }
 
 export type PlayerCommand =
@@ -39,6 +41,13 @@ export interface StatusRequest {
   type: "getStatus";
 }
 
+/** Popup → background: the user ticked or unticked a player. Answered like `StatusRequest`. */
+export interface GroupRequest {
+  type: "setInGroup";
+  id: string;
+  inGroup: boolean;
+}
+
 export interface PlayerStatus {
   id: string;
   title: string;
@@ -46,6 +55,8 @@ export interface PlayerStatus {
   latency: number;
   state: PlayerState;
   playbackRate: number;
+  /** The user opted this player in. */
+  inGroup: boolean;
   /** Seconds ahead of the group; missing while the player isn't being synced. */
   error?: number;
 }

@@ -8,6 +8,7 @@ export interface FakePlayerState {
   bufferText: string;
   title: string;
   author: string;
+  videoId: string;
 }
 
 /** A `#movie_player` element with the YouTube methods the page script uses, plus a video. */
@@ -20,6 +21,7 @@ export function createFakePlayer(initial: Partial<FakePlayerState> = {}) {
     bufferText: "3.00 s",
     title: "Collab stream",
     author: "Someone",
+    videoId: "abc123",
     ...initial,
   };
   const element = document.createElement("div") as unknown as YouTubePlayer;
@@ -33,7 +35,12 @@ export function createFakePlayer(initial: Partial<FakePlayerState> = {}) {
       buffer_health_seconds: fake.bufferText,
     }),
     getPlayerState: () => fake.stateCode,
-    getVideoData: () => ({ isLive: fake.isLive, title: fake.title, author: fake.author }),
+    getVideoData: () => ({
+      isLive: fake.isLive,
+      title: fake.title,
+      author: fake.author,
+      video_id: fake.videoId,
+    }),
     playVideo: vi.fn(() => (fake.stateCode = 1)),
     pauseVideo: vi.fn(() => (fake.stateCode = 2)),
   });

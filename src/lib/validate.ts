@@ -3,6 +3,7 @@ import {
   CONTENT_TAG,
   PAGE_TAG,
   type ContentMessage,
+  type GroupRequest,
   type PageMessage,
   type PlayerCommand,
   type PlayerReport,
@@ -39,7 +40,8 @@ export function isPlayerReport(value: unknown): value is PlayerReport {
   }
   const timesOk = inRange(value.latency, MAX_SECONDS) && inRange(value.bufferAhead, MAX_SECONDS);
   const stateOk = STATES.has(value.state) && inRange(value.playbackRate, 16);
-  return timesOk && stateOk && isText(value.title) && isText(value.channel);
+  const textOk = isText(value.title) && isText(value.channel) && isText(value.videoId);
+  return timesOk && stateOk && textOk;
 }
 
 export function isPlayerCommand(value: unknown): value is PlayerCommand {
@@ -61,4 +63,11 @@ export function isPageMessage(value: unknown): value is PageMessage {
 
 export function isContentMessage(value: unknown): value is ContentMessage {
   return isObject(value) && value.tag === CONTENT_TAG && isPlayerCommand(value.command);
+}
+
+export function isGroupRequest(value: unknown): value is GroupRequest {
+  if (!isObject(value) || value.type !== "setInGroup") {
+    return false;
+  }
+  return isText(value.id) && typeof value.inGroup === "boolean";
 }

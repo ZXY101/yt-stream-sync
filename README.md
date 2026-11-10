@@ -4,10 +4,12 @@ A browser extension that keeps two or more YouTube live streams of the same coll
 so you can watch them side by side without fiddling with playback speed.
 
 > **Status:** early development. Live streams sync in Firefox (watch pages and embeds); the
-> popup only lists the players so far. Chrome support and archived streams come later.
+> popup lists the live streams it finds and you tick the ones to sync. Chrome support and archived streams come later.
 
 ## How it will work
 
+- **Opt-in:** click the add-on and tick the streams you want to keep together. Nothing is
+  touched until you do, and syncing starts once two or more are ticked.
 - Works on YouTube watch pages (one stream per tab) and on Holodex multiview.
 - Reads each player's live latency and **slows down the stream that's ahead** (or pauses it
   for big gaps) until they line up. It never speeds a stream up: that drains the small live
