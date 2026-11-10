@@ -5,6 +5,7 @@ import { PAGE_TAG, type PlayerReport } from "../lib/messages.ts";
 import { isContentMessage } from "../lib/validate.ts";
 import { createPageAgent } from "./agent.ts";
 import { createListener } from "./listener.ts";
+import { takeOver } from "./single-copy.ts";
 import { findPlayer } from "./youtube.ts";
 
 function post(report: PlayerReport | null) {
@@ -22,10 +23,17 @@ const agent = createPageAgent({
   now: () => performance.now() / 1000,
 });
 
-window.addEventListener("message", (event) => {
+function onMessage(event: MessageEvent) {
   if (event.source === window && isContentMessage(event.data)) {
     agent.run(event.data.command);
   }
-});
+}
 
-setInterval(agent.tick, 1000);
+window.addEventListener("message", onMessage);
+const timer = setInterval(agent.tick, 1000);
+
+takeOver(window, () => {
+  clearInterval(timer);
+  window.removeEventListener("message", onMessage);
+  listener.setWanted(false, null);
+});

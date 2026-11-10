@@ -7,8 +7,8 @@ import { launch, type Browser, type Page } from "puppeteer-core";
 
 import manifest from "../../static/manifest.json" with { type: "json" };
 
-const DIST = path.resolve(import.meta.dirname, "../../dist");
-const ADDON_ID = manifest.browser_specific_settings.gecko.id;
+export const DIST = path.resolve(import.meta.dirname, "../../dist");
+export const ADDON = manifest.browser_specific_settings.gecko.id;
 // Firefox gives each add-on a random UUID per profile; pinning it makes page URLs predictable.
 const ADDON_UUID = "6f1c2b7e-0d3a-4e59-9a61-2c8f4b5d7e10";
 
@@ -30,7 +30,7 @@ export async function launchFirefox(): Promise<FirefoxSession> {
     // WebDriver BiDi refuses to open moz-extension:// pages unless this is set (test only).
     env: { ...process.env, MOZ_REMOTE_ALLOW_SYSTEM_ACCESS: "1" },
     extraPrefsFirefox: {
-      "extensions.webextensions.uuids": JSON.stringify({ [ADDON_ID]: ADDON_UUID }),
+      "extensions.webextensions.uuids": JSON.stringify({ [ADDON]: ADDON_UUID }),
     },
   });
   await browser.installExtension(DIST);
