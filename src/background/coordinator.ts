@@ -4,6 +4,7 @@ import { createGroupAudio, type MemberView } from "./audio/group-audio.ts";
 import { createControllers } from "./controllers.ts";
 import { toCommand, toStatus, type SyncInfo } from "./convert.ts";
 import { createGroup } from "./group.ts";
+import { createDiagnostics } from "./diagnostics.ts";
 import { createReportStore } from "./reports.ts";
 
 export interface CoordinatorOptions {
@@ -24,7 +25,10 @@ function wasTouched(report: PlayerReport, previous: PlayerReport | undefined): b
 
 type Reports = ReturnType<typeof createReportStore>;
 
-/** `change`, then `after`: for user actions that should take effect straight away. */
+/**
+ * `change`, then `after`: for user actions that should take effect straight away (a nudge
+ * shows at once; clearing the group hands everyone back at once).
+ */
 function thenRun<A extends unknown[]>(change: (...args: A) => void, after: () => void) {
   return (...args: A) => {
     change(...args);
@@ -39,6 +43,17 @@ function sendAll(actions: Action[], send: CoordinatorOptions["send"], reports: R
     send(action.id, command);
     reports.assume(action.id, command);
   }
+}
+
+/** This step's settings; nobody is synced while live streams and archives are mixed. */
+function stepSettings(
+  group: ReturnType<typeof createGroup>,
+  reports: Reports,
+  base: ReturnType<CoordinatorOptions["settings"]>,
+) {
+  const ids = group.ids();
+  const groupIds = isMixed(ids, reports) ? [] : ids;
+  return { groupIds, settings: { ...base, group: groupIds, offsets: group.offsets() } };
 }
 
 /** Live streams and archives are both in the group: they can't be synced together. */
@@ -78,7 +93,9 @@ export function createCoordinator(options: CoordinatorOptions) {
   const reports = createReportStore(options.now);
   const group = createGroup((id) => reports.get(id)?.videoId);
   const controllers = createControllers();
-  const audio = createGroupAudio({ send: options.send, adjust: group.nudge, now: options.now });
+  const diagnostics = createDiagnostics(options.now);
+  const send = diagnostics.logged(options.send);
+  const audio = createGroupAudio({ send, adjust: group.nudge, now: options.now });
   let errors: Record<string, number> = {};
 
   function remove(id: string) {
@@ -94,6 +111,7 @@ export function createCoordinator(options: CoordinatorOptions) {
     }
     const previous = reports.set(id, playerReport);
     audio.onReport(id, playerReport);
+    diagnostics.onReport(id, playerReport, previous);
     // The others follow what the user just did now, not on the next second.
     if (wasTouched(playerReport, previous) && group.has(id)) {
       tick();
@@ -101,13 +119,12 @@ export function createCoordinator(options: CoordinatorOptions) {
   }
 
   function tick() {
-    const ids = group.ids();
-    const groupIds = isMixed(ids, reports) ? [] : ids;
-    const settings = { ...options.settings(), group: groupIds, offsets: group.offsets() };
+    const { groupIds, settings } = stepSettings(group, reports, options.settings());
     const result = controllers.run(reports.fresh(), settings);
     errors = result.errors;
-    sendAll(result.actions, options.send, reports);
+    sendAll(result.actions, send, reports);
     audio.afterTick(memberViews(groupIds, reports, errors));
+    diagnostics.afterTick(audio.status(), reports.all());
   }
 
   function status(): SyncStatus {
@@ -117,7 +134,6 @@ export function createCoordinator(options: CoordinatorOptions) {
     };
   }
 
-  // Applied now, so the user sees each press take effect. Clearing hands everyone back.
   const nudge = thenRun(group.nudge, tick);
   const clearGroup = thenRun(group.clear, tick);
 
@@ -125,6 +141,7 @@ export function createCoordinator(options: CoordinatorOptions) {
     receiveClip: audio.receiveClip,
     setAudioSync: audio.setEnabled,
     rematchAudio: audio.rematch,
+    debugLog: diagnostics.text,
   };
   return { report, remove, setInGroup: group.set, clearGroup, nudge, tick, status, ...audioApi };
 }

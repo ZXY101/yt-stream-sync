@@ -41,6 +41,10 @@ export function createAudioTap(video: CapturableVideo) {
   processor.connect(context.destination);
   void context.resume();
 
+  const stream = source.mediaStream;
+  const method = video.captureStream ? "captureStream" : "mozCaptureStream";
+  const note = `${method} tracks=${stream.getAudioTracks().length} engine=${context.state} rate=${context.sampleRate} muted=${video.muted} volume=${video.volume}`;
+
   function state(): TapState {
     return context.state === "running" ? "listening" : "blocked";
   }
@@ -51,7 +55,7 @@ export function createAudioTap(video: CapturableVideo) {
     void context.close();
   }
 
-  return { ring, state, stop, video };
+  return { ring, state, stop, video, note };
 }
 
 export function canTap(video: HTMLVideoElement): boolean {

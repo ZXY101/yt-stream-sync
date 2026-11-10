@@ -11,6 +11,9 @@ export interface AudioReport {
   envelope: number[];
   /** Wall-clock time (ms) at the end of the last envelope value. */
   end: number;
+  /** How listening started (capture method, audio tracks, audio engine state), for the
+   * debug log. Sent once. */
+  note?: string;
 }
 
 /** A recording of a player's last seconds of audio, for matching. */
@@ -111,7 +114,9 @@ export type PopupRequest =
   /** Match by audio again now. */
   | { type: "rematchAudio" }
   /** Take every player out of the sync group. */
-  | { type: "clearGroup" };
+  | { type: "clearGroup" }
+  /** The debug log, answered with `{ log: string }` instead of a `SyncStatus`. */
+  | { type: "getDebugLog" };
 
 /** Recent loudness of a player: one value (0–1) per 50 ms, oldest first. */
 export interface Waveform {

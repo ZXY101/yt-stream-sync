@@ -5,7 +5,9 @@ import { canTap, createAudioTap } from "./audio-tap.ts";
 
 const RETRY_STEPS = 5;
 
-type Tap = Pick<ReturnType<typeof createAudioTap>, "ring" | "state" | "stop" | "video">;
+type Tap = Pick<ReturnType<typeof createAudioTap>, "ring" | "state" | "stop" | "video"> & {
+  note?: string;
+};
 
 export interface ListenerOptions {
   /** Sends a clip the background asked for. */
@@ -68,7 +70,10 @@ export function createListener(options: ListenerOptions) {
       return wanted && failed ? { state: "unavailable", envelope: [], end: 0 } : undefined;
     }
     const { end, values } = tap.ring.takeEnvelope();
-    return { state: tap.state(), envelope: values, end };
+    // The note goes out once, with the first report after listening started.
+    const note = tap.note;
+    tap.note = undefined;
+    return { state: tap.state(), envelope: values, end, ...(note ? { note } : {}) };
   }
 
   function sendClip(request: number, seconds: number) {

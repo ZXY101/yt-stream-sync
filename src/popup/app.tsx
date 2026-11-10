@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge.tsx";
 
 import type { PlayerStatus, SyncStatus } from "../lib/messages.ts";
 import { AudioPanel } from "./audio-panel.tsx";
+import { DebugLogButton } from "./debug-log-button.tsx";
 import { SyncGroup } from "./sync-group.tsx";
 import { ThisTab } from "./this-tab.tsx";
 import { useColorScheme } from "./use-color-scheme.ts";
@@ -62,6 +63,7 @@ export function App() {
           />
         </>
       )}
+      <DebugLogButton />
     </main>
   );
 }

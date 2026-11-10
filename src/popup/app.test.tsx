@@ -337,4 +337,19 @@ describe("App", () => {
 
     expect(sendMessage).toHaveBeenCalledWith({ type: "clearGroup" });
   });
+
+  it("copies the debug log", async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn<(text: string) => Promise<void>>().mockResolvedValue();
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    sendMessage.mockImplementation(async (message) =>
+      (message as { type: string }).type === "getDebugLog" ? { log: "the log" } : answer([]),
+    );
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Copy debug log" }));
+
+    expect(writeText).toHaveBeenCalledWith("the log");
+    expect(await screen.findByRole("button", { name: "Copied" })).toBeVisible();
+  });
 });

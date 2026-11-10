@@ -86,7 +86,9 @@ ext.runtime.onMessage.addListener((message: unknown, sender, sendResponse) => {
   const fromPopup = isPopupUrl(sender.url);
   if (fromPopup && isPopupRequest(message)) {
     handlePopupRequest(message);
-    sendResponse(coordinator.status());
+    const header = `yt-stream-sync ${ext.runtime.getManifest().version} · ${navigator.userAgent}`;
+    const debug = { log: `${header}\n${coordinator.debugLog()}` };
+    sendResponse(message.type === "getDebugLog" ? debug : coordinator.status());
   }
   return false;
 });

@@ -87,7 +87,8 @@ function isAudioReport(value: unknown): boolean {
     Array.isArray(envelope) &&
     envelope.length <= MAX_ENVELOPE &&
     envelope.every((level) => inRange(level, 1));
-  return valuesOk && inRange(value.end, MAX_WALL_TIME);
+  const noteOk = value.note === undefined || isText(value.note);
+  return valuesOk && noteOk && inRange(value.end, MAX_WALL_TIME);
 }
 
 export function isPlayerReport(value: unknown): value is PlayerReport {
@@ -154,7 +155,7 @@ export function isPopupRequest(value: unknown): value is PopupRequest {
   if (value.type === "setAudioSync") {
     return typeof value.on === "boolean";
   }
-  if (value.type === "rematchAudio" || value.type === "clearGroup") {
+  if (["rematchAudio", "clearGroup", "getDebugLog"].includes(value.type as string)) {
     return true;
   }
   return value.type === "nudge" && isText(value.id) && isNudge(value.seconds);
