@@ -35,7 +35,7 @@ export function createGroupAudio(options: GroupAudioOptions) {
       blocked: member.report.audio?.state === "blocked",
       unavailable: member.report.audio?.state === "unavailable",
     }));
-    sync.update(view, undefined);
+    sync.update(view);
   }
 
   function onReport(id: string, report: PlayerReport | null) {

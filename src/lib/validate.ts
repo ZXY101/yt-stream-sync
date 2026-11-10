@@ -26,8 +26,8 @@ const MAX_TEXT = 500;
 const MAX_ENVELOPE = 200;
 const AUDIO_STATES: ReadonlySet<unknown> = new Set(["listening", "blocked", "unavailable"]);
 const MAX_CLIP_SECONDS = 30;
-// 30 s of 4 kHz 16-bit PCM in base64, with room to spare.
-const MAX_PCM_TEXT = 400_000;
+// 30 s of 2 kHz 16-bit PCM in base64, with room to spare.
+const MAX_PCM_TEXT = 200_000;
 // Wall-clock milliseconds before 2100.
 const MAX_WALL_TIME = 4_102_444_800_000;
 // Unix seconds between 2005 (YouTube's start) and 2100.
@@ -154,7 +154,7 @@ export function isPopupRequest(value: unknown): value is PopupRequest {
   if (value.type === "setAudioSync") {
     return typeof value.on === "boolean";
   }
-  if (value.type === "rematchAudio") {
+  if (value.type === "rematchAudio" || value.type === "clearGroup") {
     return true;
   }
   return value.type === "nudge" && isText(value.id) && isNudge(value.seconds);

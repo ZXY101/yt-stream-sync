@@ -1,3 +1,4 @@
+import { AUDIO_RATE } from "../audio/ring.ts";
 import { PAGE_TAG, type PlayerCommand, type PlayerReport } from "../lib/messages.ts";
 import { createBridge, type BridgePort } from "./bridge.ts";
 
@@ -86,7 +87,7 @@ describe("content bridge", () => {
 
   it("forwards audio clips over the open port only", () => {
     const { bridge, ports } = setup();
-    const clip = { request: 1, start: 1_000_000, rate: 4000, pcm: "AAAA" };
+    const clip = { request: 1, start: 1_000_000, rate: AUDIO_RATE, pcm: "AAAA" };
     bridge.fromPage({ tag: PAGE_TAG, clip });
     expect(ports).toHaveLength(0);
 

@@ -10,7 +10,7 @@ export type TapState = "listening" | "blocked";
 
 /**
  * Listens to a video element's audio (its captured stream, which carries sound even when the
- * player is muted) into a ring buffer at 4 kHz. Not unit-tested: it is only browser wiring;
+ * player is muted) into a ring buffer at `AUDIO_RATE`. Not unit-tested: it is only browser wiring;
  * the buffer logic lives in `audio/ring.ts`.
  */
 export function createAudioTap(video: CapturableVideo) {

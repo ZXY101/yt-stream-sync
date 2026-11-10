@@ -1,6 +1,7 @@
 import { envelope } from "./pcm.ts";
 
-export const AUDIO_RATE = 4000;
+// 2 kHz keeps voices' timing (matches land within a millisecond) at half the cost of 4 kHz.
+export const AUDIO_RATE = 2000;
 /** Waveform resolution: one loudness value per 50 ms. */
 const ENVELOPE_STEP = 0.05;
 const ENVELOPE_BLOCK = AUDIO_RATE * ENVELOPE_STEP;
@@ -18,7 +19,7 @@ export interface EnvelopeChunk {
 }
 
 /**
- * The last `seconds` of a player's audio at 4 kHz, with the wall-clock time of the newest
+ * The last `seconds` of a player's audio at `AUDIO_RATE`, with the wall-clock time of the newest
  * sample, so clips from different players can be lined up by when they played.
  */
 export function createAudioRing(seconds = 36) {
@@ -28,7 +29,7 @@ export function createAudioRing(seconds = 36) {
   let pending: number[] = [];
   let pendingEnd = 0;
 
-  /** Adds 4 kHz samples whose last one played at `endWall` (ms). */
+  /** Adds samples at `AUDIO_RATE` whose last one played at `endWall` (ms). */
   function push(samples: Float32Array, endWall: number) {
     for (const sample of samples) {
       buffer[written % buffer.length] = sample;

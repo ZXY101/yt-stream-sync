@@ -1,3 +1,4 @@
+import { AUDIO_RATE } from "../audio/ring.ts";
 import { CONTENT_TAG, PAGE_TAG, type PlayerReport } from "./messages.ts";
 import {
   isAudioClip,
@@ -127,7 +128,7 @@ describe("isPopupRequest", () => {
 });
 
 describe("audio", () => {
-  const clip = { request: 3, start: 1_794_315_580_000, rate: 4000, pcm: "AAAA" };
+  const clip = { request: 3, start: 1_794_315_580_000, rate: AUDIO_RATE, pcm: "AAAA" };
 
   it("accepts reports with audio levels and rejects bad ones", () => {
     const audio = { state: "listening", envelope: [0, 0.4, 1], end: 1_794_315_580_000 };
@@ -144,10 +145,10 @@ describe("audio", () => {
     expect(isPlayerReport({ ...report, audio: "loud" })).toBe(false);
   });
 
-  it("accepts clips at 4 kHz only, of sane size", () => {
+  it("accepts clips at the audio rate only, of sane size", () => {
     expect(isAudioClip(clip)).toBe(true);
     expect(isAudioClip({ ...clip, rate: 48_000 })).toBe(false);
-    expect(isAudioClip({ ...clip, pcm: "A".repeat(500_000) })).toBe(false);
+    expect(isAudioClip({ ...clip, pcm: "A".repeat(250_000) })).toBe(false);
     expect(isAudioClip({ ...clip, request: -1 })).toBe(false);
     expect(isPageMessage({ tag: PAGE_TAG, clip })).toBe(true);
     expect(isPageMessage({ tag: PAGE_TAG, clip: { ...clip, pcm: 4 } })).toBe(false);

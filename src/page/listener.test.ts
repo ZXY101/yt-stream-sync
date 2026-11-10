@@ -1,5 +1,5 @@
 import { decodePcm } from "../audio/pcm.ts";
-import { createAudioRing } from "../audio/ring.ts";
+import { AUDIO_RATE, createAudioRing } from "../audio/ring.ts";
 import type { AudioClip } from "../lib/messages.ts";
 import { createListener } from "./listener.ts";
 
@@ -72,8 +72,8 @@ describe("listener", () => {
     const report = listener.audioReport();
     listener.sendClip(7, 1);
 
-    expect(report).toEqual({ state: "listening", envelope: [0.25, 0.25], end: 5000 });
-    expect(clips[0]).toMatchObject({ request: 7, rate: 4000, start: 4900 });
+    expect(report).toEqual({ state: "listening", envelope: [0.25, 0.25, 0.25, 0.25], end: 5000 });
+    expect(clips[0]).toMatchObject({ request: 7, rate: AUDIO_RATE, start: 4800 });
     expect(decodePcm(clips[0]?.pcm ?? "")).toHaveLength(400);
   });
 

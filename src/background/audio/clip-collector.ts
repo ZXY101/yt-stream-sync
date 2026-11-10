@@ -3,7 +3,6 @@ import type { Clip } from "../../audio/ring.ts";
 import type { AudioClip, PlayerCommand } from "../../lib/messages.ts";
 
 export interface CollectedClips {
-  key: string;
   reference: string;
   clips: Record<string, Clip>;
 }
@@ -22,10 +21,10 @@ export function createClipCollector(
   let pending: Pending | undefined;
   let nextRequest = 1;
 
-  function ask(request: { key: string; ids: string[]; reference: string; seconds: number }) {
-    const { key, ids, reference, seconds } = request;
+  function ask(request: { ids: string[]; reference: string; seconds: number }) {
+    const { ids, reference, seconds } = request;
     const id = nextRequest++;
-    pending = { request: id, key, ids, reference, clips: {}, asked: now() };
+    pending = { request: id, ids, reference, clips: {}, asked: now() };
     ids.forEach((player) => send(player, { type: "clip", request: id, seconds }));
   }
 
@@ -39,10 +38,17 @@ export function createClipCollector(
     return complete ? pending : undefined;
   }
 
-  /** Seconds since this group's request went out, if one is out. */
-  function waitingFor(key: string): number | undefined {
-    return pending?.key === key ? now() - pending.asked : undefined;
+  /** Seconds since the request went out, if one is out. */
+  function waitingFor(): number | undefined {
+    return pending ? now() - pending.asked : undefined;
   }
 
-  return { ask, receive, waitingFor, clear: () => (pending = undefined) };
+  return {
+    ask,
+    receive,
+    waitingFor,
+    /** The request that's out: who was asked, and the reference. */
+    pending: () => pending,
+    clear: () => (pending = undefined),
+  };
 }

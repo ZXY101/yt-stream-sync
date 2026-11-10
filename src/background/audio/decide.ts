@@ -5,13 +5,14 @@ export interface Situation {
   members: number;
   blocked: boolean;
   unavailable: boolean;
-  /** A clip request for this group is out; seconds since it was sent. */
+  /** A clip request is out; seconds since it was sent. */
   pendingFor?: number;
-  /** This group was matched (or failed) already. */
-  done: boolean;
-  /** Seconds the whole group has been playing in sync. */
-  settled: number;
-  clipSeconds: number;
+  /** At least two players have played in sync long enough, and one isn't matched yet. */
+  ready: boolean;
+  /** Every member is matched (or was given up on). */
+  allMatched: boolean;
+  /** 0–1 towards `ready`, for the popup. */
+  progress: number;
   clipTimeout: number;
 }
 
@@ -35,12 +36,11 @@ export function decide(situation: Situation): Decision {
   if (situation.pendingFor !== undefined) {
     return situation.pendingFor > situation.clipTimeout ? { do: "give-up" } : { do: "wait" };
   }
-  if (situation.done) {
-    return { do: "wait" };
-  }
-  if (situation.settled >= situation.clipSeconds) {
+  if (situation.ready) {
     return { do: "ask" };
   }
-  const progress = Math.max(0, situation.settled) / situation.clipSeconds;
-  return { do: "show", status: { state: "listening", progress } };
+  if (situation.allMatched) {
+    return { do: "wait" };
+  }
+  return { do: "show", status: { state: "listening", progress: situation.progress } };
 }

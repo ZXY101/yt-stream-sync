@@ -37,13 +37,16 @@ function whitenedCorrelation(a: Float32Array, b: Float32Array): Float64Array {
   return re;
 }
 
-/** Correlation for lags −maxLag…maxLag samples, standardised (mean 0, deviation 1). */
-function standardCurve(a: Float32Array, b: Float32Array, maxLag: number): Float64Array {
+/**
+ * Correlation for lags −maxLag…maxLag samples, standardised (mean 0, deviation 1). `b` may
+ * start `offset` samples after `a` (negative: before); lags are relative to `a`'s start.
+ */
+function standardCurve(a: Float32Array, b: Float32Array, maxLag: number, offset = 0) {
   const correlation = whitenedCorrelation(a, b);
   const size = correlation.length;
   const curve = new Float64Array(2 * maxLag + 1);
   for (let lag = -maxLag; lag <= maxLag; lag += 1) {
-    curve[lag + maxLag] = correlation[(lag + size) % size] as number;
+    curve[lag + maxLag] = correlation[(((lag - offset) % size) + size) % size] as number;
   }
   const mean = curve.reduce((sum, value) => sum + value, 0) / curve.length;
   const variance = curve.reduce((sum, value) => sum + (value - mean) ** 2, 0) / curve.length;
@@ -118,11 +121,15 @@ export function gccPhat(
   const { sampleRate, maxLagSeconds } = options;
   const starts = windowStarts(a.length, sampleRate, options.windows);
   const windowLength = a.length - (starts.at(-1) ?? 0);
-  const maxLag = Math.min(Math.round(maxLagSeconds * sampleRate), windowLength - 1);
+  const maxLag = Math.min(Math.round(maxLagSeconds * sampleRate), b.length - 1);
   let sum = new Float64Array(2 * maxLag + 1);
   for (const start of starts) {
-    const end = start + windowLength;
-    const curve = standardCurve(a.subarray(start, end), b.subarray(start, end), maxLag);
+    // Each window of `a` is compared with `b` from maxLag earlier to maxLag later, so even a
+    // lag longer than the window has the whole window to match on.
+    const from = Math.max(0, start - maxLag);
+    const to = Math.min(b.length, start + windowLength + maxLag);
+    const window = a.subarray(start, start + windowLength);
+    const curve = standardCurve(window, b.subarray(from, to), maxLag, from - start);
     sum = sum.map((value, index) => value + (curve[index] as number));
   }
   const combined = sum.map((value) => value / Math.sqrt(starts.length));

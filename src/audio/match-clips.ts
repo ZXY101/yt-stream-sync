@@ -1,15 +1,20 @@
 import { gccPhat } from "./gcc-phat.ts";
 import { AUDIO_RATE, type Clip } from "./ring.ts";
 
-// Tuned on real collab audio (two POVs of one stream): the true lag scored 18–23 with the
-// next-best peak at 10–13, while single windows managed only 7–10.
+// Tuned on real collab audio (two POVs of one stream): the true lag scored 18–31 with the
+// next-best peak well below, while single windows managed only 7–10.
 const MIN_CONFIDENCE = 12;
 const MIN_UNIQUENESS = 1.3;
 const WINDOWS = { window: 15, hop: 2.5 };
 
-export type MatchResult =
-  | { matched: true; lags: Record<string, number> }
-  | { matched: false; reason: "too-short" | "no-shared-sound" };
+export interface MatchResult {
+  /** Seconds each matched player lags behind the reference (positive: it's behind). */
+  lags: Record<string, number>;
+  /** Players whose audio couldn't be matched to the reference's. */
+  unmatched: string[];
+  /** Set when nothing could be compared at all. */
+  tooShort?: boolean;
+}
 
 /** Cuts every clip to the stretch of wall-clock time they all cover. */
 function commonStretch(clips: Record<string, Clip>): Record<string, Float32Array> {
@@ -27,7 +32,8 @@ function commonStretch(clips: Record<string, Clip>): Record<string, Float32Array
 
 /**
  * How many seconds each player's audio lags behind the reference's, from clips recorded at
- * the same time. Positive: the player plays the same sound later, so it's behind.
+ * the same time. Each player is matched on its own, so one that can't be matched (no shared
+ * sound right now) doesn't hold the others back.
  */
 export function matchClips(
   clips: Record<string, Clip>,
@@ -36,23 +42,22 @@ export function matchClips(
 ): MatchResult {
   const cut = commonStretch(clips);
   const reference = cut[referenceId] as Float32Array;
+  const others = Object.keys(cut).filter((id) => id !== referenceId);
   if (reference.length < options.minSeconds * AUDIO_RATE) {
-    return { matched: false, reason: "too-short" };
+    return { lags: {}, unmatched: others, tooShort: true };
   }
-  const lags: Record<string, number> = {};
-  for (const [id, samples] of Object.entries(cut)) {
-    if (id === referenceId) {
-      continue;
-    }
-    const match = gccPhat(reference, samples, {
+  const result: MatchResult = { lags: {}, unmatched: [] };
+  for (const id of others) {
+    const match = gccPhat(reference, cut[id] as Float32Array, {
       sampleRate: AUDIO_RATE,
       maxLagSeconds: options.maxLag,
       windows: WINDOWS,
     });
-    if (match.confidence < MIN_CONFIDENCE || match.uniqueness < MIN_UNIQUENESS) {
-      return { matched: false, reason: "no-shared-sound" };
+    if (match.confidence >= MIN_CONFIDENCE && match.uniqueness >= MIN_UNIQUENESS) {
+      result.lags[id] = match.lag;
+    } else {
+      result.unmatched.push(id);
     }
-    lags[id] = match.lag;
   }
-  return { matched: true, lags };
+  return result;
 }

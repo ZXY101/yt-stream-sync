@@ -31,10 +31,11 @@ describe("audio ring", () => {
 
   it("hands out loudness for whole 50 ms blocks and keeps the rest for next time", () => {
     const ring = createAudioRing(5);
-    ring.push(new Float32Array(300).fill(0.5), 1000);
+    // At 2 kHz a 50 ms block is 100 samples.
+    ring.push(new Float32Array(150).fill(0.5), 1000);
 
     const first = ring.takeEnvelope();
-    ring.push(new Float32Array(100).fill(0.5), 1025);
+    ring.push(new Float32Array(50).fill(0.5), 1025);
     const second = ring.takeEnvelope();
 
     expect(first.values).toEqual([0.5]);
