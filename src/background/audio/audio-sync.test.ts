@@ -85,7 +85,8 @@ describe("audio sync", () => {
 
     expect(adjust).not.toHaveBeenCalled();
     expect(sync.status()).toEqual({ state: "failed", reason: "no-shared-sound" });
-  });
+    // Four real 30 s matches; slow under coverage instrumentation.
+  }, 30_000);
 
   it("gives up on clips that never arrive", () => {
     const { sync, run } = setup();
