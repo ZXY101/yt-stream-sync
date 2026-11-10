@@ -21,6 +21,11 @@ in memory, and sends short clips to the background script to measure the delay b
 streams, plus loudness levels for the popup's waveform. Audio never leaves the browser and
 is never stored.
 
+**Debug log:** the background script keeps its last 300 decisions in memory (commands,
+detected user actions, audio matching results, stream states and loudness levels; no audio,
+no URLs). It leaves the browser only if the user clicks "Copy debug log" and pastes it
+somewhere.
+
 The add-on collects no data (`data_collection_permissions: none`). Its only network
 requests of its own are the popup's thumbnails from `i.ytimg.com` (YouTube's image server),
 for videos the user already has open in a tab.
