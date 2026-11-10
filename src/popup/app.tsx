@@ -1,57 +1,43 @@
+import { Badge } from "@/components/ui/badge.tsx";
+
 import type { SyncStatus } from "../lib/messages.ts";
-import { PlayerRow } from "./player-row.tsx";
-import { usePlayerStatus } from "./use-player-status.ts";
+import { SyncGroup } from "./sync-group.tsx";
+import { ThisTab } from "./this-tab.tsx";
+import { useColorScheme } from "./use-color-scheme.ts";
+import { useCurrentTab } from "./use-current-tab.ts";
+import { useSyncStatus } from "./use-sync-status.ts";
+
+function isSyncing(status: SyncStatus): boolean {
+  return !status.mixed && status.players.filter((player) => player.inGroup).length >= 2;
+}
 
 export function App() {
-  const { status, setInGroup, nudge } = usePlayerStatus();
+  useColorScheme();
+  const tabId = useCurrentTab();
+  const { status, setInGroup, nudge } = useSyncStatus();
+  const players = status?.players ?? [];
+  const inTab = players.filter((player) => player.tabId === tabId);
   return (
-    <main className="popup">
-      <h1>yt-stream-sync</h1>
-      {status && <PlayerList status={status} onToggle={setInGroup} onNudge={nudge} />}
-    </main>
-  );
-}
-
-interface PlayerListProps {
-  status: SyncStatus;
-  onToggle: (id: string, inGroup: boolean) => void;
-  onNudge: (id: string, seconds: number) => void;
-}
-
-function Hint({ status }: { status: SyncStatus }) {
-  if (status.mixed) {
-    return (
-      <p className="hint warning" role="alert">
-        Live streams and archives can&apos;t be synced together. Untick one kind.
-      </p>
-    );
-  }
-  const ticked = status.players.filter((player) => player.inGroup).length;
-  return ticked < 2 ? <p className="hint">Tick two or more streams to keep them in sync.</p> : null;
-}
-
-function PlayerList({ status, onToggle, onNudge }: PlayerListProps) {
-  if (status.players.length === 0) {
-    return (
-      <p className="hint">
-        No streams open. Open the live streams or archives you want to watch together, then tick
-        them here.
-      </p>
-    );
-  }
-  return (
-    <>
-      <ul className="players" aria-label="Streams">
-        {status.players.map((player) => (
-          <PlayerRow
-            key={player.id}
-            player={player}
-            onToggle={(inGroup) => onToggle(player.id, inGroup)}
-            onNudge={(seconds) => onNudge(player.id, seconds)}
+    <main className="flex w-[360px] flex-col gap-4 p-3">
+      <header className="flex items-center justify-between">
+        <h1 className="text-base font-semibold">yt-stream-sync</h1>
+        {status && isSyncing(status) && <Badge>Syncing</Badge>}
+      </header>
+      {status && (
+        <>
+          <ThisTab
+            players={inTab.filter((player) => !player.inGroup)}
+            added={inTab.filter((player) => player.inGroup).length}
+            onAdd={(id) => void setInGroup(id, true)}
           />
-        ))}
-      </ul>
-      <Hint status={status} />
-    </>
+          <SyncGroup
+            members={players.filter((player) => player.inGroup)}
+            mixed={status.mixed}
+            onRemove={(id) => void setInGroup(id, false)}
+            onNudge={(id, seconds) => void nudge(id, seconds)}
+          />
+        </>
+      )}
+    </main>
   );
 }

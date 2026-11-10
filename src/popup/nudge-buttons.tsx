@@ -1,3 +1,5 @@
+import { Button } from "@/components/ui/button.tsx";
+
 import { formatOffset } from "./format.ts";
 
 const STEPS = [-1, -0.1, 0.1, 1] as const;
@@ -14,21 +16,25 @@ function describeStep(title: string, seconds: number): string {
   return `Move ${title} ${direction} ${amount}`;
 }
 
-/** Fine-tunes one player against the others; the sync keeps whatever the user sets. */
+/** Fine-tunes one stream against the others; the sync keeps whatever the user sets. */
 export function NudgeButtons({ title, offset, onNudge }: NudgeButtonsProps) {
   return (
-    <fieldset className="nudge" aria-label={`Nudge ${title}`}>
+    <fieldset className="mt-2 flex items-center gap-1" aria-label={`Nudge ${title}`}>
       {STEPS.map((seconds) => (
-        <button
+        <Button
           key={seconds}
-          type="button"
+          variant="outline"
+          size="xs"
+          className="min-w-10"
           aria-label={describeStep(title, seconds)}
           onClick={() => onNudge(seconds)}
         >
           {seconds > 0 ? `+${seconds}` : `−${Math.abs(seconds)}`}
-        </button>
+        </Button>
       ))}
-      <span className="nudge-offset">Nudge {formatOffset(offset)}</span>
+      <span className="ml-auto text-xs text-muted-foreground tabular-nums">
+        Nudge {formatOffset(offset)}
+      </span>
     </fieldset>
   );
 }

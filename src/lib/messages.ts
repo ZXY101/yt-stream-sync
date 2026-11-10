@@ -51,6 +51,15 @@ export interface ContentMessage {
   command: PlayerCommand;
 }
 
+/** A player is one frame: `<tab id>:<frame id>`. */
+export function playerId(tabId: number, frameId: number): string {
+  return `${tabId}:${frameId}`;
+}
+
+export function tabOf(id: string): number {
+  return Number(id.split(":")[0]);
+}
+
 // Port messages between the content script and the background script.
 export const PLAYER_PORT = "player";
 export type ToBackground = { type: "report"; report: PlayerReport | null };
@@ -59,13 +68,16 @@ export type ToContent = { type: "command"; command: PlayerCommand };
 /** Popup → background requests, each answered with a `SyncStatus`. */
 export type PopupRequest =
   | { type: "getStatus" }
-  /** The user ticked or unticked a player. */
+  /** The user added a player to the sync group or removed it. */
   | { type: "setInGroup"; id: string; inGroup: boolean }
   /** The user nudged a player: positive moves it ahead (newer), negative back. */
   | { type: "nudge"; id: string; seconds: number };
 
 export interface PlayerStatus {
   id: string;
+  /** The browser tab the player is in. */
+  tabId: number;
+  videoId: string;
   kind: PlayerReport["kind"];
   title: string;
   channel: string;
@@ -87,6 +99,6 @@ export interface PlayerStatus {
 
 export interface SyncStatus {
   players: PlayerStatus[];
-  /** Live streams and archives are both ticked: they can't be synced together. */
+  /** Live streams and archives are both in the group: they can't be synced together. */
   mixed: boolean;
 }

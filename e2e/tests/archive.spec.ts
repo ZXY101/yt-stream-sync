@@ -1,6 +1,6 @@
 import type { Frame } from "puppeteer-core";
 
-import { tickAllStreams, toggleStream } from "../fixtures/popup.ts";
+import { addAllStreams, removeStream } from "../fixtures/popup.ts";
 import { expect, test } from "../fixtures/test.ts";
 import { openMultiview, readArchive, streamFrame, userAction } from "../fixtures/youtube.ts";
 
@@ -33,7 +33,7 @@ test("lines archives up by their broadcast start times once ticked", async ({
   const { first, second } = await openPair(firefoxPage);
   expect(await gap(first, second)).toBeGreaterThan(5);
 
-  await tickAllStreams(await openPopup(), 2);
+  await addAllStreams(await openPopup(), 2);
 
   await expect.poll(() => gap(first, second), { timeout: 10_000 }).toBeLessThan(0.5);
 });
@@ -43,7 +43,7 @@ test("follows the user's seek, pause and play on any archive", async ({
   openPopup,
 }) => {
   const { first, second } = await openPair(firefoxPage);
-  await tickAllStreams(await openPopup(), 2);
+  await addAllStreams(await openPopup(), 2);
   await expect.poll(() => gap(first, second), { timeout: 10_000 }).toBeLessThan(0.5);
 
   await userAction(second, { type: "seek", position: 2000 });
@@ -60,7 +60,7 @@ test("follows the user's seek, pause and play on any archive", async ({
 test("keeps the user's nudge between archives", async ({ firefoxPage, openPopup }) => {
   const { first, second } = await openPair(firefoxPage);
   const popup = await openPopup();
-  await tickAllStreams(popup, 2);
+  await addAllStreams(popup, 2);
   await expect.poll(() => gap(first, second), { timeout: 10_000 }).toBeLessThan(0.5);
 
   await popup.locator("::-p-aria(Move pov-b ahead 1 second)").click();
@@ -73,5 +73,5 @@ test("keeps the user's nudge between archives", async ({ firefoxPage, openPopup 
       return Math.abs(b.position + APART - a.position - 2);
     })
     .toBeLessThan(0.5);
-  await toggleStream(popup, "pov-b");
+  await removeStream(popup, "pov-b");
 });

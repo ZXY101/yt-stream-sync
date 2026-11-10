@@ -1,11 +1,12 @@
 import type { ArchiveSample } from "../controller/archive/types.ts";
 import type { Action, PlayerSample } from "../controller/types.ts";
-import type {
-  ArchiveReport,
-  LiveReport,
-  PlayerCommand,
-  PlayerReport,
-  PlayerStatus,
+import {
+  tabOf,
+  type ArchiveReport,
+  type LiveReport,
+  type PlayerCommand,
+  type PlayerReport,
+  type PlayerStatus,
 } from "../lib/messages.ts";
 
 export function toCommand(action: Action): PlayerCommand {
@@ -44,6 +45,8 @@ function kindDetails(report: PlayerReport): Partial<PlayerStatus> {
 }
 
 export function toStatus(id: string, report: PlayerReport, sync: SyncInfo): PlayerStatus {
-  const { kind, title, channel, state, playbackRate } = report;
-  return { id, kind, title, channel, state, playbackRate, ...kindDetails(report), ...sync };
+  const { kind, title, channel, state, playbackRate, videoId } = report;
+  const tabId = tabOf(id);
+  const base = { id, tabId, videoId, kind, title, channel, state, playbackRate };
+  return { ...base, ...kindDetails(report), ...sync };
 }

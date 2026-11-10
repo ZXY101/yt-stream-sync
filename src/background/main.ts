@@ -4,6 +4,7 @@ import type { SyncSettings } from "../controller/types.ts";
 import { ext } from "../lib/browser.ts";
 import {
   PLAYER_PORT,
+  playerId,
   type PlayerCommand,
   type PopupRequest,
   type ToContent,
@@ -26,17 +27,17 @@ const coordinator = createCoordinator({
   now: () => performance.now() / 1000,
 });
 
-function playerId(port: chrome.runtime.Port): string | undefined {
+function portPlayerId(port: chrome.runtime.Port): string | undefined {
   const tabId = port.sender?.tab?.id;
   const frameId = port.sender?.frameId;
   if (tabId === undefined || frameId === undefined) {
     return undefined;
   }
-  return `${tabId}:${frameId}`;
+  return playerId(tabId, frameId);
 }
 
 ext.runtime.onConnect.addListener((port) => {
-  const id = playerId(port);
+  const id = portPlayerId(port);
   if (port.name !== PLAYER_PORT || id === undefined) {
     return;
   }
@@ -54,6 +55,14 @@ ext.runtime.onConnect.addListener((port) => {
   });
 });
 
+const POPUP_URL = new URL(ext.runtime.getURL("popup/index.html"));
+
+/** The popup's own page, whatever its query (tests open it with `?tab=`). */
+function isPopupUrl(url: string | undefined): boolean {
+  const parsed = URL.parse(url ?? "");
+  return parsed?.origin === POPUP_URL.origin && parsed.pathname === POPUP_URL.pathname;
+}
+
 function handlePopupRequest(request: PopupRequest) {
   if (request.type === "setInGroup") {
     coordinator.setInGroup(request.id, request.inGroup);
@@ -64,7 +73,7 @@ function handlePopupRequest(request: PopupRequest) {
 
 ext.runtime.onMessage.addListener((message: unknown, sender, sendResponse) => {
   // Only the popup may talk to the background this way; content scripts use their port.
-  const fromPopup = sender.url === ext.runtime.getURL("popup/index.html");
+  const fromPopup = isPopupUrl(sender.url);
   if (fromPopup && isPopupRequest(message)) {
     handlePopupRequest(message);
     sendResponse(coordinator.status());

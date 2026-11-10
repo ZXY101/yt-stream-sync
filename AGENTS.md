@@ -40,7 +40,9 @@ additionally runs the build, `lint:ext` and the E2E suite.
   `new Function`, no scripts or styles loaded from the network. The extension
   pages' CSP stays `script-src 'self'; object-src 'self'`.
 - **No data collection:** no analytics, no telemetry, no network requests of our
-  own. The manifest declares `data_collection_permissions: none`; keep it true.
+  own. The manifest declares `data_collection_permissions: none`; keep it true. The one
+  exception: the popup shows thumbnails from `i.ytimg.com` for videos the user already has
+  open, built only from a validated 11-character video id (`src/popup/thumbnail.ts`).
 - **Least privilege:** ask only for the permissions and host permissions a feature
   needs (YouTube origins, not `<all_urls>`). Every new permission is documented in
   `docs/permissions.md` in the same commit, with the reason.
@@ -90,7 +92,8 @@ src/
   background/   coordinator: the sync group, runs the controller, sends commands to players
   content/      content script (isolated world): relays between the page script and background
   page/         page script (page world, `"world": "MAIN"`): reads YouTube's player, runs commands
-  popup/        toolbar popup (React)
+  popup/        toolbar popup (React, Tailwind, shadcn/ui)
+  components/ui/  shadcn/ui components (generated, edit sparingly; copied from yt-dlp-z)
   lib/          shared code: browser API wrapper, message types, settings
   test/         test setup and fakes (simulated player)
 static/         manifest.json and icons, copied into dist/ as they are
@@ -105,6 +108,10 @@ docs/           user and developer docs
   component per file. No default exports (config files that tools require are the
   only exception).
 - Hooks: `use-*.ts` exporting `useSomething`.
+- UI: shadcn/ui components and the theme in `src/popup/popup.css` are the same as
+  yt-dlp-z's (radix-nova style, neutral, Geist, lucide icons), so both projects look alike.
+  Add components with `npx shadcn add <name>`; `components/ui/` is exempt from the file-size
+  lint rules and from knip's unused-export check.
 - Unit tests sit next to the file: `player-list.test.tsx`, `controller.test.ts`.
 - `controller/` imports nothing from the other folders. `popup/`, `background/`,
   `content/` and `page/` never import each other; they talk through typed messages in `lib/`.
@@ -162,10 +169,10 @@ docs/           user and developer docs
 
 ## Project rules
 
-- **Syncing is always opt-in.** A player is only ever touched after the user ticks it in
-  the popup, and syncing only starts with two or more ticked. Never add automatic grouping
+- **Syncing is always opt-in.** A player is only ever touched after the user adds it from
+  the popup (opened on that stream's tab), and syncing only starts with two or more added. Never add automatic grouping
   (not even for players on the same page). Opting in is per video: a frame that moves on to
-  another video leaves the group. Unticking hands a player back at normal speed, and a
+  another video leaves the group. Removing hands a player back at normal speed, and a
   player the user paused is never resumed by us.
 - **Never speed a live stream up.** Live playback rate stays ≤ 1.0. Speeding up the
   lagging stream drains its small live buffer and makes it stall. The stream that's ahead
@@ -173,7 +180,7 @@ docs/           user and developer docs
 - **Archives** (finished live streams) sync by broadcast time: start time (watch pages
   only; embeds have none) + position. Followers jump to the reference's moment, small drift
   is trimmed with ±5% speed. The reference is the player the user touched last, and the
-  user's seek, pause, play and speed changes on any ticked archive are mirrored to the
+  user's seek, pause, play and speed changes on any added archive are mirrored to the
   others; media events caused by our own commands must never count as user actions.
   Live streams and archives are never synced together.
 - **The controllers are pure** (`src/controller/` live, `src/controller/archive/`): no DOM,

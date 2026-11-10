@@ -1,6 +1,6 @@
 import type { Page } from "puppeteer-core";
 
-import { tickAllStreams } from "../fixtures/popup.ts";
+import { addAllStreams } from "../fixtures/popup.ts";
 import { expect, test } from "../fixtures/test.ts";
 
 // Opt-in: needs network and two archives of the same collab, e.g.
@@ -59,7 +59,7 @@ test("lines up two real archives by broadcast time and links their controls", as
   expect(await gap(firefoxPage, second)).toBeGreaterThan(5);
 
   const popup = await openPopup();
-  await tickAllStreams(popup, 2);
+  await addAllStreams(popup, 2);
   // The popup closes in real use too; in headless Firefox it would keep the focus, and
   // media in unfocused windows stops.
   await popup.close();

@@ -15,7 +15,7 @@ function request(message: PopupRequest): Promise<SyncStatus> {
  * The streams the background script knows about, refreshed every second, and the actions
  * the popup offers on them.
  */
-export function usePlayerStatus() {
+export function useSyncStatus() {
   const [status, setStatus] = useState<SyncStatus>();
 
   useEffect(() => {

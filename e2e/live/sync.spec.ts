@@ -3,7 +3,7 @@ import type { AddressInfo } from "node:net";
 
 import type { Frame } from "puppeteer-core";
 
-import { tickAllStreams } from "../fixtures/popup.ts";
+import { addAllStreams } from "../fixtures/popup.ts";
 import { expect, test } from "../fixtures/test.ts";
 
 // Opt-in: needs network and a stream that is live right now, e.g.
@@ -59,7 +59,7 @@ test("closes a real gap between two live players", async ({ firefoxPage, openPop
     )
     .toBe(true);
 
-  await tickAllStreams(await openPopup(), 2);
+  await addAllStreams(await openPopup(), 2);
 
   // A user pause takes a player out of the group; when it plays again it's 3 s behind.
   await setPaused(second, true);

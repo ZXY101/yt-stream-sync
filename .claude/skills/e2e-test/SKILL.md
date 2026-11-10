@@ -26,7 +26,10 @@ How the harness works:
   playing and by 1 per second while paused, and stats report 0 while paused. When the page
   script starts using more of YouTube's player, add it to the fake (and to
   `src/test/fake-youtube.ts`).
-- **The popup** opens with the `openPopup` fixture, in its own window.
+- **The popup** opens with the `openPopup` fixture, in its own window. A real popup acts on
+  the active tab; as a page it takes `?tab=<id>` instead. `addAllStreams(popup, n)` goes
+  tab by tab like a user (opens the popup for each stream's tab and clicks **Add**);
+  `groupRows`, `addButtons` and `removeStream` read and change the sync group.
 
 Quirks of Firefox over BiDi (Playwright 1.65 / Firefox 159):
 
@@ -51,6 +54,6 @@ Writing tests:
   `npm run test:e2e -- --repeat-each 3` for anything timing-based.
 - **Live project** (`e2e/live/`, opt-in, network): `LIVE_STREAM=<live id>` (two real
   embeds) and/or `ARCHIVE_STREAMS=<id>,<id>` (two real watch pages, each in its own window;
-  close the popup after ticking, because media in unfocused headless windows stops). Run
+  close the popup after adding, because media in unfocused headless windows stops). Run
   with `npm run test:e2e:live`. Live watch pages ask automated browsers to sign in; embeds
   and archive watch pages don't.

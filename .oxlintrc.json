@@ -50,6 +50,13 @@
   },
   "overrides": [
     {
+      "files": ["src/components/ui/**"],
+      "rules": {
+        "max-lines": "off",
+        "max-lines-per-function": "off"
+      }
+    },
+    {
       "files": ["**/*.test.{ts,tsx}", "e2e/**"],
       "rules": {
         "max-lines": "off",
