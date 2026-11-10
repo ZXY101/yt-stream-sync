@@ -23,3 +23,28 @@ body {
   margin: 0;
   opacity: 0.8;
 }
+
+.players {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.player {
+  display: grid;
+  gap: 2px;
+}
+
+.player-title {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.player-channel,
+.player-detail {
+  opacity: 0.8;
+}

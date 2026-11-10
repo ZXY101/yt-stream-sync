@@ -12,7 +12,7 @@ description: Make a clean Conventional Commit in yt-stream-sync. Use whenever co
 3. Check the staged diff for secrets or personal data before committing.
 4. Message format: `type(scope): summary` in the imperative, ≤ 72 chars.
    - types: feat, fix, perf, refactor, docs, test, build, ci, chore
-   - scopes: controller, popup, background, content, e2e, ci, deps, docs, release
+   - scopes: controller, popup, background, content, page, e2e, ci, deps, docs, release
    - breaking change: `feat(background)!: …` + a `BREAKING CHANGE:` footer
    - `feat`/`fix` lines land in the changelog, so write them for users.
    - wrap body lines at 100 characters (commitlint enforces it).

@@ -24,7 +24,10 @@ Run `npm run build`, then:
 
 ## How the build works
 
-Vite builds from `src/` into `dist/` and copies `static/` (manifest, icons) as it is. Output
+`npm run build` (`scripts/build.mjs`) runs Vite three times into `dist/`: the popup and the
+background script (ES modules, shared chunks), then each content script (`content.js`,
+`page.js`) as one self-contained file, because content scripts can't load modules. `static/`
+(manifest, icons) is copied as it is. Output
 file names are stable (no hashes) and the code isn't minified, so store reviewers can read it.
 Third-party code goes into `chunks/vendor.js`.
 
@@ -36,5 +39,9 @@ uploaded alongside it, with these build steps: `npm ci && npm run build`.
 - **Unit:** Vitest with jsdom, next to the code (`*.test.ts(x)`). The coverage gate is 80%
   for lines, branches, functions and statements.
 - **E2E:** `npm run test:e2e` builds `dist/`, starts Firefox with a fresh profile, installs
-  the add-on and runs `e2e/tests/`. See the `e2e-test` guide in `.claude/skills/` for the
+  the add-on and runs `e2e/tests/`. YouTube embed requests are answered with a local fake
+  player (`e2e/pages/fake-player.html`), so it needs no network.
+- **Live E2E (opt-in):** `LIVE_STREAM=<id of a stream that is live now> npm run test:e2e:live`
+  plays that stream in two real embeds, opens a gap and checks the add-on closes it. YouTube
+  watch pages ask automated browsers to sign in, so it uses embeds. See the `e2e-test` guide in `.claude/skills/` for the
   harness details and its quirks.

@@ -3,8 +3,8 @@
 A browser extension that keeps two or more YouTube live streams of the same collab in sync,
 so you can watch them side by side without fiddling with playback speed.
 
-> **Status:** early development, nothing usable yet. Firefox first, Chrome as well once it
-> works there.
+> **Status:** early development. Live streams sync in Firefox (watch pages and embeds); the
+> popup only lists the players so far. Chrome support and archived streams come later.
 
 ## How it will work
 

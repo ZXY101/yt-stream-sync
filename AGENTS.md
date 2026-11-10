@@ -16,15 +16,16 @@ new decisions, and a log line. Never `git add` them.
 
 Run from the repo root. Node comes from nvm (version in `.nvmrc`).
 
-| What                                   | Command                  |
-| -------------------------------------- | ------------------------ |
-| Format, lint, dead code                | `npm run check`          |
-| Types                                  | `npm run typecheck`      |
-| Unit tests (+ coverage gate)           | `npm run test:coverage`  |
-| Build into `dist/`                     | `npm run build`          |
-| Mozilla add-on linter on `dist/`       | `npm run lint:ext`       |
-| E2E (builds first, Firefox, offline)   | `npm run test:e2e`       |
-| Re-render toolbar icons after the logo | `node scripts/icons.mjs` |
+| What                                   | Command                                  |
+| -------------------------------------- | ---------------------------------------- |
+| Format, lint, dead code                | `npm run check`                          |
+| Types                                  | `npm run typecheck`                      |
+| Unit tests (+ coverage gate)           | `npm run test:coverage`                  |
+| Build into `dist/`                     | `npm run build`                          |
+| Mozilla add-on linter on `dist/`       | `npm run lint:ext`                       |
+| E2E (builds first, Firefox, offline)   | `npm run test:e2e`                       |
+| E2E against real YouTube (opt-in)      | `LIVE_STREAM=<id> npm run test:e2e:live` |
+| Re-render toolbar icons after the logo | `node scripts/icons.mjs`                 |
 
 lefthook runs format/lint/type checks on commit and unit tests on push. CI
 additionally runs the build, `lint:ext` and the E2E suite.
@@ -87,12 +88,14 @@ without a debugger. Clear names and simple control flow beat clever or terse cod
 src/
   controller/   the sync logic: pure TypeScript, state in → actions out (see Project rules)
   background/   coordinator: the sync group, runs the controller, sends commands to players
-  content/      content script (watch pages and embeds) and the page-world player adapter
+  content/      content script (isolated world): relays between the page script and background
+  page/         page script (page world, `"world": "MAIN"`): reads YouTube's player, runs commands
   popup/        toolbar popup (React)
   lib/          shared code: browser API wrapper, message types, settings
   test/         test setup and fakes (simulated player)
 static/         manifest.json and icons, copied into dist/ as they are
-e2e/            fixtures/ (Firefox launcher, test fixtures), tests/<area>.spec.ts
+e2e/            fixtures/ (Firefox launcher, fake YouTube), pages/ (fake player), tests/<area>.spec.ts,
+                live/ (opt-in, real YouTube)
 scripts/        build helpers (icons, add-on linter)
 docs/           user and developer docs
 ```
@@ -103,8 +106,8 @@ docs/           user and developer docs
   only exception).
 - Hooks: `use-*.ts` exporting `useSomething`.
 - Unit tests sit next to the file: `player-list.test.tsx`, `controller.test.ts`.
-- `controller/` imports nothing from the other folders. `popup/`, `background/` and
-  `content/` never import each other; they talk through typed messages in `lib/`.
+- `controller/` imports nothing from the other folders. `popup/`, `background/`,
+  `content/` and `page/` never import each other; they talk through typed messages in `lib/`.
 
 ## Testing
 
@@ -152,7 +155,7 @@ docs/           user and developer docs
     `chunks/vendor.js`, which is react-dom's own innerHTML handling. Anything else
     fails, including warnings and notices. Our code never sets innerHTML.
 - **Commits:** Conventional Commits, `type(scope): summary`. Scopes: controller,
-  popup, background, content, e2e, ci, deps, docs, release. One logical change per
+  popup, background, content, page, e2e, ci, deps, docs, release. One logical change per
   commit. See the `commit` guide.
 - **Changelog:** never edit `CHANGELOG.md` by hand. release-please generates it
   and bumps the version in `package.json` and `static/manifest.json`.
@@ -166,8 +169,12 @@ docs/           user and developer docs
   Time and player state come in as arguments, actions come out. That's what makes
   every sync behaviour unit-testable against the simulated player.
 - Latency comes from the player's stats-for-nerds live latency, not
-  `getProgressState()`, which reads 0 on many live streams.
-- Firefox and Chrome from one codebase and one manifest. Use the `browser`/`chrome`
+  `getProgressState()`, which reads 0 on many live streams. Stats read 0 while paused too;
+  the page script counts latency up from the last real reading while a player isn't playing.
+- YouTube's player API (`#movie_player` methods, stats field names, ad classes) is not
+  public. Keep every use of it in `src/page/youtube.ts`, and mirror it in the fake player
+  (`e2e/pages/fake-player.html`, `src/test/fake-youtube.ts`).
+- Firefox and Chrome from one codebase. Use the `browser`/`chrome`
   wrapper in `lib/`, never a browser-only API without a fallback or a documented
   reason.
 - Generic tool: nothing specific to one person's setup (channels, streamers,

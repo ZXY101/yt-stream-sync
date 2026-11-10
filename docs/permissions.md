@@ -4,9 +4,14 @@ Every permission the add-on asks for, and why. Update this file in the same comm
 change to `permissions`, `optional_permissions`, `host_permissions` or `content_scripts`
 in `static/manifest.json`.
 
-| Permission | Why                                                           |
-| ---------- | ------------------------------------------------------------- |
-| _none yet_ | The add-on is a skeleton: a popup with no access to any site. |
+| Permission                                                 | Why                                                                                                                                                                                                            |
+| ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Content scripts on `https://www.youtube.com/*`, all frames | Read each live player's latency, buffer and state, and slow, pause or resume it. All frames, so YouTube embeds inside other sites (such as Holodex multiview) work too. This is the add-on's only site access. |
+
+Two scripts run in those frames: `page.js` in the page's own JavaScript world (YouTube's
+player methods are only reachable there) and `content.js` in the isolated world, which talks
+to the background script. Messages from the page are validated before use, and the page
+script only ever receives commands, never data from other tabs.
 
 The add-on collects no data (`data_collection_permissions: none`) and makes no network
 requests of its own.
