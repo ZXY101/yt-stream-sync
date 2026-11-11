@@ -3,7 +3,7 @@
 //
 // The other machine starts Firefox with remote debugging on its own localhost and opens an
 // SSH tunnel to this one (docs/remote-firefox.md), so the browser shows up here as
-// ws://127.0.0.1:9333. Usage:
+// ws://127.0.0.1:9222. Usage:
 //   node scripts/remote-firefox.mjs install        load the latest build (npm run build first)
 //   node scripts/remote-firefox.mjs open <id|url>… open watch pages in new tabs
 //   node scripts/remote-firefox.mjs tabs           list open tabs
@@ -20,7 +20,7 @@ const ADDON = manifest.browser_specific_settings.gecko.id;
 // Pinned in the remote profile's user.js, like in the E2E tests, so popup URLs are known.
 const ADDON_UUID = "6f1c2b7e-0d3a-4e59-9a61-2c8f4b5d7e10";
 const POPUP = `moz-extension://${ADDON_UUID}/popup/index.html`;
-const ENDPOINT = process.env.REMOTE_FIREFOX ?? "ws://127.0.0.1:9333/session";
+const ENDPOINT = process.env.REMOTE_FIREFOX ?? "ws://127.0.0.1:9222/session";
 
 /** A minimal BiDi client: one request at a time is all this tool needs. */
 function connect(url) {
