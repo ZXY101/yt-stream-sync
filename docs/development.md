@@ -23,8 +23,8 @@ streams in a WebDriver-controlled Firefox. The add-on reloads after each `npm ru
 profile lives in `.firefox-profile/` (gitignored) and is kept between runs, so sign-ins stay; on
 the first run uBlock Origin is downloaded from addons.mozilla.org into it so ads don't get in the
 way. If Firefox Developer Edition is installed, it's used instead of your everyday Firefox: as a
-separate app, it can be the only browser a screen-control tool (such as an AI agent's computer
-use) gets access to. `FIREFOX_BIN` picks another Firefox.
+separate app, the test browser is easy to tell apart and runs next to it. `FIREFOX_BIN` picks
+another Firefox.
 
 While you test in that Firefox, `npm run debug -- status` (add `--json` for everything) and
 `npm run debug -- log` show what the add-on is doing from a terminal: the popup's sync status and

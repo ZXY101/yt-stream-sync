@@ -8,7 +8,7 @@
 // so ads don't get in the way of a test.
 //
 // Firefox Developer Edition is used when it's installed: it's a separate app from the everyday
-// Firefox, so screen-control tools can be granted the test browser alone. FIREFOX_BIN picks
+// Firefox, so the test browser is easy to tell apart and runs next to it. FIREFOX_BIN picks
 // another Firefox, as in the E2E suite.
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
