@@ -43,6 +43,10 @@ export interface LiveReport extends ReportBase {
   kind: "live";
   latency: number;
   bufferAhead: number;
+  /** Lowest `bufferAhead` over the last 15 s: how far the player can safely jump ahead. */
+  bufferLow?: number;
+  /** An ultra-low-latency stream: YouTube keeps it at the live edge, so it can't be held back. */
+  pinned?: boolean;
 }
 
 /** What the page script reads from an archived stream's player. */
@@ -63,6 +67,8 @@ export type PlayerReport = LiveReport | ArchiveReport;
 export type PlayerCommand =
   | { type: "setRate"; rate: number }
   | { type: "seek"; position: number }
+  /** Jump a live player this many seconds ahead. */
+  | { type: "skip"; seconds: number }
   | { type: "pause" }
   | { type: "play" }
   /** Start or stop listening to the player's audio. */

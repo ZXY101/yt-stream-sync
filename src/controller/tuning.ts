@@ -11,4 +11,6 @@ export const DEFAULT_TUNING: Tuning = {
   resumeError: 1,
   // Below about 1.5 s of buffer, live streams stall on the next slow segment.
   minBuffer: 1.5,
+  jumpError: 1,
+  jumpCooldown: 10,
 };

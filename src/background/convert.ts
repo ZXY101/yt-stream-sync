@@ -16,12 +16,15 @@ export function toCommand(action: Action): PlayerCommand {
   if (action.type === "seek") {
     return { type: "seek", position: action.position };
   }
+  if (action.type === "skip") {
+    return { type: "skip", seconds: action.seconds };
+  }
   return { type: action.type };
 }
 
 export function toLiveSample(id: string, report: LiveReport): PlayerSample {
-  const { latency, bufferAhead, state, playbackRate } = report;
-  return { id, latency, bufferAhead, state, playbackRate };
+  const { latency, bufferAhead, bufferLow, pinned, state, playbackRate } = report;
+  return { id, latency, bufferAhead, bufferLow, pinned, state, playbackRate };
 }
 
 /**
@@ -49,6 +52,15 @@ export function assumeDone(report: PlayerReport, command: PlayerCommand): Player
     return report.kind === "archive"
       ? { ...report, position: command.position, bufferAhead: 0 }
       : report;
+  }
+  if (command.type === "skip" && report.kind === "live") {
+    const { seconds } = command;
+    return {
+      ...report,
+      latency: Math.max(0, report.latency - seconds),
+      bufferAhead: Math.max(0, report.bufferAhead - seconds),
+      bufferLow: Math.max(0, (report.bufferLow ?? report.bufferAhead) - seconds),
+    };
   }
   if (command.type === "play" || command.type === "pause") {
     return { ...report, state: command.type === "play" ? "playing" : "paused" };

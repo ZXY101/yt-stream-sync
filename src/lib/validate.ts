@@ -26,6 +26,7 @@ const MAX_TEXT = 500;
 const MAX_ENVELOPE = 200;
 const AUDIO_STATES: ReadonlySet<unknown> = new Set(["listening", "blocked", "unavailable"]);
 const MAX_CLIP_SECONDS = 30;
+const MAX_SKIP_SECONDS = 120;
 // 30 s of 2 kHz 16-bit PCM in base64, with room to spare.
 const MAX_PCM_TEXT = 200_000;
 // Wall-clock milliseconds before 2100.
@@ -61,9 +62,16 @@ function isStartTime(value: unknown): boolean {
   return value === undefined || (inRange(value, MAX_START) && value >= MIN_START);
 }
 
+function hasLiveFields(value: Fields): boolean {
+  const lowOk = value.bufferLow === undefined || inRange(value.bufferLow, MAX_SECONDS);
+  const pinnedOk = value.pinned === undefined || typeof value.pinned === "boolean";
+  const timesOk = inRange(value.latency, MAX_SECONDS) && inRange(value.bufferAhead, MAX_SECONDS);
+  return timesOk && lowOk && pinnedOk;
+}
+
 function hasKindFields(value: Fields): boolean {
   if (value.kind === "live") {
-    return inRange(value.latency, MAX_SECONDS) && inRange(value.bufferAhead, MAX_SECONDS);
+    return hasLiveFields(value);
   }
   if (value.kind !== "archive") {
     return false;
@@ -114,6 +122,9 @@ export function isPlayerCommand(value: unknown): value is PlayerCommand {
   }
   if (value.type === "seek") {
     return inRange(value.position, MAX_SECONDS);
+  }
+  if (value.type === "skip") {
+    return inRange(value.seconds, MAX_SKIP_SECONDS);
   }
   if (value.type === "listen") {
     return typeof value.on === "boolean";

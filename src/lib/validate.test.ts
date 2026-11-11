@@ -23,6 +23,7 @@ const report: PlayerReport = {
 describe("isPlayerReport", () => {
   it("accepts a well-formed report", () => {
     expect(isPlayerReport(report)).toBe(true);
+    expect(isPlayerReport({ ...report, bufferLow: 2, pinned: true })).toBe(true);
   });
 
   it.each([
@@ -36,6 +37,8 @@ describe("isPlayerReport", () => {
     ["a huge title", { ...report, title: "x".repeat(501) }],
     ["a missing channel", { ...report, channel: undefined }],
     ["a missing video id", { ...report, videoId: 42 }],
+    ["a negative lowest buffer", { ...report, bufferLow: -1 }],
+    ["a non-boolean pinned", { ...report, pinned: "yes" }],
   ])("rejects %s", (_name, value) => {
     expect(isPlayerReport(value)).toBe(false);
   });
@@ -49,6 +52,9 @@ describe("isPlayerCommand", () => {
     [{ type: "setRate", rate: 20 }, false],
     [{ type: "seek", position: 3600 }, true],
     [{ type: "seek", position: -1 }, false],
+    [{ type: "skip", seconds: 10 }, true],
+    [{ type: "skip", seconds: 500 }, false],
+    [{ type: "skip", seconds: -2 }, false],
     [{ type: "setRate", rate: 0 }, false],
     [{ type: "pause" }, true],
     [{ type: "play" }, true],

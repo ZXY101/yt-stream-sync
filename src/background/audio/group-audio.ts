@@ -18,9 +18,18 @@ export interface MemberView {
   error: number | undefined;
 }
 
+/**
+ * Playing in sync, so its audio lines up steadily with the others'. A pinned
+ * (ultra-low-latency) player at normal speed counts even while it's ahead: it can't be held
+ * back, so the gap stays put and the audio match measures it.
+ */
 function isSettled(member: MemberView): boolean {
-  const inSync = member.error !== undefined && Math.abs(member.error) < SETTLED_ERROR;
-  return member.report.state === "playing" && inSync;
+  const { report, error } = member;
+  if (report.state !== "playing" || error === undefined) {
+    return false;
+  }
+  const atLimit = report.kind === "live" && report.pinned === true && report.playbackRate === 1;
+  return Math.abs(error) < SETTLED_ERROR || (atLimit && error > 0);
 }
 
 /** Audio for the sync group: matching by audio, and the waveforms the popup draws. */

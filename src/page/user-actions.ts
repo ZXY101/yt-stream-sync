@@ -4,6 +4,7 @@ export type MediaEvent = "seeked" | "play" | "pause" | "ratechange";
 
 const EVENT_FOR: Partial<Record<PlayerCommand["type"], MediaEvent>> = {
   seek: "seeked",
+  skip: "seeked",
   play: "play",
   pause: "pause",
   setRate: "ratechange",

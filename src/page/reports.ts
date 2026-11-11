@@ -1,6 +1,8 @@
 import type { ArchiveReport, LiveReport } from "../lib/messages.ts";
+import type { createBufferLowTracker } from "./buffer-low.ts";
 import type { createLatencyTracker } from "./latency.ts";
 import {
+  isPinnedLive,
   readBuffer,
   readLatency,
   readStartTime,
@@ -23,16 +25,21 @@ function describe(player: YouTubePlayer, video: HTMLVideoElement) {
 export function liveReport(
   player: YouTubePlayer,
   video: HTMLVideoElement,
-  latencyTracker: ReturnType<typeof createLatencyTracker>,
+  trackers: {
+    latency: ReturnType<typeof createLatencyTracker>;
+    bufferLow: ReturnType<typeof createBufferLowTracker>;
+  },
   now: number,
 ): LiveReport | undefined {
   const stats = player.getStatsForNerds();
   const base = describe(player, video);
-  const latency = latencyTracker.update(readLatency(stats), base.state, now);
+  const latency = trackers.latency.update(readLatency(stats), base.state, now);
   if (latency === undefined) {
     return undefined;
   }
-  return { kind: "live", latency, bufferAhead: readBuffer(stats), ...base };
+  const bufferAhead = readBuffer(stats);
+  const bufferLow = trackers.bufferLow.update(bufferAhead, now);
+  return { kind: "live", latency, bufferAhead, bufferLow, pinned: isPinnedLive(player), ...base };
 }
 
 /** Seconds buffered ahead of the playhead, from the video element's buffered ranges. */

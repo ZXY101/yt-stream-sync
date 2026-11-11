@@ -131,4 +131,100 @@ describe("step", () => {
 
     expect(result.actions).toEqual([{ type: "setRate", id: "a", rate: 0.92 }]);
   });
+
+  describe("with a pinned (ultra-low-latency) player", () => {
+    it("jumps the player behind ahead instead of holding back the pinned one", () => {
+      const samples = [
+        sample("a", { latency: 2, bufferAhead: 1.6, pinned: true }),
+        sample("b", { latency: 17, bufferAhead: 17, bufferLow: 16.5 }),
+      ];
+
+      const result = step(initialState(), samples, settings);
+
+      expect(result.actions).toEqual([{ type: "skip", id: "b", seconds: 15 }]);
+      expect(result.errors).toEqual({ a: 0, b: -15 });
+    });
+
+    it("jumps only as far as the buffer allows, and the pinned one stays ahead", () => {
+      const samples = [
+        sample("a", { latency: 2, bufferAhead: 1.6, pinned: true }),
+        sample("b", { latency: 17, bufferAhead: 15, bufferLow: 10.5 }),
+      ];
+
+      const result = step(initialState(), samples, settings);
+
+      expect(result.actions).toEqual([{ type: "skip", id: "b", seconds: 9 }]);
+      expect(result.errors).toEqual({ a: 6, b: -9 });
+    });
+
+    it("never pauses or slows the pinned player, and doesn't touch its speed", () => {
+      const samples = [
+        sample("a", { latency: 2, pinned: true, playbackRate: 1.05 }),
+        sample("b", { latency: 12, bufferAhead: 2, bufferLow: 1.5 }),
+      ];
+
+      const result = step(initialState(), samples, settings);
+
+      expect(result.actions).toEqual([]);
+      expect(result.state.modes).toEqual({ a: "normal", b: "normal" });
+      expect(result.errors).toEqual({ a: 10, b: 0 });
+    });
+
+    it("hands back a pinned player it was slowing before it knew", () => {
+      const state: ControllerState = { modes: { a: "slowing", b: "normal" } };
+      const samples = [
+        sample("a", { latency: 3, pinned: true, playbackRate: 0.92 }),
+        sample("b", { latency: 3 }),
+      ];
+
+      expect(step(state, samples, settings).actions).toEqual([
+        { type: "setRate", id: "a", rate: 1 },
+      ]);
+    });
+
+    it("hands back a pinned player it had paused before it knew", () => {
+      const state: ControllerState = { modes: { a: "paused", b: "normal" } };
+      const samples = [
+        sample("a", { latency: 3, state: "paused", pinned: true }),
+        sample("b", { latency: 3 }),
+      ];
+
+      const result = step(state, samples, settings);
+
+      expect(result.actions).toEqual([{ type: "play", id: "a" }]);
+      expect(result.state.modes.a).toBe("normal");
+    });
+
+    it("waits out the cooldown before jumping again", () => {
+      const samples = [
+        sample("a", { latency: 2, pinned: true }),
+        sample("b", { latency: 10, bufferAhead: 9.5, bufferLow: 9.5 }),
+      ];
+      const first = step(initialState(), samples, settings);
+      const second = step(first.state, samples, settings);
+
+      expect(first.actions).toEqual([{ type: "skip", id: "b", seconds: 8 }]);
+      expect(second.actions).toEqual([]);
+    });
+
+    it("slows a normal player that's ahead of the pinned one", () => {
+      const samples = [
+        sample("a", { latency: 4, pinned: true }),
+        sample("b", { latency: 3, bufferAhead: 3, bufferLow: 3 }),
+      ];
+
+      const result = step(initialState(), samples, settings);
+
+      expect(result.actions).toEqual([{ type: "setRate", id: "b", rate: 0.92 }]);
+    });
+
+    it("doesn't jump a player within a second of the target", () => {
+      const samples = [
+        sample("a", { latency: 4, pinned: true }),
+        sample("b", { latency: 4.8, bufferAhead: 5, bufferLow: 5 }),
+      ];
+
+      expect(step(initialState(), samples, settings).actions).toEqual([]);
+    });
+  });
 });

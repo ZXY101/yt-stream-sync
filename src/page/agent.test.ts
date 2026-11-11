@@ -38,6 +38,8 @@ describe("page agent", () => {
         kind: "live",
         latency: 4.2,
         bufferAhead: 3,
+        bufferLow: 3,
+        pinned: false,
         state: "playing",
         playbackRate: 0.92,
         title: "Collab stream",
@@ -45,6 +47,51 @@ describe("page agent", () => {
         videoId: "abc123",
       },
     ]);
+  });
+
+  it("marks ultra-low-latency streams as pinned", () => {
+    const { element } = createFakePlayer({
+      latencyClass: "MDE_STREAM_OPTIMIZATIONS_RENDERER_LATENCY_ULTRA_LOW",
+    });
+    const { agent, posted } = setup(element);
+
+    agent.tick();
+
+    expect(posted[0]).toMatchObject({ kind: "live", pinned: true });
+  });
+
+  it("reports the lowest buffer of late, and forgets it after a jump ahead", () => {
+    const player = createFakePlayer();
+    const { agent, posted } = setup(player.element);
+
+    agent.tick();
+    player.fake.bufferText = "5.00 s";
+    agent.tick();
+    expect(posted[1]).toMatchObject({ bufferAhead: 5, bufferLow: 3 });
+
+    agent.run({ type: "skip", seconds: 2 });
+    agent.tick();
+    expect(posted[2]).toMatchObject({ bufferLow: 5 });
+  });
+
+  it("counts a live player without a player response as not pinned", () => {
+    const { element } = createFakePlayer();
+    Object.assign(element, { getPlayerResponse: undefined });
+    const { agent, posted } = setup(element);
+
+    agent.tick();
+
+    expect(posted[0]).toMatchObject({ kind: "live", pinned: false });
+  });
+
+  it("jumps a live player ahead on the video element", () => {
+    const { element, video } = createFakePlayer();
+    video.currentTime = 10;
+    const { agent } = setup(element);
+
+    agent.run({ type: "skip", seconds: 4 });
+
+    expect(video.currentTime).toBe(14);
   });
 
   it("says once that there's no stream player, e.g. on a normal upload", () => {

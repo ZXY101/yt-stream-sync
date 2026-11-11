@@ -1,4 +1,5 @@
 import type { PlayerCommand, PlayerReport } from "../lib/messages.ts";
+import { createBufferLowTracker } from "./buffer-low.ts";
 import { createLatencyTracker } from "./latency.ts";
 import { archiveReport, liveReport } from "./reports.ts";
 import type { createListener } from "./listener.ts";
@@ -42,6 +43,9 @@ function carryOut(player: YouTubePlayer, video: HTMLVideoElement, command: Playe
     video.playbackRate = command.rate;
   } else if (command.type === "seek") {
     player.seekTo(command.position, true);
+  } else if (command.type === "skip") {
+    // On the video element: it works on live players (seen on real streams).
+    video.currentTime += command.seconds;
   } else if (command.type === "pause") {
     player.pauseVideo();
   } else if (command.type === "play") {
@@ -55,7 +59,7 @@ function carryOut(player: YouTubePlayer, video: HTMLVideoElement, command: Playe
  * players follow without waiting for the next second.
  */
 export function createPageAgent(options: PageAgentOptions) {
-  const latencyTracker = createLatencyTracker();
+  const trackers = { latency: createLatencyTracker(), bufferLow: createBufferLowTracker() };
   const userActions = createUserActionTracker(options.now);
   const media = createMediaWatcher((event) => {
     if (userActions.observe(event)) {
@@ -66,7 +70,7 @@ export function createPageAgent(options: PageAgentOptions) {
 
   function read(player: YouTubePlayer, video: HTMLVideoElement): PlayerReport | null | undefined {
     if (player.getVideoData().isLive) {
-      return liveReport(player, video, latencyTracker, options.now());
+      return liveReport(player, video, trackers, options.now());
     }
     return isArchive(player) ? archiveReport(player, video, userActions.count()) : null;
   }
@@ -98,6 +102,9 @@ export function createPageAgent(options: PageAgentOptions) {
       return;
     }
     userActions.expectFrom(command);
+    if (command.type === "skip") {
+      trackers.bufferLow.reset();
+    }
     carryOut(player, video, command);
   }
 

@@ -9,6 +9,10 @@ export interface PlayerSample {
   bufferAhead: number;
   state: PlayerState;
   playbackRate: number;
+  /** Lowest buffer over the last 15 s; how far the player can jump ahead. */
+  bufferLow?: number;
+  /** Ultra-low latency: YouTube keeps it at the live edge, so it is never held back. */
+  pinned?: boolean;
 }
 
 export interface SyncSettings {
@@ -35,6 +39,10 @@ export interface Tuning {
   resumeError: number;
   /** Every player should keep at least this many seconds buffered. */
   minBuffer: number;
+  /** With a pinned player in the group: jump a player ahead once it's this far behind. */
+  jumpError: number;
+  /** Steps to wait after a jump before the next one (the latency reading catches up). */
+  jumpCooldown: number;
 }
 
 /** What the controller is doing to a player. */
@@ -42,11 +50,14 @@ export type Mode = "normal" | "slowing" | "paused";
 
 export interface ControllerState {
   modes: Readonly<Record<string, Mode>>;
+  /** Steps left before each player may jump ahead again. */
+  cooldowns?: Readonly<Record<string, number>>;
 }
 
 export type Action =
   | { type: "setRate"; id: string; rate: number }
   | { type: "seek"; id: string; position: number }
+  | { type: "skip"; id: string; seconds: number }
   | { type: "pause"; id: string }
   | { type: "play"; id: string };
 

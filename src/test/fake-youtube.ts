@@ -14,13 +14,15 @@ export interface FakePlayerState {
   /** ISO time like "2026-11-10T12:59:40+00:00"; embeds have none. */
   startTimestamp?: string;
   duration: number;
+  /** e.g. "MDE_STREAM_OPTIMIZATIONS_RENDERER_LATENCY_ULTRA_LOW". */
+  latencyClass?: string;
 }
 
 function playerResponse(fake: FakePlayerState): PlayerResponse {
   const startTimestamp = fake.startTimestamp;
   const broadcast = { playerMicroformatRenderer: { liveBroadcastDetails: { startTimestamp } } };
   return {
-    videoDetails: { isLiveContent: fake.isLiveContent },
+    videoDetails: { isLiveContent: fake.isLiveContent, latencyClass: fake.latencyClass },
     microformat: startTimestamp ? broadcast : undefined,
   };
 }

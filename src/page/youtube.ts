@@ -14,7 +14,7 @@ export interface YouTubePlayer extends HTMLElement {
 
 /** The parts of the player response we read. Embeds have no `microformat`. */
 export interface PlayerResponse {
-  videoDetails?: { isLiveContent?: boolean };
+  videoDetails?: { isLiveContent?: boolean; latencyClass?: string };
   microformat?: {
     playerMicroformatRenderer?: { liveBroadcastDetails?: { startTimestamp?: string } };
   };
@@ -75,4 +75,16 @@ export function readStartTime(player: YouTubePlayer): number | undefined {
   const text = details?.liveBroadcastDetails?.startTimestamp;
   const milliseconds = text ? Date.parse(text) : Number.NaN;
   return Number.isFinite(milliseconds) ? milliseconds / 1000 : undefined;
+}
+
+/**
+ * An ultra-low-latency live stream. YouTube keeps these at the live edge: a pause or a seek
+ * back is undone within seconds (seen on real streams), so they can't be held back.
+ */
+export function isPinnedLive(player: YouTubePlayer): boolean {
+  // Optional call: a player without the method (seen in test pages) counts as not pinned.
+  const response =
+    typeof player.getPlayerResponse === "function" ? player.getPlayerResponse() : undefined;
+  const latencyClass = response?.videoDetails?.latencyClass ?? "";
+  return latencyClass.endsWith("_ULTRA_LOW");
 }

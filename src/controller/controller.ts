@@ -12,7 +12,40 @@ import type {
 } from "./types.ts";
 
 export function initialState(): ControllerState {
-  return { modes: {} };
+  return { modes: {}, cooldowns: {} };
+}
+
+interface PlayerStep {
+  mode: Mode;
+  cooldown: number;
+  actions: Action[];
+}
+
+/**
+ * One player's step. A pinned player is never held back: YouTube sends it back to the live
+ * edge after a pause (even 3 s), a seek back, and sometimes after a few seconds at 0.92x
+ * (all seen on a real stream), so it is only handed back as it was. A player well behind
+ * the target (only with a pinned player in the group) jumps ahead, at most once per
+ * cooldown. Anything else goes through the normal modes.
+ */
+function stepPlayer(
+  sample: PlayerSample,
+  state: ControllerState,
+  error: number,
+  tuning: Tuning,
+): PlayerStep {
+  const previous = state.modes[sample.id] ?? "normal";
+  const cooldown = Math.max(0, (state.cooldowns?.[sample.id] ?? 0) - 1);
+  if (sample.pinned === true) {
+    return { mode: "normal", cooldown, actions: releaseActions(sample, previous) };
+  }
+  if (error < -tuning.jumpError && cooldown === 0 && sample.state === "playing") {
+    const actions = actionsFor(sample, "normal", tuning);
+    actions.push({ type: "skip", id: sample.id, seconds: -error });
+    return { mode: "normal", cooldown: tuning.jumpCooldown, actions };
+  }
+  const mode = nextMode(previous, error, tuning);
+  return { mode, cooldown, actions: actionsFor(sample, mode, tuning) };
 }
 
 /**
@@ -60,11 +93,13 @@ export function step(
   const others = samples.filter((sample) => !synced.includes(sample));
   const errors = computeErrors(synced, settings, tuning.minBuffer + settings.safetyMargin);
   const modes: Record<string, Mode> = {};
+  const cooldowns: Record<string, number> = {};
   const actions = release(state, others);
   for (const sample of synced) {
-    const mode = nextMode(state.modes[sample.id] ?? "normal", errors[sample.id] ?? 0, tuning);
-    modes[sample.id] = mode;
-    actions.push(...actionsFor(sample, mode, tuning));
+    const result = stepPlayer(sample, state, errors[sample.id] ?? 0, tuning);
+    modes[sample.id] = result.mode;
+    cooldowns[sample.id] = result.cooldown;
+    actions.push(...result.actions);
   }
-  return { state: { modes }, actions, errors };
+  return { state: { modes, cooldowns }, actions, errors };
 }
