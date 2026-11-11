@@ -1,7 +1,7 @@
 import type { YtdlpzSettings } from "../../lib/ytdlpz.ts";
 
 /** One link's part of an alignment, as yt-dlp-z reports it. */
-export interface AlignJobStream {
+interface AlignJobStream {
   url: string;
   stage: "downloading" | "converting" | "ready";
   downloaded: number;
