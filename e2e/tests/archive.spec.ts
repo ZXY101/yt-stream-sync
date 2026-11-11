@@ -83,6 +83,28 @@ test("keeps the user's nudge between archives", async ({ firefoxPage, openPopup 
   await removeStream(popup, "pov-b");
 });
 
+test("moves an archive by a typed offset of minutes in one go", async ({
+  firefoxPage,
+  openPopup,
+}) => {
+  const { first, second } = await openPair(firefoxPage);
+  const popup = await openPopup();
+  await addAllStreams(popup, 2);
+  await expect.poll(() => gap(first, second), { timeout: 10_000 }).toBeLessThan(0.5);
+
+  await popup.locator('input[aria-label^="Offset of pov-b"]').click();
+  await popup.keyboard.type("1:30");
+  await popup.keyboard.press("Enter");
+
+  await expect
+    .poll(async () => {
+      const [a, b] = await Promise.all([readArchive(first), readArchive(second)]);
+      return Math.abs(b.position + APART - a.position - 90);
+    })
+    .toBeLessThan(0.5);
+  await removeStream(popup, "pov-b");
+});
+
 test("after a seek, waits for the slower stream to buffer and starts both together", async ({
   firefoxPage,
   openPopup,

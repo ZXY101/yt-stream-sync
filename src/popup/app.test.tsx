@@ -1,4 +1,4 @@
-import { act, render, screen, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import type { PlayerStatus, SyncStatus } from "../lib/messages.ts";
@@ -152,8 +152,43 @@ describe("App", () => {
     await user.click(await screen.findByRole("button", { name: "Move Stream A back 1 second" }));
     await user.click(screen.getByRole("button", { name: "Move Stream A ahead 0.1 seconds" }));
 
-    expect(sendMessage).toHaveBeenCalledWith({ type: "nudge", id: "7:0", seconds: -1 });
-    expect(screen.getByText("Nudge −0.9 s")).toBeVisible();
+    const field = screen.getByRole("textbox", { name: "Offset of Stream A (seconds or m:ss)" });
+    expect(field).toHaveValue("-0.9");
+    await waitFor(() => {
+      expect(sendMessage).toHaveBeenCalledWith({ type: "nudge", id: "7:0", seconds: -0.9 });
+    });
+    // Quick clicks go out as one nudge, so the archive sync seeks once.
+    expect(sendMessage).not.toHaveBeenCalledWith({ type: "nudge", id: "7:0", seconds: -1 });
+    expect(field).toHaveValue("-0.9");
+  });
+
+  it("sets a big offset typed as m:ss in one nudge", async () => {
+    const user = userEvent.setup();
+    fakeBackground([player({ title: "Stream A", inGroup: true })]);
+    render(<App />);
+
+    const field = await screen.findByRole("textbox", { name: /Offset of Stream A/ });
+    await user.clear(field);
+    await user.type(field, "-2:05.3{Enter}");
+
+    await waitFor(() => {
+      expect(sendMessage).toHaveBeenCalledWith({ type: "nudge", id: "7:0", seconds: -125.3 });
+    });
+    expect(field).toHaveValue("-2:05.3");
+  });
+
+  it("ignores an offset it can't read", async () => {
+    const user = userEvent.setup();
+    fakeBackground([player({ title: "Stream A", inGroup: true })]);
+    render(<App />);
+
+    const field = await screen.findByRole("textbox", { name: /Offset of Stream A/ });
+    await user.clear(field);
+    await user.type(field, "soon{Enter}");
+
+    expect(field).toHaveValue("+0.0");
+    await user.type(field, "5{Escape}");
+    expect(field).toHaveValue("+0.0");
   });
 
   it("shows archives by position and says when one is aligned by hand", async () => {

@@ -86,9 +86,3 @@ export function describeSync(player: PlayerStatus, gap = 0): string {
   }
   return describeArchive(player.error);
 }
-
-/** 0.3 → "+0.3 s", -1 → "−1.0 s" */
-export function formatOffset(seconds: number): string {
-  const sign = seconds < 0 ? "−" : "+";
-  return `${sign}${Math.abs(seconds).toFixed(1)} s`;
-}

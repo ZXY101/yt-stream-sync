@@ -1,5 +1,5 @@
-// Keeps nudges sane even if the user holds a button down for a while.
-const MAX_OFFSET = 600;
+// Archives can be minutes apart; an hour still keeps a runaway offset in check.
+const MAX_OFFSET = 3600;
 
 // Keeps sums of ±0.1 nudges free of float dust (0.30000000000000004).
 function roundToMillisecond(value: number): number {

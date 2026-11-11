@@ -21,7 +21,8 @@ const STATES: ReadonlySet<unknown> = new Set<PlayerState>([
 ]);
 const MAX_SECONDS = 7 * 24 * 60 * 60;
 const MAX_RATE = 16;
-const MAX_NUDGE = 60;
+// Archives can start minutes apart (a trimmed VOD, a late start): a typed offset is one nudge.
+const MAX_NUDGE = 3600;
 const MAX_TEXT = 500;
 const MAX_ENVELOPE = 200;
 const AUDIO_STATES: ReadonlySet<unknown> = new Set(["listening", "blocked", "unavailable"]);
