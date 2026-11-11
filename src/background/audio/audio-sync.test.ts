@@ -249,4 +249,17 @@ describe("audio sync", () => {
     expect(adjust).not.toHaveBeenCalled();
     // Several real 30 s matches; slow under coverage instrumentation.
   }, 30_000);
+
+  it("takes out the gap the sync keeps on purpose before moving an offset", () => {
+    const { sync, adjust, run, lastRequest } = setup();
+    // b is a low-latency stream the sync holds 0.7 s ahead of a, as far back as it goes.
+    run(31, [member("a", { error: 0 }), member("b", { error: 0.7 })]);
+    const { request } = lastRequest();
+
+    sync.receiveClip("a", clipFor(request, 0, 2));
+    sync.receiveClip("b", clipFor(request, -1.05, 3));
+
+    expect(adjust.mock.calls[0]?.[0]).toBe("b");
+    expect(adjust.mock.calls[0]?.[1]).toBeCloseTo(-0.35, 2);
+  });
 });

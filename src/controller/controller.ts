@@ -1,3 +1,4 @@
+import { type PinnedInput, stepPinned } from "./pinned-step.ts";
 import { actionsFor, nextMode, releaseActions } from "./player-step.ts";
 import { computeErrors } from "./target.ts";
 import { DEFAULT_TUNING } from "./tuning.ts";
@@ -12,21 +13,39 @@ import type {
 } from "./types.ts";
 
 export function initialState(): ControllerState {
-  return { modes: {}, cooldowns: {} };
+  return { modes: {}, cooldowns: {}, held: {}, ceilings: {}, floors: {} };
 }
 
 interface PlayerStep {
   mode: Mode;
   cooldown: number;
   actions: Action[];
+  held?: number;
+  ceiling?: number;
+  stuck?: boolean;
+}
+
+function pinnedInput(
+  sample: PlayerSample,
+  state: ControllerState,
+  error: number,
+  tuning: Tuning,
+): PinnedInput {
+  return {
+    sample,
+    previousMode: state.modes[sample.id] ?? "normal",
+    cooldown: Math.max(0, (state.cooldowns?.[sample.id] ?? 0) - 1),
+    error,
+    tuning,
+    held: state.held?.[sample.id],
+    ceiling: state.ceilings?.[sample.id] ?? tuning.pinnedMaxLatency,
+  };
 }
 
 /**
- * One player's step. A pinned player is never held back: YouTube sends it back to the live
- * edge after a pause (even 3 s), a seek back, and sometimes after a few seconds at 0.92x
- * (all seen on a real stream), so it is only handed back as it was. A player well behind
- * the target (only with a pinned player in the group) jumps ahead, at most once per
- * cooldown. Anything else goes through the normal modes.
+ * One player's step. A pinned player goes to `stepPinned`. A player well behind the target
+ * (only with a pinned player in the group) jumps ahead, at most once per cooldown. Anything
+ * else goes through the normal modes.
  */
 function stepPlayer(
   sample: PlayerSample,
@@ -37,7 +56,7 @@ function stepPlayer(
   const previous = state.modes[sample.id] ?? "normal";
   const cooldown = Math.max(0, (state.cooldowns?.[sample.id] ?? 0) - 1);
   if (sample.pinned === true) {
-    return { mode: "normal", cooldown, actions: releaseActions(sample, previous) };
+    return { mode: "normal", ...stepPinned(pinnedInput(sample, state, error, tuning)) };
   }
   if (error < -tuning.jumpError && cooldown === 0 && sample.state === "playing") {
     const actions = actionsFor(sample, "normal", tuning);
@@ -65,7 +84,9 @@ function release(state: ControllerState, samples: readonly PlayerSample[]): Acti
 }
 
 function idle(state: ControllerState, samples: readonly PlayerSample[]): StepResult {
-  return { state: initialState(), actions: release(state, samples), errors: {} };
+  // Ceilings and floors are learned per stream, so they outlive a pause in syncing.
+  const next = { ...initialState(), ceilings: state.ceilings ?? {}, floors: state.floors ?? {} };
+  return { state: next, actions: release(state, samples), errors: {}, stuck: [] };
 }
 
 /**
@@ -91,15 +112,50 @@ export function step(
     return idle(state, samples);
   }
   const others = samples.filter((sample) => !synced.includes(sample));
-  const errors = computeErrors(synced, settings, tuning.minBuffer + settings.safetyMargin);
-  const modes: Record<string, Mode> = {};
-  const cooldowns: Record<string, number> = {};
+  const floors = updateFloors(state.floors ?? {}, synced);
+  const minBuffer = tuning.minBuffer + settings.safetyMargin;
+  const held = new Set(Object.keys(state.held ?? {}));
+  const errors = computeErrors(synced, settings, { minBuffer, floors, held });
+  const ceilings = { ...state.ceilings };
+  const next: MutableState = { modes: {}, cooldowns: {}, held: {}, ceilings, floors };
   const actions = release(state, others);
+  const stuck: string[] = [];
   for (const sample of synced) {
     const result = stepPlayer(sample, state, errors[sample.id] ?? 0, tuning);
-    modes[sample.id] = result.mode;
-    cooldowns[sample.id] = result.cooldown;
+    record(next, sample.id, result);
+    if (result.stuck === true) {
+      stuck.push(sample.id);
+    }
     actions.push(...result.actions);
   }
-  return { state: { modes, cooldowns }, actions, errors };
+  return { state: next, actions, errors, stuck };
+}
+
+/** The lowest latency each pinned player has shown: where its live edge is. */
+function updateFloors(
+  floors: Readonly<Record<string, number>>,
+  samples: readonly PlayerSample[],
+): Record<string, number> {
+  const next = { ...floors };
+  for (const sample of samples) {
+    if (sample.pinned === true && sample.state === "playing") {
+      next[sample.id] = Math.min(next[sample.id] ?? sample.latency, sample.latency);
+    }
+  }
+  return next;
+}
+
+type MutableState = {
+  [K in keyof ControllerState]-?: Record<string, NonNullable<ControllerState[K]>[string]>;
+};
+
+function record(next: MutableState, id: string, result: PlayerStep) {
+  next.modes[id] = result.mode;
+  next.cooldowns[id] = result.cooldown;
+  if (result.held !== undefined) {
+    next.held[id] = result.held;
+  }
+  if (result.ceiling !== undefined) {
+    next.ceilings[id] = result.ceiling;
+  }
 }

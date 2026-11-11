@@ -124,7 +124,8 @@ export function isPlayerCommand(value: unknown): value is PlayerCommand {
     return inRange(value.position, MAX_SECONDS);
   }
   if (value.type === "skip") {
-    return inRange(value.seconds, MAX_SKIP_SECONDS);
+    // Negative: back, for holding back low-latency streams.
+    return inRange(Math.abs(value.seconds as number), MAX_SKIP_SECONDS);
   }
   if (value.type === "listen") {
     return typeof value.on === "boolean";

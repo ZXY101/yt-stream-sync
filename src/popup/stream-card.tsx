@@ -17,8 +17,8 @@ interface StreamCardProps {
 }
 
 const LOW_LATENCY_HELP =
-  "Ultra-low latency: YouTube keeps this stream at the live edge, so it can't be slowed or " +
-  "paused. The other streams jump ahead to meet it instead.";
+  "Ultra-low latency: YouTube keeps this stream near the live edge. It can't be slowed or " +
+  "paused, only held back a few seconds, so the other streams jump ahead to meet it.";
 
 /** Marks an ultra-low-latency live stream, the one that sets the pace of the group. */
 function LowLatencyBadge() {

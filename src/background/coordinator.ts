@@ -61,10 +61,15 @@ function isMixed(ids: readonly string[], reports: Reports): boolean {
   return new Set(ids.map((id) => reports.get(id)?.kind)).size > 1;
 }
 
-function memberViews(ids: string[], reports: Reports, errors: Record<string, number>) {
+interface StepOutcome {
+  errors: Record<string, number>;
+  stuck: string[];
+}
+
+function memberViews(ids: string[], reports: Reports, { errors, stuck }: StepOutcome) {
   return ids.flatMap((id): MemberView[] => {
     const report = reports.get(id);
-    return report ? [{ id, report, error: errors[id] }] : [];
+    return report ? [{ id, report, error: errors[id], stuck: stuck.includes(id) }] : [];
   });
 }
 
@@ -72,14 +77,16 @@ interface StatusParts {
   reports: Reports;
   group: ReturnType<typeof createGroup>;
   audio: ReturnType<typeof createGroupAudio>;
-  errors: Record<string, number>;
+  outcome: StepOutcome;
 }
 
-function buildStatus({ reports, group, audio, errors }: StatusParts): Omit<SyncStatus, "mixed"> {
+function buildStatus({ reports, group, audio, outcome }: StatusParts): Omit<SyncStatus, "mixed"> {
   const players = reports.all().map(([id, report]) => {
     const inGroup = group.has(id);
     const waveform = inGroup ? audio.waveform(id) : undefined;
-    const sync: SyncInfo = { inGroup, offset: group.offset(id), error: errors[id], waveform };
+    const error = outcome.errors[id];
+    const stuck = outcome.stuck.includes(id) || undefined;
+    const sync: SyncInfo = { inGroup, offset: group.offset(id), error, stuck, waveform };
     return toStatus(id, report, sync);
   });
   return { players, audio: audio.status() };
@@ -96,7 +103,7 @@ export function createCoordinator(options: CoordinatorOptions) {
   const diagnostics = createDiagnostics(options.now);
   const send = diagnostics.logged(options.send);
   const audio = createGroupAudio({ send, adjust: group.nudge, now: options.now });
-  let errors: Record<string, number> = {};
+  let outcome: StepOutcome = { errors: {}, stuck: [] };
 
   function remove(id: string) {
     reports.delete(id);
@@ -121,15 +128,15 @@ export function createCoordinator(options: CoordinatorOptions) {
   function tick() {
     const { groupIds, settings } = stepSettings(group, reports, options.settings());
     const result = controllers.run(reports.fresh(), settings);
-    errors = result.errors;
+    outcome = { errors: result.errors, stuck: result.stuck };
     sendAll(result.actions, send, reports);
-    audio.afterTick(memberViews(groupIds, reports, errors));
+    audio.afterTick(memberViews(groupIds, reports, outcome));
     diagnostics.afterTick(audio.status(), reports.all());
   }
 
   function status(): SyncStatus {
     return {
-      ...buildStatus({ reports, group, audio, errors }),
+      ...buildStatus({ reports, group, audio, outcome }),
       mixed: isMixed(group.ids(), reports),
     };
   }

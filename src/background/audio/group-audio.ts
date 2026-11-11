@@ -4,6 +4,9 @@ import { createWaveforms } from "./waveforms.ts";
 
 // A player within this many seconds of its spot counts as playing in sync.
 const SETTLED_ERROR = 0.2;
+// Low-latency streams' latency readings jitter by about 0.1 s, and the sync leaves them
+// alone until 0.3 s off (`holdError`), so they're steady anywhere below that.
+const PINNED_SETTLED_ERROR = 0.3;
 
 export interface GroupAudioOptions {
   send: (id: string, command: PlayerCommand) => void;
@@ -16,20 +19,24 @@ export interface MemberView {
   report: PlayerReport;
   /** Seconds off its spot, from the last sync step; missing while not synced. */
   error: number | undefined;
+  /** The sync can't move it any closer to its spot. */
+  stuck?: boolean;
 }
 
 /**
- * Playing in sync, so its audio lines up steadily with the others'. A pinned
- * (ultra-low-latency) player at normal speed counts even while it's ahead: it can't be held
- * back, so the gap stays put and the audio match measures it.
+ * Playing steadily, so its audio lines up the same way with the others' for a whole clip:
+ * in sync, or stuck at normal speed (a low-latency stream that can't be held back further).
+ * The gap a stuck player keeps is taken out of the match (see `audio-sync.ts`).
  */
 function isSettled(member: MemberView): boolean {
   const { report, error } = member;
   if (report.state !== "playing" || error === undefined) {
     return false;
   }
-  const atLimit = report.kind === "live" && report.pinned === true && report.playbackRate === 1;
-  return Math.abs(error) < SETTLED_ERROR || (atLimit && error > 0);
+  const steady = member.stuck === true && report.playbackRate === 1;
+  const pinned = report.kind === "live" && report.pinned === true;
+  const tolerance = pinned ? PINNED_SETTLED_ERROR : SETTLED_ERROR;
+  return Math.abs(error) < tolerance || steady;
 }
 
 /** Audio for the sync group: matching by audio, and the waveforms the popup draws. */
@@ -41,6 +48,7 @@ export function createGroupAudio(options: GroupAudioOptions) {
     const view = members.map((member) => ({
       id: member.id,
       settled: isSettled(member),
+      error: member.error ?? 0,
       blocked: member.report.audio?.state === "blocked",
       unavailable: member.report.audio?.state === "unavailable",
     }));

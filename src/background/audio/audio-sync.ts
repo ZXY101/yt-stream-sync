@@ -29,6 +29,8 @@ export interface AudioMember {
   blocked: boolean;
   /** The page can't hear its player at all. */
   unavailable?: boolean;
+  /** Seconds ahead of its spot in the sync (negative: behind), from the last step. */
+  error?: number;
 }
 
 type MatchBook = ReturnType<typeof createMatchBook>;
@@ -81,9 +83,55 @@ function applyMatch({ reference, result, members, book, adjust }: Applied): Audi
   return book.status(members, result.tooShort === true);
 }
 
+/**
+ * The audio lag includes any gap the sync already knows about and keeps on purpose (a
+ * low-latency stream that can't be held back further). Only the rest is a wrong offset:
+ * moving the offset by the whole lag would count that gap twice. Keeps the players' errors
+ * from when the clips were asked for (the moment the clips end) to take that gap out.
+ */
+function createKnownGaps() {
+  let latest: Record<string, number> = {};
+  let atAsk: Record<string, number> = {};
+
+  function update(members: readonly AudioMember[]) {
+    latest = Object.fromEntries(members.map((member) => [member.id, member.error ?? 0]));
+  }
+
+  function remove(result: MatchResult, reference: string): MatchResult {
+    const referenceError = atAsk[reference] ?? 0;
+    const lags = Object.fromEntries(
+      Object.entries(result.lags).map(([id, lag]) => [id, lag + (atAsk[id] ?? 0) - referenceError]),
+    );
+    return { ...result, lags };
+  }
+
+  return {
+    update,
+    remember: () => {
+      atAsk = latest;
+    },
+    remove,
+  };
+}
+
 /** Matched players stay the reference when they can, so new players join them. */
 function pickReference(eligible: string[], book: MatchBook): string {
   return eligible.find((id) => book.isDone(id)) ?? (eligible[0] as string);
+}
+
+interface AskParts {
+  collector: ReturnType<typeof createClipCollector>;
+  knownGaps: ReturnType<typeof createKnownGaps>;
+  eligible: string[];
+  book: MatchBook;
+}
+
+/** Asks the eligible players for their last seconds of audio. */
+function askForClips({ collector, knownGaps, eligible, book }: AskParts): AudioStatus {
+  const reference = pickReference(eligible, book);
+  collector.ask({ ids: eligible, reference, seconds: CLIP_SECONDS });
+  knownGaps.remember();
+  return { state: "matching" };
 }
 
 /**
@@ -100,6 +148,7 @@ export function createAudioSync(options: AudioSyncOptions) {
   let enabled = true;
   let status: AudioStatus = { state: "waiting" };
   let memberIds: string[] = [];
+  const knownGaps = createKnownGaps();
 
   function finish(reference: string, result: MatchResult) {
     collector.clear();
@@ -110,6 +159,7 @@ export function createAudioSync(options: AudioSyncOptions) {
   /** Call after every sync step with the group's members. */
   function update(members: readonly AudioMember[]) {
     memberIds = members.map((member) => member.id);
+    knownGaps.update(members);
     listenSet.set(enabled ? memberIds : []);
     const { eligible, progress } = readinessOf(readiness.update(members));
     const facts = { enabled, pendingFor: collector.waitingFor(), progress };
@@ -117,9 +167,7 @@ export function createAudioSync(options: AudioSyncOptions) {
     if (decision.do === "show") {
       status = decision.status;
     } else if (decision.do === "ask") {
-      const reference = pickReference(eligible, book);
-      collector.ask({ ids: eligible, reference, seconds: CLIP_SECONDS });
-      status = { state: "matching" };
+      status = askForClips({ collector, knownGaps, eligible, book });
     } else if (decision.do === "give-up") {
       // Not every player answered in time: a failed try for all of them.
       const asked = collector.pending();
@@ -130,7 +178,8 @@ export function createAudioSync(options: AudioSyncOptions) {
   function receiveClip(id: string, clip: AudioClip) {
     const collected = collector.receive(id, clip);
     if (collected) {
-      finish(collected.reference, matchClips(collected.clips, collected.reference, LIMITS));
+      const { clips, reference } = collected;
+      finish(reference, knownGaps.remove(matchClips(clips, reference, LIMITS), reference));
     }
   }
 

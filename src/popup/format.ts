@@ -22,11 +22,21 @@ export function describePlace(player: PlayerStatus): string {
 
 /** Gaps below this read as "in sync": the live controller settles within about a second. */
 const LIVE_SETTLED = 1;
+/** A low-latency stream this far ahead is being held back (the controller's `holdError`). */
+const HOLDING = 0.3;
 
 /**
  * `gap`: how far a low-latency stream stays ahead of the group (see `lowLatencyGap`). While
  * there is one, "in sync" would be wrong: the others are only as close as they can get.
  */
+/** A low-latency stream ahead of the group: being held back, or held back as far as it goes. */
+function describePinnedAhead(player: PlayerStatus, error: number): string {
+  if (player.stuck === true) {
+    return `${error.toFixed(1)} s ahead`;
+  }
+  return `Holding back, ${error.toFixed(1)} s ahead`;
+}
+
 function describeLive(player: PlayerStatus, error: number, gap: number): string {
   if (player.state === "paused") {
     return `Paused, ${error.toFixed(1)} s ahead`;
@@ -34,8 +44,8 @@ function describeLive(player: PlayerStatus, error: number, gap: number): string 
   if (player.playbackRate < 1) {
     return `Slowed to ${player.playbackRate.toFixed(2)}×, ${error.toFixed(1)} s ahead`;
   }
-  if (player.pinned === true && error >= LIVE_SETTLED) {
-    return `${error.toFixed(1)} s ahead`;
+  if (player.pinned === true && error >= HOLDING) {
+    return describePinnedAhead(player, error);
   }
   if (error <= -LIVE_SETTLED) {
     return `Jumping ahead, ${(-error).toFixed(1)} s behind`;
@@ -49,7 +59,7 @@ function describeLive(player: PlayerStatus, error: number, gap: number): string 
  */
 export function lowLatencyGap(members: readonly PlayerStatus[]): number {
   const gaps = members
-    .filter((member) => member.kind === "live" && member.pinned === true)
+    .filter((member) => member.kind === "live" && member.pinned === true && member.stuck === true)
     .map((member) => member.error ?? 0);
   const gap = Math.max(0, ...gaps);
   return gap >= LIVE_SETTLED ? gap : 0;

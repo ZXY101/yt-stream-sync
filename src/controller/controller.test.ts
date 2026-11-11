@@ -51,7 +51,7 @@ describe("step", () => {
   it("does nothing when no player can be synced", () => {
     const result = step(initialState(), [sample("a", { state: "ended" })], settings);
 
-    expect(result).toEqual({ state: initialState(), actions: [], errors: {} });
+    expect(result).toEqual({ state: initialState(), actions: [], errors: {}, stuck: [] });
   });
 
   it("forgets players that left the group", () => {
@@ -102,7 +102,7 @@ describe("step", () => {
 
     const result = step(initialState(), samples, { ...settings, group: ["a"] });
 
-    expect(result).toEqual({ state: initialState(), actions: [], errors: {} });
+    expect(result).toEqual({ state: initialState(), actions: [], errors: {}, stuck: [] });
   });
 
   it("hands back a player that was taken out of the group", () => {
@@ -145,7 +145,7 @@ describe("step", () => {
       expect(result.errors).toEqual({ a: 0, b: -15 });
     });
 
-    it("jumps only as far as the buffer allows, and the pinned one stays ahead", () => {
+    it("jumps only as far as the buffer allows, and holds the pinned one back to meet it", () => {
       const samples = [
         sample("a", { latency: 2, bufferAhead: 1.6, pinned: true }),
         sample("b", { latency: 17, bufferAhead: 15, bufferLow: 10.5 }),
@@ -153,11 +153,16 @@ describe("step", () => {
 
       const result = step(initialState(), samples, settings);
 
-      expect(result.actions).toEqual([{ type: "skip", id: "b", seconds: 9 }]);
+      expect(result.actions).toEqual([
+        { type: "skip", id: "a", seconds: -2 },
+        { type: "skip", id: "b", seconds: 9 },
+      ]);
       expect(result.errors).toEqual({ a: 6, b: -9 });
+      expect(result.state.held).toEqual({ a: 4 });
+      expect(result.stuck).toEqual([]);
     });
 
-    it("never pauses or slows the pinned player, and doesn't touch its speed", () => {
+    it("holds the pinned player back by seeking, never by pausing or slowing", () => {
       const samples = [
         sample("a", { latency: 2, pinned: true, playbackRate: 1.05 }),
         sample("b", { latency: 12, bufferAhead: 2, bufferLow: 1.5 }),
@@ -165,9 +170,83 @@ describe("step", () => {
 
       const result = step(initialState(), samples, settings);
 
-      expect(result.actions).toEqual([]);
+      expect(result.actions).toEqual([{ type: "skip", id: "a", seconds: -2 }]);
       expect(result.state.modes).toEqual({ a: "normal", b: "normal" });
       expect(result.errors).toEqual({ a: 10, b: 0 });
+    });
+
+    it("holds the pinned player back no further than its ceiling, then calls it stuck", () => {
+      const samples = [
+        sample("a", { latency: 4.4, pinned: true }),
+        sample("b", { latency: 12, bufferAhead: 2, bufferLow: 1.5 }),
+      ];
+
+      const result = step(initialState(), samples, settings);
+
+      expect(result.actions).toEqual([]);
+      expect(result.stuck).toEqual(["a"]);
+    });
+
+    it("lines up two pinned streams by holding back the one ahead, offsets included", () => {
+      const samples = [
+        sample("a", { latency: 2.9, bufferAhead: 2, pinned: true }),
+        sample("b", { latency: 3.6, bufferAhead: 2.5, pinned: true }),
+      ];
+
+      const result = step(initialState(), samples, { ...settings, offsets: { a: -0.35 } });
+
+      expect(result.actions).toHaveLength(1);
+      expect(result.actions[0]).toMatchObject({ type: "skip", id: "a" });
+      const action = result.actions[0] as { seconds: number };
+      expect(action.seconds).toBeCloseTo(-1.05, 5);
+    });
+
+    it("lowers a pinned player's ceiling when YouTube snaps it back to live", () => {
+      const state: ControllerState = { modes: {}, held: { a: 4.4 } };
+      const samples = [
+        sample("a", { latency: 2.2, pinned: true }),
+        sample("b", { latency: 12, bufferAhead: 2, bufferLow: 1.5 }),
+      ];
+
+      const result = step(state, samples, settings);
+
+      expect(result.state.ceilings?.a).toBeCloseTo(3.9, 5);
+      const action = result.actions[0] as { seconds: number };
+      expect(action.seconds).toBeCloseTo(-1.7, 5);
+      expect(result.state.held?.a).toBeCloseTo(3.9, 5);
+      // Right after the seek the reading may still be the old one: not another snap-back.
+      const later = step(result.state, samples, settings);
+      expect(later.state.ceilings?.a).toBeCloseTo(3.9, 5);
+    });
+
+    it("jumps a held-back pinned player ahead again, but not past its live edge", () => {
+      const samples = [
+        sample("a", { latency: 4, bufferAhead: 3.5, bufferLow: 3.5, pinned: true }),
+        sample("b", { latency: 2.5 }),
+      ];
+
+      const held = { a: 4 };
+      const fromEdge = step({ modes: {}, held, floors: { a: 2 } }, samples, settings);
+      const fromHigherEdge = step({ modes: {}, held, floors: { a: 3 } }, samples, settings);
+      const neverHeld = step({ modes: {}, floors: { a: 2 } }, samples, settings);
+
+      expect(fromEdge.actions).toEqual([{ type: "skip", id: "a", seconds: 2 }]);
+      expect(fromEdge.state.held).toEqual({});
+      // a can only come 1 s ahead, so b, 0.5 s ahead of that, slows down to meet it.
+      expect(fromHigherEdge.actions).toEqual([
+        { type: "skip", id: "a", seconds: 1 },
+        { type: "setRate", id: "b", rate: 0.92 },
+      ]);
+      // Never held back: a stays where YouTube put it and b slows down to meet it.
+      expect(neverHeld.actions).toEqual([{ type: "setRate", id: "b", rate: 0.92 }]);
+    });
+
+    it("keeps learned ceilings and live edges while syncing pauses", () => {
+      const state: ControllerState = { modes: {}, ceilings: { a: 3 }, floors: { a: 2 } };
+
+      const result = step(state, [sample("a", { pinned: true })], settings);
+
+      expect(result.state).toMatchObject({ ceilings: { a: 3 }, floors: { a: 2 } });
     });
 
     it("hands back a pinned player it was slowing before it knew", () => {

@@ -13,4 +13,12 @@ export const DEFAULT_TUNING: Tuning = {
   minBuffer: 1.5,
   jumpError: 1,
   jumpCooldown: 10,
+  // Pinned players, from probes of two real ultra-low-latency streams: a 1 s seek back held
+  // at 4.8 s latency; the stats show 0 latency past about 5 s, and one slow-down snapped
+  // back at 4.0 s (the ceiling then comes down by itself).
+  holdError: 0.3,
+  pinnedMaxLatency: 4.5,
+  maxHoldStep: 2,
+  snapDrop: 1,
+  snapMargin: 0.5,
 };

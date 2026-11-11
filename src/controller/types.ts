@@ -11,7 +11,10 @@ export interface PlayerSample {
   playbackRate: number;
   /** Lowest buffer over the last 15 s; how far the player can jump ahead. */
   bufferLow?: number;
-  /** Ultra-low latency: YouTube keeps it at the live edge, so it is never held back. */
+  /**
+   * Ultra-low latency: YouTube keeps it near the live edge, so it is never paused or slowed,
+   * only held back a little by seeking (see `pinned-step.ts`).
+   */
   pinned?: boolean;
 }
 
@@ -43,6 +46,16 @@ export interface Tuning {
   jumpError: number;
   /** Steps to wait after a jump before the next one (the latency reading catches up). */
   jumpCooldown: number;
+  /** Pinned players: hold back or jump ahead once this many seconds off the target. */
+  holdError: number;
+  /** Pinned players: the most latency to hold one back to (YouTube snaps it back past it). */
+  pinnedMaxLatency: number;
+  /** Pinned players: the most seconds to seek back in one go. */
+  maxHoldStep: number;
+  /** Pinned players: a latency this far below where a hold-back left it means a snap-back. */
+  snapDrop: number;
+  /** After a snap-back, the player's ceiling goes this far below where it snapped. */
+  snapMargin: number;
 }
 
 /** What the controller is doing to a player. */
@@ -52,6 +65,12 @@ export interface ControllerState {
   modes: Readonly<Record<string, Mode>>;
   /** Steps left before each player may jump ahead again. */
   cooldowns?: Readonly<Record<string, number>>;
+  /** Pinned players held back: the latency the hold-back should have left them at. */
+  held?: Readonly<Record<string, number>>;
+  /** Pinned players that snapped back: the most latency each holds at. */
+  ceilings?: Readonly<Record<string, number>>;
+  /** Pinned players: the lowest latency each has shown, i.e. its live edge. */
+  floors?: Readonly<Record<string, number>>;
 }
 
 export type Action =
@@ -66,4 +85,6 @@ export interface StepResult {
   actions: Action[];
   /** Seconds each synced player is ahead of the target. Empty while syncing is on hold. */
   errors: Record<string, number>;
+  /** Synced players the controller can't move any closer to the target. */
+  stuck: string[];
 }

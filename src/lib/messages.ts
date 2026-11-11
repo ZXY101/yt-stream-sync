@@ -143,7 +143,7 @@ export interface PlayerStatus {
   playbackRate: number;
   /** Live: seconds behind live. */
   latency?: number;
-  /** Live: an ultra-low-latency stream, which YouTube keeps at the live edge (can't be held back). */
+  /** Live: an ultra-low-latency stream, which YouTube keeps near the live edge. */
   pinned?: boolean;
   /** Archive: seconds into the video. */
   position?: number;
@@ -155,6 +155,8 @@ export interface PlayerStatus {
   offset: number;
   /** Seconds ahead of the group (negative: behind); missing while it isn't being synced. */
   error?: number;
+  /** Off its spot, and the sync can't move it any closer (a low-latency stream at its limit). */
+  stuck?: boolean;
   /** While the add-on listens to this player. */
   waveform?: Waveform;
   /** Whether the add-on can hear this player, while it listens. */

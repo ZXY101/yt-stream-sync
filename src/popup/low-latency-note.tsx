@@ -11,8 +11,8 @@ function names(players: readonly PlayerStatus[]): string {
 }
 
 /**
- * Explains a gap the sync can't close: an ultra-low-latency stream can't be held back, and
- * the others can only jump ahead as far as their buffer allows. Without this, a group that
+ * Explains a gap the sync can't close: an ultra-low-latency stream can only be held back a
+ * few seconds, and the others can only jump ahead as far as their buffer allows. Without this, a group that
  * stays seconds apart looks broken.
  */
 export function LowLatencyNote({ members }: { members: readonly PlayerStatus[] }) {
@@ -20,7 +20,8 @@ export function LowLatencyNote({ members }: { members: readonly PlayerStatus[] }
   if (gap === 0) {
     return null;
   }
-  const pinned = members.filter((member) => member.pinned === true);
+  const pinned = members.filter((member) => member.pinned === true && member.stuck === true);
+  const othersJumped = members.some((member) => member.pinned !== true);
   const one = pinned.length === 1;
   const subject = one ? "stream is" : "streams are";
   const object = one ? "it" : "them";
@@ -29,8 +30,9 @@ export function LowLatencyNote({ members }: { members: readonly PlayerStatus[] }
       <Zap />
       <AlertDescription>
         Still {gap.toFixed(1)} s apart: the {names(pinned)} {subject} ultra-low latency. YouTube
-        keeps {object} at the live edge, so the sync can&apos;t hold {object} back, and the others
-        have jumped as far ahead as their buffer allows.
+        keeps {object} near the live edge, and the sync has held {object} back as far as YouTube
+        allows.
+        {othersJumped && " The others have jumped as far ahead as their buffer allows."}
       </AlertDescription>
     </Alert>
   );

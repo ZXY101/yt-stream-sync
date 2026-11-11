@@ -20,7 +20,8 @@ export function createControllers() {
     liveState = liveResult.state;
     archiveState = archiveResult.state;
     const actions: Action[] = [...liveResult.actions, ...archiveResult.actions];
-    return { actions, errors: { ...liveResult.errors, ...archiveResult.errors } };
+    const errors = { ...liveResult.errors, ...archiveResult.errors };
+    return { actions, errors, stuck: liveResult.stuck };
   }
 
   return { run };
