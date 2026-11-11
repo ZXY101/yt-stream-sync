@@ -4,6 +4,8 @@ import type { PlayerCommand } from "../../lib/messages.ts";
 import { noise } from "../../test/noise.ts";
 import { createAudioSync, type AudioMember } from "./audio-sync.ts";
 
+// Real matching on 30 s clips, several times per test: slow under coverage on a busy machine.
+const HEAVY_TIMEOUT_MS = 60_000;
 const voices = noise(80 * AUDIO_RATE, 1);
 
 /** 30 s of what a player heard, `behind` seconds behind the shared sound. */
@@ -88,57 +90,69 @@ describe("audio sync", () => {
     expect(adjust.mock.calls[0]?.[1]).toBeCloseTo(-11, 2);
   });
 
-  it("applies the players it could match and keeps trying the rest", () => {
-    const { sync, adjust, run, lastRequest } = setup();
-    const three = [member("a"), member("b"), member("c")];
-    run(31, three);
-    const first = lastRequest().request;
-
-    sync.receiveClip("a", clipFor(first, 0, 2));
-    sync.receiveClip("b", clipFor(first, 4, 3));
-    sync.receiveClip("c", unrelatedClip(first));
-
-    expect(adjust).toHaveBeenCalledOnce();
-    expect(sync.status()).toEqual({ state: "listening", progress: 0 });
-    run(31, three);
-    const second = lastRequest();
-    expect(second.ids).toEqual(["a", "b", "c"]);
-    sync.receiveClip("a", clipFor(second.request, 0, 2));
-    sync.receiveClip("b", clipFor(second.request, 0, 3));
-    sync.receiveClip("c", clipFor(second.request, -5, 4));
-
-    expect(adjust.mock.calls.at(-1)).toEqual(["c", expect.closeTo(-5, 2)]);
-    expect(sync.status()).toMatchObject({ state: "matched" });
-    // Two real three-player matches; slow under coverage instrumentation.
-  }, 30_000);
-
-  it("gives up on a player after 4 tries without shared sound, and says so", () => {
-    const { sync, adjust, run, lastRequest } = setup();
-    for (let attempt = 0; attempt < 4; attempt += 1) {
-      run(31, pair);
-      const { request } = lastRequest();
-      sync.receiveClip("a", clipFor(request, 0, 2));
-      sync.receiveClip("b", unrelatedClip(request));
-    }
-
-    expect(adjust).not.toHaveBeenCalled();
-    expect(sync.status()).toEqual({ state: "failed", reason: "no-shared-sound" });
-    // Four real 30 s matches; slow under coverage instrumentation.
-  }, 30_000);
-
-  it("reports which player stayed unmatched when the others matched", () => {
-    const { sync, run, lastRequest } = setup();
-    const three = [member("a"), member("b"), member("c")];
-    for (let attempt = 0; attempt < 4; attempt += 1) {
+  it(
+    "applies the players it could match and keeps trying the rest",
+    () => {
+      const { sync, adjust, run, lastRequest } = setup();
+      const three = [member("a"), member("b"), member("c")];
       run(31, three);
-      const { request } = lastRequest();
-      sync.receiveClip("a", clipFor(request, 0, 2));
-      sync.receiveClip("b", clipFor(request, attempt === 0 ? 2 : 0, 3));
-      sync.receiveClip("c", unrelatedClip(request));
-    }
+      const first = lastRequest().request;
 
-    expect(sync.status()).toMatchObject({ state: "matched", unmatched: ["c"] });
-  }, 30_000);
+      sync.receiveClip("a", clipFor(first, 0, 2));
+      sync.receiveClip("b", clipFor(first, 4, 3));
+      sync.receiveClip("c", unrelatedClip(first));
+
+      expect(adjust).toHaveBeenCalledOnce();
+      expect(sync.status()).toEqual({ state: "listening", progress: 0 });
+      run(31, three);
+      const second = lastRequest();
+      expect(second.ids).toEqual(["a", "b", "c"]);
+      sync.receiveClip("a", clipFor(second.request, 0, 2));
+      sync.receiveClip("b", clipFor(second.request, 0, 3));
+      sync.receiveClip("c", clipFor(second.request, -5, 4));
+
+      expect(adjust.mock.calls.at(-1)).toEqual(["c", expect.closeTo(-5, 2)]);
+      expect(sync.status()).toMatchObject({ state: "matched" });
+      // Two real three-player matches; slow under coverage instrumentation.
+    },
+    HEAVY_TIMEOUT_MS,
+  );
+
+  it(
+    "gives up on a player after 4 tries without shared sound, and says so",
+    () => {
+      const { sync, adjust, run, lastRequest } = setup();
+      for (let attempt = 0; attempt < 4; attempt += 1) {
+        run(31, pair);
+        const { request } = lastRequest();
+        sync.receiveClip("a", clipFor(request, 0, 2));
+        sync.receiveClip("b", unrelatedClip(request));
+      }
+
+      expect(adjust).not.toHaveBeenCalled();
+      expect(sync.status()).toEqual({ state: "failed", reason: "no-shared-sound" });
+      // Four real 30 s matches; slow under coverage instrumentation.
+    },
+    HEAVY_TIMEOUT_MS,
+  );
+
+  it(
+    "reports which player stayed unmatched when the others matched",
+    () => {
+      const { sync, run, lastRequest } = setup();
+      const three = [member("a"), member("b"), member("c")];
+      for (let attempt = 0; attempt < 4; attempt += 1) {
+        run(31, three);
+        const { request } = lastRequest();
+        sync.receiveClip("a", clipFor(request, 0, 2));
+        sync.receiveClip("b", clipFor(request, attempt === 0 ? 2 : 0, 3));
+        sync.receiveClip("c", unrelatedClip(request));
+      }
+
+      expect(sync.status()).toMatchObject({ state: "matched", unmatched: ["c"] });
+    },
+    HEAVY_TIMEOUT_MS,
+  );
 
   it("matches the players that play, and picks up one that starts later", () => {
     const { sync, run, lastRequest } = setup();
@@ -229,26 +243,30 @@ describe("audio sync", () => {
     expect(sync.status()).toEqual({ state: "matching" });
   });
 
-  it("doesn't move streams that are already matched while it retries another", () => {
-    const { sync, adjust, run, lastRequest } = setup();
-    const three = [member("a"), member("b"), member("c")];
-    run(31, three);
-    const first = lastRequest().request;
-    sync.receiveClip("a", clipFor(first, 0, 2));
-    sync.receiveClip("b", clipFor(first, 3, 3));
-    sync.receiveClip("c", unrelatedClip(first));
-    adjust.mockClear();
+  it(
+    "doesn't move streams that are already matched while it retries another",
+    () => {
+      const { sync, adjust, run, lastRequest } = setup();
+      const three = [member("a"), member("b"), member("c")];
+      run(31, three);
+      const first = lastRequest().request;
+      sync.receiveClip("a", clipFor(first, 0, 2));
+      sync.receiveClip("b", clipFor(first, 3, 3));
+      sync.receiveClip("c", unrelatedClip(first));
+      adjust.mockClear();
 
-    run(31, three);
-    const second = lastRequest().request;
-    // b is re-measured off by a little; it was matched already and must stay put.
-    sync.receiveClip("a", clipFor(second, 0, 2));
-    sync.receiveClip("b", clipFor(second, 0.4, 3));
-    sync.receiveClip("c", unrelatedClip(second));
+      run(31, three);
+      const second = lastRequest().request;
+      // b is re-measured off by a little; it was matched already and must stay put.
+      sync.receiveClip("a", clipFor(second, 0, 2));
+      sync.receiveClip("b", clipFor(second, 0.4, 3));
+      sync.receiveClip("c", unrelatedClip(second));
 
-    expect(adjust).not.toHaveBeenCalled();
-    // Several real 30 s matches; slow under coverage instrumentation.
-  }, 30_000);
+      expect(adjust).not.toHaveBeenCalled();
+      // Several real 30 s matches; slow under coverage instrumentation.
+    },
+    HEAVY_TIMEOUT_MS,
+  );
 
   it("takes out the gap the sync keeps on purpose before moving an offset", () => {
     const { sync, adjust, run, lastRequest } = setup();
