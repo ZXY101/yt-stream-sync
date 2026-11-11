@@ -10,6 +10,7 @@ import {
   type ToContent,
 } from "../lib/messages.ts";
 import { isAudioClip, isPlayerReport, isPopupRequest } from "../lib/validate.ts";
+import { readYtdlpzSettings, YTDLPZ_KEY } from "../lib/ytdlpz.ts";
 import { createCoordinator } from "./coordinator.ts";
 
 // Fixed until the popup gets its controls (milestone 5). Group and nudges are the coordinator's.
@@ -78,6 +79,10 @@ function handlePopupRequest(request: PopupRequest) {
     coordinator.rematchAudio();
   } else if (request.type === "clearGroup") {
     coordinator.clearGroup();
+  } else if (request.type === "alignArchives") {
+    coordinator.alignArchives();
+  } else if (request.type === "cancelAlign") {
+    coordinator.cancelAlign();
   }
 }
 
@@ -93,12 +98,22 @@ ext.runtime.onMessage.addListener((message: unknown, sender, sendResponse) => {
   return false;
 });
 
-// Matching by audio is on unless the user turned it off.
+// Matching by audio is on unless the user turned it off. yt-dlp-z alignment is off unless the
+// user set it up on the settings page.
 async function loadSettings() {
-  const stored = await ext.storage.local.get(AUDIO_SYNC_KEY);
+  const stored = await ext.storage.local.get([AUDIO_SYNC_KEY, YTDLPZ_KEY]);
   coordinator.setAudioSync(stored[AUDIO_SYNC_KEY] !== false);
+  coordinator.setYtdlpz(readYtdlpzSettings(stored[YTDLPZ_KEY]));
 }
 
 void loadSettings();
+
+// The settings page saves straight to storage.
+ext.storage.onChanged.addListener((changes, area) => {
+  const change = changes[YTDLPZ_KEY];
+  if (area === "local" && change) {
+    coordinator.setYtdlpz(readYtdlpzSettings(change.newValue));
+  }
+});
 
 setInterval(coordinator.tick, 1000);

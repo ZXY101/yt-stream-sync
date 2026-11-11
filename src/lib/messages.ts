@@ -121,6 +121,10 @@ export type PopupRequest =
   | { type: "rematchAudio" }
   /** Take every player out of the sync group. */
   | { type: "clearGroup" }
+  /** Line the group's archives up through the user's yt-dlp-z (only when set up). */
+  | { type: "alignArchives" }
+  /** Stop a running yt-dlp-z alignment. */
+  | { type: "cancelAlign" }
   /** The debug log, answered with `{ log: string }` instead of a `SyncStatus`. */
   | { type: "getDebugLog" };
 
@@ -182,9 +186,21 @@ export type AudioStatus =
   /** A player in the group can't be listened to. */
   | { state: "unavailable" };
 
+/** Where lining archives up through yt-dlp-z is at, for the popup. */
+export type AlignStatus =
+  /** Not set up (Settings → Advanced). */
+  | { state: "off" }
+  | { state: "ready" }
+  /** yt-dlp-z is downloading and comparing the streams' audio; `progress` 0–1. */
+  | { state: "running"; progress: number }
+  /** Offsets applied; `unmatched`: players yt-dlp-z found no reliable offset for. */
+  | { state: "done"; unmatched: string[] }
+  | { state: "failed"; message: string };
+
 export interface SyncStatus {
   players: PlayerStatus[];
   audio: AudioStatus;
+  align: AlignStatus;
   /** Live streams and archives are both in the group: they can't be synced together. */
   mixed: boolean;
 }

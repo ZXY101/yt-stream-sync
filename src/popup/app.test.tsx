@@ -33,8 +33,9 @@ function answer(
   players: PlayerStatus[],
   mixed = false,
   audio: SyncStatus["audio"] = { state: "waiting" },
+  align: SyncStatus["align"] = { state: "off" },
 ): SyncStatus {
-  return { players, mixed, audio };
+  return { players, mixed, audio, align };
 }
 
 const pair = [

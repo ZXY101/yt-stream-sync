@@ -9,7 +9,12 @@ const REFRESH_MS = 1000;
  * wait for buffers, so ten quick clicks would mean ten stutters instead of one.
  */
 const NUDGE_BATCH_MS = 400;
-const EMPTY: SyncStatus = { players: [], mixed: false, audio: { state: "waiting" } };
+const EMPTY: SyncStatus = {
+  players: [],
+  mixed: false,
+  audio: { state: "waiting" },
+  align: { state: "off" },
+};
 
 function request(message: PopupRequest): Promise<SyncStatus> {
   const response = ext.runtime.sendMessage(message) as Promise<SyncStatus | undefined>;
