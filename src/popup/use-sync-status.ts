@@ -8,7 +8,7 @@ const REFRESH_MS = 1000;
  * Clicks this close together go out as one nudge: each nudge makes the archive sync seek and
  * wait for buffers, so ten quick clicks would mean ten stutters instead of one.
  */
-export const NUDGE_BATCH_MS = 400;
+const NUDGE_BATCH_MS = 400;
 const EMPTY: SyncStatus = { players: [], mixed: false, audio: { state: "waiting" } };
 
 function request(message: PopupRequest): Promise<SyncStatus> {
