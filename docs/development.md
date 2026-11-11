@@ -30,9 +30,11 @@ While that Firefox is open, `npm run control -- <command>` sends the popup's req
 terminal, over the same debugging connection (`scripts/firefox-control.mjs`): `status`,
 `open <id|url>…`, `sync`, `remove`, `clear`, `nudge <player> <s>`, `offset <player> <t>`,
 `audio on|off`, `rematch`, `log` and `quit` (closes the test Firefox; on Windows, stopping
-`npm run firefox` with Ctrl+C can leave it running). A player is its video id, its number in `status` or part of
-its channel name. That's how a script or a coding agent can run a hand test, since agents can only
-look at browsers, not click in them. The launcher writes the connection's port to
+`npm run firefox` with Ctrl+C can leave it running). `seek <player> <time>`, `pause <player>` and
+`play <player>` act on a watch page's own player, as a user would, to test what carries over to
+the rest of the group. A player is its video id, its number in `status` or part of its channel
+name. That's how a script or a coding agent can run a hand test without clicking in the browser.
+The launcher writes the connection's port to
 `.firefox-profile/debugger-port`. With no YouTube player open, Firefox suspends the add-on's
 background page after about 30 s; the next command then reloads the add-on to start it again.
 

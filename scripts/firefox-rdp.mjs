@@ -77,8 +77,8 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** The background page's console actor, if the page is running. */
-async function backgroundConsole(rdp, descriptor, waitMs = BACKGROUND_WAIT_MS) {
+/** The console actor of a page under `descriptor` (an add-on or a tab) that `matches`. */
+async function pageConsole(rdp, descriptor, { matches, waitMs }) {
   const targets = [];
   rdp.listen((packet) => {
     if (packet.type === "target-available-form") {
@@ -89,9 +89,9 @@ async function backgroundConsole(rdp, descriptor, waitMs = BACKGROUND_WAIT_MS) {
     isServerTargetSwitchingEnabled: true,
   });
   await rdp.request(watcher.actor, "watchTargets", { targetType: "frame" });
-  // The background's target is announced shortly after the answer, not before it.
+  // Pages are announced shortly after the answer, not before it.
   for (let waited = 0; waited < waitMs; waited += 100) {
-    const page = targets.find((target) => target.url.endsWith("/_generated_background_page.html"));
+    const page = targets.find(matches);
     if (page) {
       return page.consoleActor;
     }
@@ -99,6 +99,31 @@ async function backgroundConsole(rdp, descriptor, waitMs = BACKGROUND_WAIT_MS) {
     await sleep(100);
   }
   return undefined;
+}
+
+/** The background page's console actor, if the page is running. */
+function backgroundConsole(rdp, descriptor, waitMs = BACKGROUND_WAIT_MS) {
+  return pageConsole(rdp, descriptor, {
+    matches: (target) => target.url.endsWith("/_generated_background_page.html"),
+    waitMs,
+  });
+}
+
+/** Runs `expression` in the top page of the tab whose address contains `urlPart`. */
+async function evaluateInTab(rdp, urlPart, expression) {
+  const { tabs } = await rdp.request("root", "listTabs");
+  const tab = tabs.find((item) => item.url.includes(urlPart));
+  if (!tab) {
+    throw new Error(`no tab with ${urlPart} in its address`);
+  }
+  const consoleActor = await pageConsole(rdp, tab.actor, {
+    matches: (target) => target.isTopLevelTarget,
+    waitMs: BACKGROUND_WAIT_MS,
+  });
+  if (!consoleActor) {
+    throw new Error(`can't reach the tab with ${urlPart}`);
+  }
+  return evaluate(rdp, consoleActor, expression);
 }
 
 async function addonActor(rdp, addonId) {
@@ -151,6 +176,8 @@ export async function openBackground(port, addonId) {
   const { rdp, consoleActor } = found;
   return {
     evaluate: (expression) => evaluate(rdp, consoleActor, expression),
+    /** For acting on a watch page like a user (seek, pause), not through the add-on. */
+    evaluateInTab: (urlPart, expression) => evaluateInTab(rdp, urlPart, expression),
     close: () => rdp.close(),
   };
 }

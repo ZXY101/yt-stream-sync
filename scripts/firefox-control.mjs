@@ -13,6 +13,9 @@
 //   npm run control -- rematch               match by audio again now
 //   npm run control -- log                   the popup's debug log
 //   npm run control -- quit                  close the test Firefox (and npm run firefox)
+// As a user on a watch page's own player (not through the add-on), to test what carries over:
+//   npm run control -- seek <player> <time>  jump to a time: 2700, 45:00, 1:02:03
+//   npm run control -- pause|play <player>
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
@@ -149,6 +152,26 @@ async function closeWindows(background) {
   print("closed the test Firefox");
 }
 
+/** Does `action` to the video on a player's watch page, as the user would in YouTube's player. */
+async function actAsUser(background, name, action) {
+  const player = findPlayer(await askAddon(background, { type: "getStatus" }), name);
+  const expression = `(() => {
+    const video = document.querySelector("#movie_player video");
+    ${action};
+    return "";
+  })()`;
+  await background.evaluateInTab(`v=${player.videoId}`, expression);
+  print(`${player.videoId}: ${action.replace("video.", "")}`);
+}
+
+function seekAsUser(background, name, text) {
+  const time = textToOffset(String(text));
+  if (time === undefined || time < 0) {
+    throw new Error(`"${text}" isn't a time (e.g. 2700, 45:00, 1:02:03)`);
+  }
+  return actAsUser(background, name, `video.currentTime = ${time}`);
+}
+
 async function openPages(background, args) {
   for (const arg of args) {
     const url = JSON.stringify(watchUrl(arg));
@@ -174,6 +197,9 @@ const COMMANDS = {
   rematch: (bg) => changeGroup(bg, { type: "rematchAudio" }),
   log: async (bg) => print((await askAddon(bg, { type: "getDebugLog" })).log),
   quit: (bg) => closeWindows(bg),
+  seek: (bg, [name, time]) => seekAsUser(bg, name, time),
+  pause: (bg, [name]) => actAsUser(bg, name, "video.pause()"),
+  play: (bg, [name]) => actAsUser(bg, name, "video.play()"),
 };
 
 function debuggerPort() {
