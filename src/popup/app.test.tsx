@@ -4,11 +4,14 @@ import userEvent from "@testing-library/user-event";
 import type { PlayerStatus, SyncStatus } from "../lib/messages.ts";
 import { App } from "./app.tsx";
 
-const { sendMessage, query } = vi.hoisted(() => ({
+const { sendMessage, query, openOptionsPage } = vi.hoisted(() => ({
   sendMessage: vi.fn<(message: unknown) => Promise<unknown>>(),
   query: vi.fn<(info: unknown) => Promise<{ id?: number }[]>>(),
+  openOptionsPage: vi.fn<() => Promise<void>>(),
 }));
-vi.mock("../lib/browser.ts", () => ({ ext: { runtime: { sendMessage }, tabs: { query } } }));
+vi.mock("../lib/browser.ts", () => ({
+  ext: { runtime: { sendMessage, openOptionsPage }, tabs: { query } },
+}));
 
 const CURRENT_TAB = 7;
 
@@ -79,6 +82,41 @@ describe("App", () => {
     expect(screen.getByText(/Add the streams you want to keep in sync/)).toBeVisible();
     expect(screen.queryByText("Collab stream")).not.toBeInTheDocument();
     expect(query).toHaveBeenCalledWith({ active: true, currentWindow: true });
+  });
+
+  it("opens the settings page", async () => {
+    const user = userEvent.setup();
+    sendMessage.mockResolvedValue(answer([]));
+    openOptionsPage.mockResolvedValue(undefined);
+    render(<App />);
+    await user.click(await screen.findByRole("button", { name: "Settings" }));
+    expect(openOptionsPage).toHaveBeenCalledOnce();
+  });
+
+  it("offers yt-dlp-z alignment for archives once it's set up", async () => {
+    const user = userEvent.setup();
+    const archives = [
+      player({
+        id: "1:0",
+        tabId: 1,
+        title: "A",
+        kind: "archive",
+        hasStartTime: true,
+        inGroup: true,
+      }),
+      player({
+        id: "2:0",
+        tabId: 2,
+        title: "B",
+        kind: "archive",
+        hasStartTime: true,
+        inGroup: true,
+      }),
+    ];
+    sendMessage.mockResolvedValue(answer(archives, false, { state: "off" }, { state: "ready" }));
+    render(<App />);
+    await user.click(await screen.findByRole("button", { name: "Align with yt-dlp-z" }));
+    expect(sendMessage).toHaveBeenCalledWith({ type: "alignArchives" });
   });
 
   it("adds this tab's stream, then asks for the other one", async () => {

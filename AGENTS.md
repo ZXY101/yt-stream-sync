@@ -45,6 +45,10 @@ additionally runs the build, `lint:ext` and the E2E suite.
   own. The manifest declares `data_collection_permissions: none`; keep it true. The one
   exception: the popup shows thumbnails from `i.ytimg.com` for videos the user already has
   open, built only from a validated 11-character video id (`src/popup/thumbnail.ts`).
+  The other: the opt-in yt-dlp-z alignment (`src/background/align/`), which talks only to
+  the server the user entered in the settings page, only after they turned it on there
+  (host permission for that one origin and Firefox's optional `browsingActivity` consent,
+  asked at that moment), and only when they click Align. It stays off by default.
 - **Least privilege:** ask only for the permissions and host permissions a feature
   needs (YouTube origins, not `<all_urls>`). Every new permission is documented in
   `docs/permissions.md` in the same commit, with the reason.
@@ -95,6 +99,8 @@ src/
   content/      content script (isolated world): relays between the page script and background
   page/         page script (page world, `"world": "MAIN"`): reads YouTube's player, runs commands
   popup/        toolbar popup (React, Tailwind, shadcn/ui)
+  options/      settings page (React; uses the popup's theme, popup/popup.css)
+  components/   shared React hooks (colour scheme) for the popup and settings page
   components/ui/  shadcn/ui components (generated, edit sparingly; copied from yt-dlp-z)
   lib/          shared code: browser API wrapper, message types, settings
   test/         test setup and fakes (simulated player)
@@ -115,8 +121,9 @@ docs/           user and developer docs
   Add components with `npx shadcn add <name>`; `components/ui/` is exempt from the file-size
   lint rules and from knip's unused-export check.
 - Unit tests sit next to the file: `player-list.test.tsx`, `controller.test.ts`.
-- `controller/` imports nothing from the other folders. `popup/`, `background/`,
-  `content/` and `page/` never import each other; they talk through typed messages in `lib/`.
+- `controller/` imports nothing from the other folders. `popup/`, `options/`, `background/`,
+  `content/` and `page/` never import each other (the settings page's CSS import of the
+  popup theme is the one exception); they talk through typed messages and storage in `lib/`.
 
 ## Testing
 

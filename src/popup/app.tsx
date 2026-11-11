@@ -1,13 +1,17 @@
+import { Settings } from "lucide-react";
 import { useState } from "react";
 
 import { Badge } from "@/components/ui/badge.tsx";
+import { Button } from "@/components/ui/button.tsx";
 
 import type { PlayerStatus, SyncStatus } from "../lib/messages.ts";
+import { ext } from "../lib/browser.ts";
+import { AlignPanel } from "./align-panel.tsx";
 import { AudioPanel } from "./audio-panel.tsx";
 import { DebugLogButton } from "./debug-log-button.tsx";
 import { SyncGroup } from "./sync-group.tsx";
 import { ThisTab } from "./this-tab.tsx";
-import { useColorScheme } from "./use-color-scheme.ts";
+import { useColorScheme } from "@/components/use-color-scheme.ts";
 import { useCurrentTab } from "./use-current-tab.ts";
 import { useSyncStatus } from "./use-sync-status.ts";
 
@@ -20,10 +24,28 @@ function newestAudio(members: PlayerStatus[]): number {
   return Math.max(0, ...members.map((player) => player.waveform?.end ?? 0));
 }
 
+function Header({ syncing }: { syncing: boolean }) {
+  return (
+    <header className="flex items-center gap-2">
+      <h1 className="flex-1 text-base font-semibold">yt-stream-sync</h1>
+      {syncing && <Badge>Syncing</Badge>}
+      <Button
+        variant="ghost"
+        size="icon-xs"
+        aria-label="Settings"
+        onClick={() => void ext.runtime.openOptionsPage()}
+      >
+        <Settings />
+      </Button>
+    </header>
+  );
+}
+
 export function App() {
   useColorScheme();
   const tabId = useCurrentTab();
-  const { status, setInGroup, nudge, setAudioSync, rematchAudio, clearGroup } = useSyncStatus();
+  const sync = useSyncStatus();
+  const { status, setInGroup, nudge, setAudioSync, rematchAudio, clearGroup } = sync;
   // Waveforms are shown by default while matching by audio is on.
   const [showWaveforms, setShowWaveforms] = useState(true);
   const players = status?.players ?? [];
@@ -31,10 +53,7 @@ export function App() {
   const members = players.filter((player) => player.inGroup);
   return (
     <main className="flex w-[360px] flex-col gap-4 p-3">
-      <header className="flex items-center justify-between">
-        <h1 className="text-base font-semibold">yt-stream-sync</h1>
-        {status && isSyncing(status) && <Badge>Syncing</Badge>}
-      </header>
+      <Header syncing={status !== undefined && isSyncing(status)} />
       {status && (
         <>
           <ThisTab
@@ -51,6 +70,12 @@ export function App() {
               onToggleWaveforms={() => setShowWaveforms((shown) => !shown)}
             />
           )}
+          <AlignPanel
+            status={status}
+            members={members}
+            onAlign={() => void sync.alignArchives()}
+            onCancel={() => void sync.cancelAlign()}
+          />
           <SyncGroup
             members={members}
             mixed={status.mixed}

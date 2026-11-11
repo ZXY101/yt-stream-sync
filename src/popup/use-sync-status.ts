@@ -110,6 +110,14 @@ export function useSyncStatus() {
     setStatus(await request({ type: "clearGroup" }));
   }
 
+  async function alignArchives() {
+    setStatus(await request({ type: "alignArchives" }));
+  }
+
+  async function cancelAlign() {
+    setStatus(await request({ type: "cancelAlign" }));
+  }
+
   return {
     status: withPending(status, batch.pending),
     setInGroup,
@@ -117,5 +125,7 @@ export function useSyncStatus() {
     setAudioSync,
     rematchAudio,
     clearGroup,
+    alignArchives,
+    cancelAlign,
   };
 }

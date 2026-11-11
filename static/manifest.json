@@ -18,6 +18,10 @@
       "32": "icons/icon-32.png"
     }
   },
+  "options_ui": {
+    "page": "options/index.html",
+    "open_in_tab": true
+  },
   "background": {
     "scripts": [
       "background.js"
@@ -51,6 +55,10 @@
   "permissions": [
     "storage"
   ],
+  "optional_host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
   "browser_specific_settings": {
     "gecko": {
       "id": "yt-stream-sync@zxy101.github.io",
@@ -58,6 +66,9 @@
       "data_collection_permissions": {
         "required": [
           "none"
+        ],
+        "optional": [
+          "browsingActivity"
         ]
       }
     }

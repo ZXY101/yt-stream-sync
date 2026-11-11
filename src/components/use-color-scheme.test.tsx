@@ -1,7 +1,7 @@
 import { render } from "@testing-library/react";
 
 import { colorScheme } from "../test/setup.ts";
-import { useColorScheme } from "./use-color-scheme.ts";
+import { useColorScheme } from "@/components/use-color-scheme.ts";
 
 function Probe() {
   useColorScheme();
