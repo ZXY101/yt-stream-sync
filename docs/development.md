@@ -26,6 +26,16 @@ way. If Firefox Developer Edition is installed, it's used instead of your everyd
 separate app, it can be the only browser a screen-control tool (such as an AI agent's computer
 use) gets access to. `FIREFOX_BIN` picks another Firefox.
 
+While that Firefox is open, `npm run control -- <command>` sends the popup's requests from a
+terminal, over the same debugging connection (`scripts/firefox-control.mjs`): `status`,
+`open <id|url>…`, `sync`, `remove`, `clear`, `nudge <player> <s>`, `offset <player> <t>`,
+`audio on|off`, `rematch`, `log` and `quit` (closes the test Firefox; on Windows, stopping
+`npm run firefox` with Ctrl+C can leave it running). A player is its video id, its number in `status` or part of
+its channel name. That's how a script or a coding agent can run a hand test, since agents can only
+look at browsers, not click in them. The launcher writes the connection's port to
+`.firefox-profile/debugger-port`. With no YouTube player open, Firefox suspends the add-on's
+background page after about 30 s; the next command then reloads the add-on to start it again.
+
 Or load it into your own browser after `npm run build`:
 
 - **Firefox:** `about:debugging#/runtime/this-firefox` → Load Temporary Add-on →

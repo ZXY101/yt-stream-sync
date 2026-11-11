@@ -10,13 +10,14 @@
 // Firefox Developer Edition is used when it's installed: it's a separate app from the everyday
 // Firefox, so screen-control tools can be granted the test browser alone. FIREFOX_BIN picks
 // another Firefox, as in the E2E suite.
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 import { cmd } from "web-ext";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const PROFILE = path.join(ROOT, ".firefox-profile");
+const PORT_FILE = path.join(PROFILE, "debugger-port");
 const UBLOCK_ID = "uBlock0@raymondhill.net";
 const UBLOCK_URL = "https://addons.mozilla.org/firefox/downloads/latest/ublock-origin/latest.xpi";
 
@@ -58,10 +59,20 @@ async function installUblock() {
   writeFileSync(file, Buffer.from(await response.arrayBuffer()));
 }
 
+/** Tells scripts/firefox-control.mjs where web-ext's debugging connection listens. */
+function savePort(runner) {
+  const port = runner.extensionRunners[0]?.runningInfo?.debuggerPort;
+  if (!port) {
+    return;
+  }
+  writeFileSync(PORT_FILE, String(port));
+  runner.registerCleanup(() => rmSync(PORT_FILE, { force: true }));
+}
+
 await installUblock();
 const firefox = firefoxBinary();
 console.warn(`Starting ${firefox}`);
-await cmd.run(
+const runner = await cmd.run(
   {
     sourceDir: path.join(ROOT, "dist"),
     target: ["firefox-desktop"],
@@ -69,9 +80,21 @@ await cmd.run(
     firefoxProfile: PROFILE,
     profileCreateIfMissing: true,
     keepProfileChanges: true,
-    // Firefox leaves add-ons that were put into the profile folder disabled unless this is 0.
-    pref: { "extensions.autoDisableScopes": 0 },
+    pref: {
+      // Firefox leaves add-ons that were put into the profile folder disabled unless this is 0.
+      "extensions.autoDisableScopes": 0,
+      // Let pages play with sound without a click first, so streams opened by
+      // `npm run control -- open` start on their own. The add-on's "blocked" audio state can't
+      // be tested in this browser; test it in a normal Firefox.
+      "media.autoplay.default": 0,
+      // Windows: a window under other windows counts as hidden, and YouTube doesn't start or
+      // keep playing a hidden page. A test window must keep playing while you work elsewhere.
+      "widget.windows.window_occlusion_tracking.enabled": false,
+      // Stopping web-ext ends Firefox like a crash; don't reopen the last test's pages.
+      "browser.sessionstore.resume_from_crash": false,
+    },
     startUrl: process.argv.slice(2),
   },
   { shouldExitProgram: false },
 );
+savePort(runner);
