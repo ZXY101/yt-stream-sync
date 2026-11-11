@@ -22,7 +22,9 @@ installs the add-on over Firefox's own debugging protocol, not WebDriver, and Yo
 streams in a WebDriver-controlled Firefox. The add-on reloads after each `npm run build`. The
 profile lives in `.firefox-profile/` (gitignored) and is kept between runs, so sign-ins stay; on
 the first run uBlock Origin is downloaded from addons.mozilla.org into it so ads don't get in the
-way. `FIREFOX_BIN` picks another Firefox.
+way. If Firefox Developer Edition is installed, it's used instead of your everyday Firefox: as a
+separate app, it can be the only browser a screen-control tool (such as an AI agent's computer
+use) gets access to. `FIREFOX_BIN` picks another Firefox.
 
 Or load it into your own browser after `npm run build`:
 

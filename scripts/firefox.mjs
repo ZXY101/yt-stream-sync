@@ -5,7 +5,11 @@
 // then freezes the streams). The add-on reloads after every `npm run build`.
 //
 // The profile in .firefox-profile/ is kept between runs (sign-ins, settings), with uBlock Origin
-// so ads don't get in the way of a test. FIREFOX_BIN picks another Firefox, as in the E2E suite.
+// so ads don't get in the way of a test.
+//
+// Firefox Developer Edition is used when it's installed: it's a separate app from the everyday
+// Firefox, so screen-control tools can be granted the test browser alone. FIREFOX_BIN picks
+// another Firefox, as in the E2E suite.
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
@@ -15,6 +19,29 @@ const ROOT = path.resolve(import.meta.dirname, "..");
 const PROFILE = path.join(ROOT, ".firefox-profile");
 const UBLOCK_ID = "uBlock0@raymondhill.net";
 const UBLOCK_URL = "https://addons.mozilla.org/firefox/downloads/latest/ublock-origin/latest.xpi";
+
+/** The usual install locations of Firefox Developer Edition. */
+function developerEditionPaths() {
+  if (process.platform === "win32") {
+    return [process.env.ProgramFiles, process.env["ProgramFiles(x86)"], process.env.LOCALAPPDATA]
+      .filter(Boolean)
+      .map((dir) => path.join(dir, "Firefox Developer Edition", "firefox.exe"));
+  }
+  if (process.platform === "darwin") {
+    return ["/Applications/Firefox Developer Edition.app/Contents/MacOS/firefox"];
+  }
+  return (process.env.PATH ?? "")
+    .split(path.delimiter)
+    .filter(Boolean)
+    .map((dir) => path.join(dir, "firefox-developer-edition"));
+}
+
+/** FIREFOX_BIN, else Developer Edition if installed, else the default Firefox. */
+function firefoxBinary() {
+  return (
+    process.env.FIREFOX_BIN || developerEditionPaths().find((file) => existsSync(file)) || "firefox"
+  );
+}
 
 /** Puts Mozilla's signed uBlock Origin package into the profile once. */
 async function installUblock() {
@@ -32,11 +59,13 @@ async function installUblock() {
 }
 
 await installUblock();
+const firefox = firefoxBinary();
+console.warn(`Starting ${firefox}`);
 await cmd.run(
   {
     sourceDir: path.join(ROOT, "dist"),
     target: ["firefox-desktop"],
-    firefox: process.env.FIREFOX_BIN || "firefox",
+    firefox,
     firefoxProfile: PROFILE,
     profileCreateIfMissing: true,
     keepProfileChanges: true,
