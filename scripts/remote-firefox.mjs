@@ -7,6 +7,8 @@
 //   node scripts/remote-firefox.mjs install        load the latest build (npm run build first)
 //   node scripts/remote-firefox.mjs open <id|url>… open watch pages in new tabs
 //   node scripts/remote-firefox.mjs tabs           list open tabs
+//   node scripts/remote-firefox.mjs close          close every tab but the first
+//   node scripts/remote-firefox.mjs sync           add every open stream to the sync group
 //   node scripts/remote-firefox.mjs status         the add-on's sync status (JSON)
 //   node scripts/remote-firefox.mjs log            the add-on's debug log
 import { execFileSync } from "node:child_process";
@@ -138,20 +140,46 @@ async function askAddon(bidi, request) {
   }
 }
 
-async function run(bidi, command, args) {
-  if (command === "install") {
-    await install(bidi);
-  } else if (command === "open") {
-    await open(bidi, args);
-  } else if (command === "tabs") {
-    await tabs(bidi);
-  } else if (command === "status") {
-    print(JSON.stringify(await askAddon(bidi, { type: "getStatus" }), null, 2));
-  } else if (command === "log") {
-    print((await askAddon(bidi, { type: "getDebugLog" })).log);
-  } else {
-    throw new Error("commands: install | open <id|url>… | tabs | status | log");
+/** Closes every tab but the first (Firefox needs one), e.g. streams that ended. */
+async function closeTabs(bidi) {
+  const { contexts } = await bidi.send("browsingContext.getTree", { maxDepth: 0 });
+  for (const context of contexts.slice(1)) {
+    // oxlint-disable-next-line no-await-in-loop
+    await bidi.send("browsingContext.close", { context: context.context });
   }
+  print(`closed ${Math.max(0, contexts.length - 1)} tabs`);
+}
+
+/** Adds every stream the add-on sees to the sync group, like ticking each in the popup. */
+async function syncAll(bidi) {
+  const status = await askAddon(bidi, { type: "getStatus" });
+  for (const player of status.players.filter((item) => !item.inGroup)) {
+    // oxlint-disable-next-line no-await-in-loop
+    await askAddon(bidi, { type: "setInGroup", id: player.id, inGroup: true });
+    print(`added ${player.videoId} ${player.title}`);
+  }
+}
+
+const COMMANDS = {
+  install: (bidi) => install(bidi),
+  open: (bidi, args) => open(bidi, args),
+  tabs: (bidi) => tabs(bidi),
+  close: (bidi) => closeTabs(bidi),
+  sync: (bidi) => syncAll(bidi),
+  status: async (bidi) => {
+    print(JSON.stringify(await askAddon(bidi, { type: "getStatus" }), null, 2));
+  },
+  log: async (bidi) => {
+    print((await askAddon(bidi, { type: "getDebugLog" })).log);
+  },
+};
+
+async function run(bidi, command, args) {
+  const action = Object.hasOwn(COMMANDS, command) ? COMMANDS[command] : undefined;
+  if (!action) {
+    throw new Error(`commands: ${Object.keys(COMMANDS).join(" | ")}`);
+  }
+  await action(bidi, args);
 }
 
 async function main() {
