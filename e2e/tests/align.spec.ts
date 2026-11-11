@@ -95,8 +95,11 @@ test("aligns the group's archives through yt-dlp-z", async ({ firefoxPage, openP
   await expect
     .poll(() => popup.$("::-p-text(Aligned.)").then(Boolean), { timeout: 15_000 })
     .toBe(true);
-  expect(server.started).toEqual([[URL_A, URL_B]]);
-  // 31 s later in content, and it started 70 s later: 31 + 70 on the broadcast clock.
-  expect(await offsets(popup)).toMatchObject({ "pov-a": 0, "pov-b": 101 });
+  // Both links, in the order the streams joined the group (either way round).
+  expect(server.started.map((urls) => urls.toSorted())).toEqual([[URL_A, URL_B]]);
+  // pov-b's content is 31 s later and it started 70 s later: 101 s apart on the broadcast
+  // clock, whichever stream is the reference.
+  const { "pov-a": a = Number.NaN, "pov-b": b = Number.NaN } = await offsets(popup);
+  expect(b - a).toBeCloseTo(101, 3);
   expect(server.deleted).toEqual(["job-1"]);
 });

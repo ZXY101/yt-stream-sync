@@ -56,13 +56,35 @@ describe("AlignPanel", () => {
     expect(onAlign).toHaveBeenCalledOnce();
   });
 
-  it("shows progress and can cancel", async () => {
+  it("shows the step, the time so far and each stream's stage, and can cancel", async () => {
     const user = userEvent.setup();
-    const { onCancel } = renderPanel({ state: "running", progress: 0.4 });
+    const { onCancel } = renderPanel({
+      state: "running",
+      phase: "fetching",
+      progress: 0.4,
+      elapsed: 83,
+      streams: [
+        { id: "1:0", stage: "downloading", downloaded: 0.456 },
+        { id: "2:0", stage: "converting", downloaded: 1 },
+      ],
+    });
     expect(screen.getByRole("progressbar", { name: "Alignment progress" })).toBeVisible();
-    expect(screen.getByText(/downloading and comparing the audio/)).toBeVisible();
+    expect(screen.getByText("Step 1 of 2 · yt-dlp-z is getting the audio")).toBeVisible();
+    expect(screen.getByLabelText("Time so far")).toHaveTextContent("1:23");
+    const steps = screen.getByRole("list", { name: "Alignment steps per stream" });
+    expect(steps).toHaveTextContent("Tsuzuri POVDownloading 46%");
+    expect(steps).toHaveTextContent("Kyoko POVConverting…");
     await user.click(screen.getByRole("button", { name: "Cancel" }));
     expect(onCancel).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    ["starting", "Asking yt-dlp-z…"],
+    ["comparing", "Step 2 of 2 · Comparing the streams"],
+  ] as const)("names the %s step, even without per-stream details", (phase, text) => {
+    renderPanel({ state: "running", phase, progress: 0.95, elapsed: 5, streams: [] });
+    expect(screen.getByText(text)).toBeVisible();
+    expect(screen.queryByRole("list")).not.toBeInTheDocument();
   });
 
   it("says when it's done, naming streams without a match", () => {

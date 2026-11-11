@@ -10,7 +10,17 @@ const MEMBERS: AlignMember[] = [
 ];
 
 function running(progress: number): AlignJobStatus {
-  return { state: "downloading", progress, offsets: {}, error: null };
+  return {
+    state: "downloading",
+    progress,
+    offsets: {},
+    error: null,
+    streams: [
+      { url: "u-a", stage: "ready", downloaded: 1 },
+      { url: "u-b", stage: "downloading", downloaded: 0.2 },
+      { url: "u-unknown", stage: "downloading", downloaded: 0 },
+    ],
+  };
 }
 
 function fakeClient() {
@@ -47,29 +57,52 @@ describe("createAlignJob", () => {
     const { job } = setUp(null);
     job.start(MEMBERS);
     expect(job.status()).toEqual({ state: "off" });
-    expect(job.runningFor()).toBeUndefined();
+    expect(job.shownFor()).toEqual([]);
   });
 
   it("polls, applies the offsets and deletes the job on the server", async () => {
     const client = fakeClient();
-    client.check
-      .mockResolvedValueOnce(running(0.4))
-      .mockResolvedValueOnce({ state: "done", progress: 1, offsets: { "u-b": 31 }, error: null });
+    client.check.mockResolvedValueOnce(running(0.4)).mockResolvedValueOnce({
+      state: "done",
+      progress: 1,
+      offsets: { "u-b": 31 },
+      error: null,
+      streams: [],
+    });
     const { job, apply, wait } = setUp(client);
     expect(job.status()).toEqual({ state: "ready" });
 
     job.start(MEMBERS);
-    expect(job.status()).toEqual({ state: "running", progress: 0 });
-    expect(job.runningFor()).toEqual(["1:0", "2:0"]);
+    expect(job.status()).toMatchObject({ state: "running", phase: "starting", progress: 0 });
+    expect(job.shownFor()).toEqual(["1:0", "2:0"]);
     await wait(1);
     expect(client.check).not.toHaveBeenCalled();
+    expect(job.status()).toMatchObject({ phase: "fetching", elapsed: 1, streams: [] });
     await wait(1);
-    expect(job.status()).toEqual({ state: "running", progress: 0.4 });
+    expect(job.status()).toEqual({
+      state: "running",
+      phase: "fetching",
+      progress: 0.4,
+      elapsed: 2,
+      streams: [
+        { id: "1:0", stage: "ready", downloaded: 1 },
+        { id: "2:0", stage: "downloading", downloaded: 0.2 },
+      ],
+    });
     await wait(2);
 
     expect(apply).toHaveBeenCalledWith({ "2:0": 31 + 99 });
     expect(job.status()).toEqual({ state: "done", unmatched: [] });
     expect(client.remove).toHaveBeenCalledWith("job-1");
+  });
+
+  it("says when the server is comparing", async () => {
+    const client = fakeClient();
+    client.check.mockResolvedValueOnce({ ...running(0.95), state: "analysing" });
+    const { job, wait } = setUp(client);
+    job.start(MEMBERS);
+    await wait(2);
+    expect(job.status()).toMatchObject({ phase: "comparing", progress: 0.95 });
   });
 
   it("reports the server's failure and deletes the job", async () => {
@@ -79,6 +112,7 @@ describe("createAlignJob", () => {
       progress: 1,
       offsets: {},
       error: "Only ended streams can be aligned",
+      streams: [],
     });
     const { job, apply, wait } = setUp(client);
     job.start(MEMBERS);
@@ -90,7 +124,13 @@ describe("createAlignJob", () => {
 
   it("falls back to a general message when the server gives none", async () => {
     const client = fakeClient();
-    client.check.mockResolvedValueOnce({ state: "failed", progress: 1, offsets: {}, error: null });
+    client.check.mockResolvedValueOnce({
+      state: "failed",
+      progress: 1,
+      offsets: {},
+      error: null,
+      streams: [],
+    });
     const { job, wait } = setUp(client);
     job.start(MEMBERS);
     await wait(2);

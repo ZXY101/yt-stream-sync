@@ -16,7 +16,13 @@ function clientAnswering(...responses: Response[]) {
   return { fetcher, client: createAlignClient(SETTINGS, fetcher) };
 }
 
-const DONE = { state: "done", progress: 1, offsets: { a: 0, b: 31.17 }, error: null };
+const DONE = {
+  state: "done",
+  progress: 1,
+  offsets: { a: 0, b: 31.17 },
+  error: null,
+  streams: [{ url: "a", stage: "ready", downloaded: 1 }],
+};
 
 describe("createAlignClient", () => {
   it("starts an alignment with the token and the links", async () => {
@@ -35,12 +41,20 @@ describe("createAlignClient", () => {
     expect(fetcher.mock.calls[0]?.[0]).toBe("https://server.test/api/align/job%2F1");
   });
 
+  it("reads answers from servers without per-link stages", async () => {
+    const { streams: _streams, ...older } = DONE;
+    const { client } = clientAnswering(json(older));
+    await expect(client.check("job-1")).resolves.toEqual({ ...older, streams: [] });
+  });
+
   it.each([
     [{ ...DONE, state: "weird" }],
     [{ ...DONE, progress: 2 }],
     [{ ...DONE, offsets: { a: "far" } }],
     [{ ...DONE, offsets: { a: 1e9 } }],
     [{ ...DONE, error: 5 }],
+    [{ ...DONE, streams: [{ url: "a", stage: "flying", downloaded: 1 }] }],
+    [{ ...DONE, streams: "all" }],
     ["not an object"],
   ])("rejects answers it doesn't understand (%j)", async (body) => {
     const { client } = clientAnswering(json(body));

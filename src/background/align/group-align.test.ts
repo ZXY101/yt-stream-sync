@@ -21,8 +21,11 @@ function archive(videoId: string, startTime?: number): ArchiveReport {
   };
 }
 
+const URL_B = "https://www.youtube.com/watch?v=b";
+
 function setUp(reports: Record<string, PlayerReport>) {
   let ids = Object.keys(reports);
+  const clock = { now: 0 };
   const fetcher = vi.fn<typeof fetch>(async (_url, init) => {
     const body = init?.method === "POST" ? { id: "job-1" } : {};
     return new Response(JSON.stringify(body), { status: init?.method === "POST" ? 202 : 204 });
@@ -31,10 +34,10 @@ function setUp(reports: Record<string, PlayerReport>) {
   const align = createGroupAlign({
     group: { ids: () => ids, offset: () => 0, nudge, report: (id) => reports[id] },
     onApplied: () => undefined,
-    now: () => 0,
+    now: () => clock.now,
     fetcher,
   });
-  return { align, fetcher, setIds: (next: string[]) => (ids = next) };
+  return { align, fetcher, clock, setIds: (next: string[]) => (ids = next) };
 }
 
 function methods(fetcher: ReturnType<typeof vi.fn<typeof fetch>>): string[] {
@@ -55,7 +58,7 @@ describe("createGroupAlign", () => {
     const { align, fetcher } = setUp({ "1:0": archive("aaa", 1000), "2:0": archive("bbb", 1099) });
     align.setSettings(SETTINGS);
     align.start();
-    expect(align.status()).toEqual({ state: "running", progress: 0 });
+    expect(align.status()).toMatchObject({ state: "running", progress: 0 });
     await vi.waitFor(() => expect(fetcher).toHaveBeenCalled());
     const body = JSON.parse(String(fetcher.mock.calls[0]?.[1]?.body)) as { urls: string[] };
     expect(body.urls).toEqual([
@@ -80,11 +83,37 @@ describe("createGroupAlign", () => {
     await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1));
     await Promise.resolve();
     align.tick();
-    expect(align.status()).toEqual({ state: "running", progress: 0 });
+    expect(align.status()).toMatchObject({ state: "running", progress: 0 });
     setIds(["1:0"]);
     align.tick();
     expect(align.status()).toEqual({ state: "ready" });
     await vi.waitFor(() => expect(methods(fetcher)).toContain("DELETE"));
+  });
+
+  it("forgets the last outcome once the group changes", async () => {
+    const reports = { "1:0": archive("a", 1000), "2:0": archive("b", 1099) };
+    const { align, fetcher, setIds, clock } = setUp(reports);
+    const done = { state: "done", progress: 1, offsets: { [URL_B]: 31 }, error: null };
+    fetcher.mockImplementation(async (_url, init) => {
+      if (init?.method === "POST") {
+        return new Response(JSON.stringify({ id: "job-1" }), { status: 202 });
+      }
+      return new Response(JSON.stringify(done), { status: init?.method ? 204 : 200 });
+    });
+    align.setSettings(SETTINGS);
+    align.start();
+    await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => {
+      clock.now += 5;
+      align.tick();
+      expect(align.status()).toEqual({ state: "done", unmatched: [] });
+    });
+
+    align.tick();
+    expect(align.status()).toEqual({ state: "done", unmatched: [] });
+    setIds(["1:0", "3:0"]);
+    align.tick();
+    expect(align.status()).toEqual({ state: "ready" });
   });
 
   it("stops when the settings change", async () => {

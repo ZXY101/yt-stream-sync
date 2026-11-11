@@ -17,7 +17,10 @@ interface AlignJobOptions {
 interface Job {
   client: AlignClient;
   members: AlignMember[];
+  startedAt: number;
   id?: string;
+  /** The server's latest report. */
+  latest?: AlignJobStatus;
   lastPoll: number;
   polling: boolean;
 }
@@ -26,7 +29,8 @@ interface Job {
 interface Tracker {
   job?: Job;
   last: AlignStatus;
-  progress: number;
+  /** The players the last outcome was for. */
+  lastFor: string[];
 }
 
 function message(error: unknown): string {
@@ -43,6 +47,7 @@ function finish(tracker: Tracker, current: Job, outcome: AlignStatus) {
   }
   tracker.job = undefined;
   tracker.last = outcome;
+  tracker.lastFor = current.members.map((member) => member.id);
 }
 
 async function launch(tracker: Tracker, current: Job) {
@@ -59,7 +64,7 @@ async function launch(tracker: Tracker, current: Job) {
 }
 
 function settle(tracker: Tracker, current: Job, result: AlignJobStatus, options: AlignJobOptions) {
-  tracker.progress = result.progress;
+  current.latest = result;
   if (result.state === "failed") {
     const text = result.error ?? "yt-dlp-z couldn't align them.";
     finish(tracker, current, { state: "failed", message: text });
@@ -85,21 +90,40 @@ async function poll(tracker: Tracker, current: Job, options: AlignJobOptions) {
   }
 }
 
+function phaseOf(job: Job): "starting" | "fetching" | "comparing" {
+  if (!job.id) {
+    return "starting";
+  }
+  return job.latest?.state === "analysing" ? "comparing" : "fetching";
+}
+
+/** What a running job shows: its phase, progress and each stream's stage by player. */
+function runningStatus(job: Job, now: number): AlignStatus {
+  const ids = new Map(job.members.map((member) => [member.url, member.id]));
+  const streams = (job.latest?.streams ?? []).flatMap((stream) => {
+    const id = ids.get(stream.url);
+    return id ? [{ id, stage: stream.stage, downloaded: stream.downloaded }] : [];
+  });
+  const progress = job.latest?.progress ?? 0;
+  const elapsed = Math.max(0, Math.round(now - job.startedAt));
+  return { state: "running", phase: phaseOf(job), progress, elapsed, streams };
+}
+
 /**
  * One alignment at a time through yt-dlp-z: start it, poll until it's done, apply the
  * offsets, and always ask the server to delete it afterwards (it holds the streams' audio).
  */
 export function createAlignJob(options: AlignJobOptions) {
-  const tracker: Tracker = { last: { state: "ready" }, progress: 0 };
+  const tracker: Tracker = { last: { state: "ready" }, lastFor: [] };
 
   function start(members: AlignMember[]) {
     const client = options.client();
     if (!client || tracker.job || members.length < 2) {
       return;
     }
-    const current: Job = { client, members, lastPoll: options.now(), polling: false };
+    const now = options.now();
+    const current: Job = { client, members, startedAt: now, lastPoll: now, polling: false };
     tracker.job = current;
-    tracker.progress = 0;
     void launch(tracker, current);
   }
 
@@ -118,19 +142,20 @@ export function createAlignJob(options: AlignJobOptions) {
       finish(tracker, tracker.job, { state: "ready" });
     }
     tracker.last = { state: "ready" };
+    tracker.lastFor = [];
   }
 
   function status(): AlignStatus {
     if (!options.client()) {
       return { state: "off" };
     }
-    return tracker.job ? { state: "running", progress: tracker.progress } : tracker.last;
+    return tracker.job ? runningStatus(tracker.job, options.now()) : tracker.last;
   }
 
-  /** The players a running alignment is for. */
-  function runningFor(): string[] | undefined {
-    return tracker.job?.members.map((member) => member.id);
+  /** The players a running alignment, or else the last outcome, is for. */
+  function shownFor(): string[] {
+    return tracker.job?.members.map((member) => member.id) ?? tracker.lastFor;
   }
 
-  return { start, tick, cancel, status, runningFor };
+  return { start, tick, cancel, status, shownFor };
 }

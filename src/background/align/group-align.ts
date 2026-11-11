@@ -64,10 +64,13 @@ export function createGroupAlign(options: GroupAlignOptions) {
     }
   }
 
-  /** Called every second: polls, and stops an alignment whose group changed meanwhile. */
+  /**
+   * Called every second: polls. When the group changed, a running alignment stops and an
+   * old outcome is forgotten, so the popup never shows one group's result for another.
+   */
   function tick() {
-    const running = job.runningFor();
-    if (running && !sameMembers(running, group.ids())) {
+    const shown = job.shownFor();
+    if (shown.length > 0 && !sameMembers(shown, group.ids())) {
       job.cancel();
     }
     job.tick();

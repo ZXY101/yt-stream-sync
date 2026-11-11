@@ -1,10 +1,19 @@
 import type { YtdlpzSettings } from "../../lib/ytdlpz.ts";
 
+/** One link's part of an alignment, as yt-dlp-z reports it. */
+export interface AlignJobStream {
+  url: string;
+  stage: "downloading" | "converting" | "ready";
+  downloaded: number;
+}
+
 /** What yt-dlp-z reports for an alignment (`GET /api/align/{id}`), checked. */
 export interface AlignJobStatus {
   state: "downloading" | "analysing" | "done" | "failed";
   /** 0–1 over the whole job. */
   progress: number;
+  /** Each link's stage; empty from servers that don't report it. */
+  streams: AlignJobStream[];
   /** Per link: seconds its content is later than the first link's; null when not found. */
   offsets: Record<string, number | null>;
   error: string | null;
@@ -14,6 +23,8 @@ export interface AlignJobStatus {
 export class AlignError extends Error {}
 
 const STATES: ReadonlySet<unknown> = new Set(["downloading", "analysing", "done", "failed"]);
+const STAGES: ReadonlySet<unknown> = new Set(["downloading", "converting", "ready"]);
+const MAX_STREAMS = 10;
 // Two recordings of one event can't be more than a day apart.
 const MAX_OFFSET = 86_400;
 const MAX_TEXT = 500;
@@ -37,10 +48,31 @@ function isError(value: unknown): boolean {
   return value === null || (typeof value === "string" && value.length <= MAX_TEXT);
 }
 
+function isStream(value: unknown): value is AlignJobStream {
+  const { url, stage, downloaded } = (value ?? {}) as Record<string, unknown>;
+  const urlOk = typeof url === "string" && url.length <= MAX_TEXT;
+  return urlOk && STAGES.has(stage) && isProgress(downloaded);
+}
+
+/** Older servers don't send streams: that reads as none. */
+function readStreams(value: unknown): AlignJobStream[] | undefined {
+  if (value === undefined) {
+    return [];
+  }
+  const valid = Array.isArray(value) && value.length <= MAX_STREAMS && value.every(isStream);
+  return valid
+    ? value.map(({ url, stage, downloaded }) => ({ url, stage, downloaded }))
+    : undefined;
+}
+
 function readStatus(value: unknown): AlignJobStatus | undefined {
-  const { state, progress, offsets, error } = (value ?? {}) as Record<string, unknown>;
+  const { state, progress, offsets, error, streams } = (value ?? {}) as Record<string, unknown>;
   const valid = STATES.has(state) && isProgress(progress) && isOffsets(offsets) && isError(error);
-  return valid ? ({ state, progress, offsets, error } as AlignJobStatus) : undefined;
+  const checkedStreams = readStreams(streams);
+  if (!valid || !checkedStreams) {
+    return undefined;
+  }
+  return { state, progress, offsets, error, streams: checkedStreams } as AlignJobStatus;
 }
 
 /** The server's own explanation (FastAPI's `detail`), if it gave a short one. */

@@ -14,13 +14,16 @@ It's off unless you turn it on.
    **Align with yt-dlp-z** in the popup.
 2. The add-on sends the archives' watch page links to your yt-dlp-z (`POST /api/align`).
 3. yt-dlp-z downloads a small audio-only copy of each, compares their loudness over the
-   whole overlap, and deletes the audio again. This takes a minute or two per pair.
+   whole overlap, and deletes the audio again. A pair of two-hour streams takes well under a
+   minute; the popup shows each stream's step (downloading, converting, ready).
 4. The add-on turns the result into offsets in the sync group, and matching by audio (if
    it's on) fine-tunes them. Then it asks yt-dlp-z to forget the job (`DELETE`).
 
-Clearing the group, removing or adding a stream, or turning the feature off while it runs
-cancels it (and deletes it on the server). yt-dlp-z also drops jobs nobody has checked on
-for an hour.
+Clearing the group, removing or adding a stream (closing a stream's tab removes it), or
+turning the feature off while it runs cancels it and deletes it on the server, which stops
+the download and deletes the audio. If the browser closes mid-way, yt-dlp-z notices nobody
+is checking on the job and stops it after a minute. Either way the audio never stays: yt-dlp-z
+deletes it as soon as a job finishes, fails or is stopped.
 
 ## What leaves your browser
 
@@ -34,7 +37,7 @@ anywhere else.
 2. In yt-dlp-z: **Settings → API tokens**, make a token with **full access**. Send-only
    tokens can't align.
 3. In the add-on: open the popup, click the gear (or the add-on's preferences in the
-   browser's add-ons page) → **Advanced → Align archives with yt-dlp-z**. Enter the server
+   browser's add-ons page) → **Align archives with yt-dlp-z**. Enter the server
    address and the token and click **Turn on**.
 4. Your browser asks to let the add-on reach that address. Firefox also asks about sending
    "browsing activity", because stream links go to your server. The add-on then checks the

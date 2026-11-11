@@ -63,7 +63,7 @@ function SetupSteps() {
   );
 }
 
-/** Settings → Advanced: lining archives up through the user's yt-dlp-z. */
+/** Lining archives up through the user's yt-dlp-z. */
 export function YtdlpzSection() {
   const { settings, busy, outcome, enable, disable } = useYtdlpzSettings();
   const on = settings?.enabled ?? false;
@@ -74,7 +74,9 @@ export function YtdlpzSection() {
           Align archives with yt-dlp-z
           <Badge variant={on ? "default" : "secondary"}>{on ? "On" : "Off"}</Badge>
         </CardTitle>
-        <CardDescription>Optional. Needs your own yt-dlp-z server.</CardDescription>
+        <CardDescription>
+          Optional, off until you turn it on. Needs your own yt-dlp-z server.
+        </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <HowItWorks />

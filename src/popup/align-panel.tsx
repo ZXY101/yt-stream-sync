@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button.tsx";
-import { Progress } from "@/components/ui/progress.tsx";
 
 import type { AlignStatus, PlayerStatus, SyncStatus } from "../lib/messages.ts";
+import { AlignRunning } from "./align-running.tsx";
 
 interface AlignPanelProps {
   status: SyncStatus;
@@ -24,22 +24,6 @@ function unmatchedNames(status: AlignStatus, members: PlayerStatus[]): string {
     .filter((player) => status.unmatched.includes(player.id))
     .map((player) => player.title || "Untitled stream");
   return titles.join(", ");
-}
-
-function Running({ progress, onCancel }: { progress: number; onCancel: () => void }) {
-  return (
-    <>
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <output className="flex-1">
-          yt-dlp-z is downloading and comparing the audio. This takes a minute or two.
-        </output>
-        <Button variant="outline" size="xs" onClick={onCancel}>
-          Cancel
-        </Button>
-      </div>
-      <Progress value={progress * 100} aria-label="Alignment progress" />
-    </>
-  );
 }
 
 function Outcome({ status, members }: { status: AlignStatus; members: PlayerStatus[] }) {
@@ -66,7 +50,7 @@ export function AlignPanel(props: AlignPanelProps) {
   return (
     <div className="flex flex-col gap-2 rounded-lg border p-2">
       {status.state === "running" ? (
-        <Running progress={status.progress} onCancel={onCancel} />
+        <AlignRunning status={status} members={members} onCancel={onCancel} />
       ) : (
         <div className="flex items-center gap-2">
           <p className="flex-1 text-sm font-medium">Far apart?</p>

@@ -12,7 +12,10 @@ export interface FakeYtdlpz {
   close: () => Promise<void>;
 }
 
-/** Per link, the offset the fake reports once an alignment is done. */
+/**
+ * Per link, how many seconds its content is later than some common point. The fake reports
+ * each link's offset relative to the first link it was sent, like yt-dlp-z.
+ */
 export type FakeOffsets = Record<string, number | null>;
 
 function send(response: ServerResponse, status: number, body?: unknown) {
@@ -30,6 +33,7 @@ async function readBody(request: IncomingMessage): Promise<{ urls?: string[] }> 
 
 interface FakeState {
   offsets: FakeOffsets;
+  /** Links of every alignment started. */
   started: string[][];
   deleted: string[];
   /** Job id → how often it was checked. */
@@ -43,14 +47,34 @@ async function start(state: FakeState, request: IncomingMessage, response: Serve
   send(response, 202, { id });
 }
 
+function relativeOffsets(shifts: FakeOffsets, urls: string[]): FakeOffsets {
+  const first = shifts[urls[0] ?? ""] ?? 0;
+  return Object.fromEntries(
+    urls.map((url) => {
+      const shift = shifts[url];
+      return [url, typeof shift === "number" ? shift - first : null];
+    }),
+  );
+}
+
 function check(state: FakeState, id: string, response: ServerResponse) {
   const count = (state.checks.get(id) ?? 0) + 1;
   state.checks.set(id, count);
+  const urls = state.started[Number(id.replace("job-", "")) - 1] ?? [];
   if (count === 1) {
-    send(response, 200, { state: "downloading", progress: 0.5, offsets: {}, error: null });
+    const streams = urls.map((url) => ({ url, stage: "downloading", downloaded: 0.5 }));
+    send(response, 200, {
+      state: "downloading",
+      progress: 0.45,
+      offsets: {},
+      error: null,
+      streams,
+    });
     return;
   }
-  send(response, 200, { state: "done", progress: 1, offsets: state.offsets, error: null });
+  const streams = urls.map((url) => ({ url, stage: "ready", downloaded: 1 }));
+  const offsets = relativeOffsets(state.offsets, urls);
+  send(response, 200, { state: "done", progress: 1, offsets, error: null, streams });
 }
 
 function remove(state: FakeState, id: string, response: ServerResponse) {

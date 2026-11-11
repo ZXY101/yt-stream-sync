@@ -1,4 +1,4 @@
-// Settings for the optional yt-dlp-z alignment (Settings page → Advanced), shared by the
+// Settings for the optional yt-dlp-z alignment (the settings page), shared by the
 // settings page and the background script.
 
 export const YTDLPZ_KEY = "ytdlpz";

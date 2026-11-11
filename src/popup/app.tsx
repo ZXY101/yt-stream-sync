@@ -31,7 +31,7 @@ function Header({ syncing }: { syncing: boolean }) {
       {syncing && <Badge>Syncing</Badge>}
       <Button
         variant="ghost"
-        size="icon-xs"
+        size="icon-sm"
         aria-label="Settings"
         onClick={() => void ext.runtime.openOptionsPage()}
       >
