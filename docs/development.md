@@ -40,7 +40,9 @@ uploaded alongside it, with these build steps: `npm ci && npm run build`.
   for lines, branches, functions and statements.
 - **E2E:** `npm run test:e2e` builds `dist/`, starts Firefox with a fresh profile, installs
   the add-on and runs `e2e/tests/`. YouTube embed requests are answered with a local fake
-  player (`e2e/pages/fake-player.html`), so it needs no network.
+  player (`e2e/pages/fake-player.html`), so it needs no network. If Playwright's Firefox
+  won't start on your machine, set `FIREFOX_BIN` to another Firefox (e.g. your installed
+  one) and the suite uses that instead.
 - **Live E2E (opt-in, real YouTube):** `npm run test:e2e:live` with
   - `LIVE_STREAM=<id of a stream that is live now>`: plays it in two real embeds, opens a gap
     and checks the add-on closes it (watch pages ask automated browsers to sign in for live

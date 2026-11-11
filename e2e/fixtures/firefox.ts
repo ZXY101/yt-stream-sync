@@ -24,7 +24,8 @@ export async function launchFirefox(): Promise<FirefoxSession> {
   const profile = mkdtempSync(path.join(tmpdir(), "yt-stream-sync-e2e-"));
   const browser = await launch({
     browser: "firefox",
-    executablePath: firefox.executablePath(),
+    // FIREFOX_BIN picks another Firefox, for machines where Playwright's build won't start.
+    executablePath: process.env.FIREFOX_BIN || firefox.executablePath(),
     headless: true,
     userDataDir: profile,
     // WebDriver BiDi refuses to open moz-extension:// pages unless this is set (test only).
