@@ -20,14 +20,39 @@ export function describePlace(player: PlayerStatus): string {
   return `Archive at ${formatPosition(player.position ?? 0)}`;
 }
 
-function describeLive(player: PlayerStatus, error: number): string {
+/** Gaps below this read as "in sync": the live controller settles within about a second. */
+const LIVE_SETTLED = 1;
+
+/**
+ * `gap`: how far a low-latency stream stays ahead of the group (see `lowLatencyGap`). While
+ * there is one, "in sync" would be wrong: the others are only as close as they can get.
+ */
+function describeLive(player: PlayerStatus, error: number, gap: number): string {
   if (player.state === "paused") {
     return `Paused, ${error.toFixed(1)} s ahead`;
   }
   if (player.playbackRate < 1) {
     return `Slowed to ${player.playbackRate.toFixed(2)}×, ${error.toFixed(1)} s ahead`;
   }
-  return "In sync";
+  if (player.pinned === true && error >= LIVE_SETTLED) {
+    return `${error.toFixed(1)} s ahead`;
+  }
+  if (error <= -LIVE_SETTLED) {
+    return `Jumping ahead, ${(-error).toFixed(1)} s behind`;
+  }
+  return gap > 0 && player.pinned !== true ? "Can't get closer" : "In sync";
+}
+
+/**
+ * How far an ultra-low-latency stream stays ahead of the rest: the gap the sync can't close.
+ * 0 when there's none or it's under a second.
+ */
+export function lowLatencyGap(members: readonly PlayerStatus[]): number {
+  const gaps = members
+    .filter((member) => member.kind === "live" && member.pinned === true)
+    .map((member) => member.error ?? 0);
+  const gap = Math.max(0, ...gaps);
+  return gap >= LIVE_SETTLED ? gap : 0;
 }
 
 function describeArchive(error: number): string {
@@ -38,8 +63,8 @@ function describeArchive(error: number): string {
   return `Catching up, ${Math.abs(error).toFixed(1)} s ${direction}`;
 }
 
-/** What the sync is doing to a player, in words. */
-export function describeSync(player: PlayerStatus): string {
+/** What the sync is doing to a player, in words. `gap`: see `describeLive`. */
+export function describeSync(player: PlayerStatus, gap = 0): string {
   if (!player.inGroup) {
     return "Not synced";
   }
@@ -47,7 +72,7 @@ export function describeSync(player: PlayerStatus): string {
     return "Waiting";
   }
   if (player.kind === "live") {
-    return describeLive(player, player.error);
+    return describeLive(player, player.error, gap);
   }
   return describeArchive(player.error);
 }

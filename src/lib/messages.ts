@@ -143,6 +143,8 @@ export interface PlayerStatus {
   playbackRate: number;
   /** Live: seconds behind live. */
   latency?: number;
+  /** Live: an ultra-low-latency stream, which YouTube keeps at the live edge (can't be held back). */
+  pinned?: boolean;
   /** Archive: seconds into the video. */
   position?: number;
   /** Archive: whether the broadcast start time is known (watch pages) or not (embeds). */

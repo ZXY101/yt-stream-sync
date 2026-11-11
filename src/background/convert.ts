@@ -72,7 +72,7 @@ export type SyncInfo = Pick<PlayerStatus, "inGroup" | "offset" | "error" | "wave
 
 function kindDetails(report: PlayerReport): Partial<PlayerStatus> {
   if (report.kind === "live") {
-    return { latency: report.latency };
+    return { latency: report.latency, pinned: report.pinned };
   }
   return { position: report.position, hasStartTime: report.startTime !== undefined };
 }

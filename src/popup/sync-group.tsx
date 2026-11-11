@@ -4,7 +4,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
 
 import type { PlayerStatus } from "../lib/messages.ts";
-import { describePlace, describeSync } from "./format.ts";
+import { describePlace, describeSync, lowLatencyGap } from "./format.ts";
+import { LowLatencyNote } from "./low-latency-note.tsx";
 import { NudgeButtons } from "./nudge-buttons.tsx";
 import { StreamCard } from "./stream-card.tsx";
 import { Waveform } from "./waveform.tsx";
@@ -57,17 +58,19 @@ function HearingNote({ hearing }: { hearing: PlayerStatus["hearing"] }) {
 
 interface MemberCardProps {
   player: PlayerStatus;
+  /** Seconds a low-latency stream stays ahead of the group, 0 if none. */
+  gap: number;
   waveformsAt: number | undefined;
   onRemove: () => void;
   onNudge: (seconds: number) => void;
 }
 
-function MemberCard({ player, waveformsAt, onRemove, onNudge }: MemberCardProps) {
+function MemberCard({ player, gap, waveformsAt, onRemove, onNudge }: MemberCardProps) {
   const title = player.title || "Untitled stream";
   return (
     <StreamCard
       player={player}
-      detail={`${describePlace(player)} · ${describeSync(player)}`}
+      detail={`${describePlace(player)} · ${describeSync(player, gap)}`}
       actions={
         <Button
           variant="ghost"
@@ -94,6 +97,7 @@ function MemberCard({ player, waveformsAt, onRemove, onNudge }: MemberCardProps)
 /** The streams the user added, with what the sync does to each. */
 export function SyncGroup(props: SyncGroupProps) {
   const { members, mixed, waveformsAt, onRemove, onNudge } = props;
+  const gap = mixed ? 0 : lowLatencyGap(members);
   return (
     <section aria-labelledby="sync-group" className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
@@ -115,6 +119,7 @@ export function SyncGroup(props: SyncGroupProps) {
             <MemberCard
               key={player.id}
               player={player}
+              gap={gap}
               waveformsAt={waveformsAt}
               onRemove={() => onRemove(player.id)}
               onNudge={(seconds) => onNudge(player.id, seconds)}
@@ -123,6 +128,7 @@ export function SyncGroup(props: SyncGroupProps) {
         </ul>
       )}
       <Hint members={members} mixed={mixed} />
+      {!mixed && <LowLatencyNote members={members} />}
     </section>
   );
 }

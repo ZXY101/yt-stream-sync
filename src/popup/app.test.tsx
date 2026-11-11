@@ -352,4 +352,51 @@ describe("App", () => {
     expect(writeText).toHaveBeenCalledWith("the log");
     expect(await screen.findByRole("button", { name: "Copied" })).toBeVisible();
   });
+  it("marks low-latency streams and explains a gap the sync can't close", async () => {
+    sendMessage.mockResolvedValue(
+      answer([
+        player({ id: "1:0", tabId: 1, channel: "Gigi", inGroup: true, pinned: true, error: 5 }),
+        player({ id: "2:0", tabId: 2, channel: "Kyoko", inGroup: true, error: -2 }),
+        player({ id: "3:0", tabId: 3, channel: "Mumei", inGroup: true, error: 0.2 }),
+        player({ id: "7:0", tabId: 7, title: "Next one", pinned: true }),
+      ]),
+    );
+    render(<App />);
+
+    expect(await screen.findByText(/behind live · 5\.0 s ahead/)).toBeVisible();
+    expect(screen.getByText(/Jumping ahead, 2\.0 s behind/)).toBeVisible();
+    expect(screen.getByText(/Can't get closer/)).toBeVisible();
+    const badges = screen.getAllByText("Low latency");
+    expect(badges).toHaveLength(2);
+    expect(badges[0]).toHaveAttribute("title", expect.stringMatching(/can't be slowed/));
+    expect(screen.getByText(/Still 5\.0 s apart: the Gigi stream is ultra-low/)).toBeVisible();
+  });
+
+  it("names every low-latency stream in the gap note", async () => {
+    sendMessage.mockResolvedValue(
+      answer([
+        player({ id: "1:0", tabId: 1, channel: "A", inGroup: true, pinned: true, error: 0.4 }),
+        player({ id: "2:0", tabId: 2, channel: "B", inGroup: true, pinned: true, error: 3 }),
+        player({ id: "3:0", tabId: 3, channel: "C", inGroup: true, error: 0 }),
+      ]),
+    );
+    render(<App />);
+
+    expect(await screen.findByText(/the A and B streams are ultra-low latency/)).toBeVisible();
+    expect(screen.getAllByText(/In sync/)).toHaveLength(1);
+    expect(screen.getByText(/Can't get closer/)).toBeVisible();
+  });
+
+  it("says in sync and shows no note once a low-latency stream is caught up", async () => {
+    sendMessage.mockResolvedValue(
+      answer([
+        player({ id: "1:0", tabId: 1, inGroup: true, pinned: true, error: 0.6 }),
+        player({ id: "2:0", tabId: 2, inGroup: true, error: 0 }),
+      ]),
+    );
+    render(<App />);
+
+    expect(await screen.findAllByText(/In sync/)).toHaveLength(2);
+    expect(screen.queryByText(/apart/)).not.toBeInTheDocument();
+  });
 });
