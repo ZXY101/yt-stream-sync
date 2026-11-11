@@ -7,6 +7,7 @@
   "scripts": {
     "prepare": "lefthook install",
     "build": "node scripts/build.mjs",
+    "firefox": "npm run build && node scripts/firefox.mjs",
     "typecheck": "tsc -b",
     "test": "vitest run",
     "test:watch": "vitest",

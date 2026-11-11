@@ -16,7 +16,15 @@ See the table in [AGENTS.md](../AGENTS.md#commands).
 
 ## Loading the add-on by hand
 
-Run `npm run build`, then:
+The quickest way: `npm run firefox -- <url> <url>` builds `dist/` and opens Firefox with the
+add-on and the given pages (via `web-ext run`). It plays YouTube like a normal browser: web-ext
+installs the add-on over Firefox's own debugging protocol, not WebDriver, and YouTube freezes
+streams in a WebDriver-controlled Firefox. The add-on reloads after each `npm run build`. The
+profile lives in `.firefox-profile/` (gitignored) and is kept between runs, so sign-ins stay; on
+the first run uBlock Origin is downloaded from addons.mozilla.org into it so ads don't get in the
+way. `FIREFOX_BIN` picks another Firefox.
+
+Or load it into your own browser after `npm run build`:
 
 - **Firefox:** `about:debugging#/runtime/this-firefox` → Load Temporary Add-on →
   `dist/manifest.json`. It stays until Firefox restarts.

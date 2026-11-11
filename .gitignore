@@ -18,3 +18,6 @@ docs/PROGRESS.md
 
 # Claude Code local settings
 .claude/settings.local.json
+
+# Firefox profile for hand tests (npm run firefox)
+.firefox-profile/

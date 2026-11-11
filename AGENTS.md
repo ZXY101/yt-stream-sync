@@ -22,6 +22,7 @@ Run from the repo root. Node comes from nvm (version in `.nvmrc`).
 | Types                                  | `npm run typecheck`                      |
 | Unit tests (+ coverage gate)           | `npm run test:coverage`                  |
 | Build into `dist/`                     | `npm run build`                          |
+| Hand test: Firefox with the add-on     | `npm run firefox -- [url ...]`           |
 | Mozilla add-on linter on `dist/`       | `npm run lint:ext`                       |
 | E2E (builds first, Firefox, offline)   | `npm run test:e2e`                       |
 | E2E against real YouTube (opt-in)      | `LIVE_STREAM=<id> npm run test:e2e:live` |
