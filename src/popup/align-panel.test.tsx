@@ -69,7 +69,7 @@ describe("AlignPanel", () => {
       ],
     });
     expect(screen.getByRole("progressbar", { name: "Alignment progress" })).toBeVisible();
-    expect(screen.getByText("Step 1 of 2 · yt-dlp-z is getting the audio")).toBeVisible();
+    expect(screen.getByText("Step 1 of 2 · Getting the audio")).toBeVisible();
     expect(screen.getByLabelText("Time so far")).toHaveTextContent("1:23");
     const steps = screen.getByRole("list", { name: "Alignment steps per stream" });
     expect(steps).toHaveTextContent("Tsuzuri POVDownloading 46%");
@@ -80,7 +80,7 @@ describe("AlignPanel", () => {
 
   it.each([
     ["starting", "Asking yt-dlp-z…"],
-    ["comparing", "Step 2 of 2 · Comparing the streams"],
+    ["comparing", "Step 2 of 2 · Comparing"],
   ] as const)("names the %s step, even without per-stream details", (phase, text) => {
     renderPanel({ state: "running", phase, progress: 0.95, elapsed: 5, streams: [] });
     expect(screen.getByText(text)).toBeVisible();

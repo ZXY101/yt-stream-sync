@@ -7,8 +7,8 @@ type Running = Extract<AlignStatus, { state: "running" }>;
 
 const PHASES: Record<Running["phase"], string> = {
   starting: "Asking yt-dlp-z…",
-  fetching: "Step 1 of 2 · yt-dlp-z is getting the audio",
-  comparing: "Step 2 of 2 · Comparing the streams",
+  fetching: "Step 1 of 2 · Getting the audio",
+  comparing: "Step 2 of 2 · Comparing",
 };
 
 function clock(seconds: number): string {

@@ -57,7 +57,7 @@ function SetupSteps() {
       </ol>
       <p className="mt-1 text-xs text-muted-foreground">
         Works for ended streams on YouTube watch pages (embeds have no start time), up to 12 hours
-        each. A pair takes about one to two minutes.
+        each. A pair of two-hour streams takes well under a minute.
       </p>
     </div>
   );
