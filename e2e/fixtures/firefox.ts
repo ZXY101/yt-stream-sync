@@ -32,6 +32,8 @@ export async function launchFirefox(): Promise<FirefoxSession> {
     env: { ...process.env, MOZ_REMOTE_ALLOW_SYSTEM_ACCESS: "1" },
     extraPrefsFirefox: {
       "extensions.webextensions.uuids": JSON.stringify({ [ADDON]: ADDON_UUID }),
+      // Grants optional permissions without the prompt (the settings page's yt-dlp-z access).
+      "extensions.webextOptionalPermissionPrompts": false,
     },
   });
   await browser.installExtension(DIST);

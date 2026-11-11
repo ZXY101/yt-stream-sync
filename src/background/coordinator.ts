@@ -1,5 +1,6 @@
 import type { Action, SyncSettings } from "../controller/types.ts";
 import type { PlayerCommand, PlayerReport, SyncStatus } from "../lib/messages.ts";
+import { createGroupAlign } from "./align/group-align.ts";
 import { createGroupAudio, type MemberView } from "./audio/group-audio.ts";
 import { createControllers } from "./controllers.ts";
 import { toCommand, toStatus, type SyncInfo } from "./convert.ts";
@@ -13,6 +14,8 @@ export interface CoordinatorOptions {
   settings: () => Pick<SyncSettings, "enabled" | "safetyMargin">;
   /** Seconds on a monotonic clock. */
   now: () => number;
+  /** For yt-dlp-z alignment; tests swap in a fake. */
+  fetcher?: typeof fetch;
 }
 
 /** The user just seeked, played, paused or changed speed on this archive. */
@@ -77,10 +80,12 @@ interface StatusParts {
   reports: Reports;
   group: ReturnType<typeof createGroup>;
   audio: ReturnType<typeof createGroupAudio>;
+  align: { status: () => SyncStatus["align"] };
   outcome: StepOutcome;
 }
 
-function buildStatus({ reports, group, audio, outcome }: StatusParts): Omit<SyncStatus, "mixed"> {
+function buildStatus(parts: StatusParts): SyncStatus {
+  const { reports, group, audio, outcome } = parts;
   const players = reports.all().map(([id, report]) => {
     const inGroup = group.has(id);
     const waveform = inGroup ? audio.waveform(id) : undefined;
@@ -89,7 +94,31 @@ function buildStatus({ reports, group, audio, outcome }: StatusParts): Omit<Sync
     const sync: SyncInfo = { inGroup, offset: group.offset(id), error, stuck, waveform };
     return toStatus(id, report, sync);
   });
-  return { players, audio: audio.status() };
+  const mixed = isMixed(group.ids(), reports);
+  return { players, audio: audio.status(), mixed, align: parts.align.status() };
+}
+
+interface AlignmentParts {
+  group: ReturnType<typeof createGroup>;
+  reports: Reports;
+  options: CoordinatorOptions;
+}
+
+function alignment({ group, reports, options }: AlignmentParts, onApplied: () => void) {
+  const view = { ...group, report: reports.get };
+  return createGroupAlign({ group: view, onApplied, now: options.now, fetcher: options.fetcher });
+}
+
+function audioApi(audio: ReturnType<typeof createGroupAudio>) {
+  return {
+    receiveClip: audio.receiveClip,
+    setAudioSync: audio.setEnabled,
+    rematchAudio: audio.rematch,
+  };
+}
+
+function alignApi(align: ReturnType<typeof createGroupAlign>) {
+  return { setYtdlpz: align.setSettings, alignArchives: align.start, cancelAlign: align.cancel };
 }
 
 /**
@@ -104,6 +133,11 @@ export function createCoordinator(options: CoordinatorOptions) {
   const send = diagnostics.logged(options.send);
   const audio = createGroupAudio({ send, adjust: group.nudge, now: options.now });
   let outcome: StepOutcome = { errors: {}, stuck: [] };
+  // After yt-dlp-z lined archives up, audio matching fine-tunes them.
+  const align = alignment({ group, reports, options }, () => {
+    audio.rematch();
+    tick();
+  });
 
   function remove(id: string) {
     reports.delete(id);
@@ -131,24 +165,20 @@ export function createCoordinator(options: CoordinatorOptions) {
     outcome = { errors: result.errors, stuck: result.stuck };
     sendAll(result.actions, send, reports);
     audio.afterTick(memberViews(groupIds, reports, outcome));
+    align.tick();
     diagnostics.afterTick(audio.status(), reports.all());
   }
 
   function status(): SyncStatus {
-    return {
-      ...buildStatus({ reports, group, audio, outcome }),
-      mixed: isMixed(group.ids(), reports),
-    };
+    return buildStatus({ reports, group, audio, align, outcome });
   }
 
   const nudge = thenRun(group.nudge, tick);
-  const clearGroup = thenRun(group.clear, tick);
+  const clearGroup = thenRun(() => {
+    align.cancel();
+    group.clear();
+  }, tick);
 
-  const audioApi = {
-    receiveClip: audio.receiveClip,
-    setAudioSync: audio.setEnabled,
-    rematchAudio: audio.rematch,
-    debugLog: diagnostics.text,
-  };
-  return { report, remove, setInGroup: group.set, clearGroup, nudge, tick, status, ...audioApi };
+  const groupApi = { setInGroup: group.set, clearGroup, nudge, debugLog: diagnostics.text };
+  return { report, remove, tick, status, ...groupApi, ...audioApi(audio), ...alignApi(align) };
 }

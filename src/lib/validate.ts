@@ -168,7 +168,8 @@ export function isPopupRequest(value: unknown): value is PopupRequest {
   if (value.type === "setAudioSync") {
     return typeof value.on === "boolean";
   }
-  if (["rematchAudio", "clearGroup", "getDebugLog"].includes(value.type as string)) {
+  const plain = ["rematchAudio", "clearGroup", "getDebugLog", "alignArchives", "cancelAlign"];
+  if (plain.includes(value.type as string)) {
     return true;
   }
   return value.type === "nudge" && isText(value.id) && isNudge(value.seconds);

@@ -4,10 +4,12 @@ Every permission the add-on asks for, and why. Update this file in the same comm
 change to `permissions`, `optional_permissions`, `host_permissions` or `content_scripts`
 in `static/manifest.json`.
 
-| Permission                                                 | Why                                                                                                                                                                                                            |
-| ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `storage`                                                  | Remembers whether matching by audio is on. Nothing else is stored.                                                                                                                                             |
-| Content scripts on `https://www.youtube.com/*`, all frames | Read each live player's latency, buffer and state, and slow, pause or resume it. All frames, so YouTube embeds inside other sites (such as Holodex multiview) work too. This is the add-on's only site access. |
+| Permission                                                                                             | Why                                                                                                                                                                                                                                                  |
+| ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `storage`                                                                                              | Remembers whether matching by audio is on, and the yt-dlp-z settings (on/off, server address, API token) if the user set them. Nothing else is stored.                                                                                               |
+| Optional host permission for **one** server (`optional_host_permissions`: `http://*/*`, `https://*/*`) | Only for the opt-in yt-dlp-z alignment. Asked when the user clicks Turn on in the settings page, for the address they entered alone (e.g. `https://my-server.example/*`), and given back on Turn off. Nothing is asked for while the feature is off. |
+| Optional data consent `browsingActivity` (Firefox `data_collection_permissions.optional`)              | Same feature: clicking Align sends the archives' watch page links to the user's own server, which Firefox counts as browsing activity. Asked together with the host permission. Required data collection stays `none`.                               |
+| Content scripts on `https://www.youtube.com/*`, all frames                                             | Read each live player's latency, buffer and state, and slow, pause or resume it. All frames, so YouTube embeds inside other sites (such as Holodex multiview) work too. This is the add-on's only site access.                                       |
 
 Two scripts run in those frames: `page.js` in the page's own JavaScript world (YouTube's
 player methods are only reachable there) and `content.js` in the isolated world, which talks
@@ -28,7 +30,11 @@ somewhere.
 
 The add-on collects no data (`data_collection_permissions: none`). Its only network
 requests of its own are the popup's thumbnails from `i.ytimg.com` (YouTube's image server),
-for videos the user already has open in a tab.
+for videos the user already has open in a tab, and, only if the user turned on the yt-dlp-z
+alignment, requests to the server they entered: a connection test when they turn it on, and
+`POST`/`GET`/`DELETE /api/align` when they click Align (see
+[align-with-yt-dlp-z.md](align-with-yt-dlp-z.md)). The settings page (`options_ui`) is where
+that is set up.
 
 The popup asks the browser which tab is active (`tabs.query`, no permission needed) so it
 can offer that tab's streams; it never reads tab URLs or titles.

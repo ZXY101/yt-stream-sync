@@ -121,6 +121,10 @@ export type PopupRequest =
   | { type: "rematchAudio" }
   /** Take every player out of the sync group. */
   | { type: "clearGroup" }
+  /** Line the group's archives up through the user's yt-dlp-z (only when set up). */
+  | { type: "alignArchives" }
+  /** Stop a running yt-dlp-z alignment. */
+  | { type: "cancelAlign" }
   /** The debug log, answered with `{ log: string }` instead of a `SyncStatus`. */
   | { type: "getDebugLog" };
 
@@ -182,9 +186,40 @@ export type AudioStatus =
   /** A player in the group can't be listened to. */
   | { state: "unavailable" };
 
+/** One stream's part of a yt-dlp-z alignment. */
+export interface AlignStreamStatus {
+  /** The player. */
+  id: string;
+  stage: "downloading" | "converting" | "ready";
+  /** Download progress, 0–1. */
+  downloaded: number;
+}
+
+/** Where lining archives up through yt-dlp-z is at, for the popup. */
+export type AlignStatus =
+  /** Not set up (on the settings page). */
+  | { state: "off" }
+  | { state: "ready" }
+  /**
+   * yt-dlp-z is getting the streams' audio ("fetching"), then comparing it. `progress` 0–1,
+   * `elapsed` seconds since Align was clicked, `streams` each stream's part (servers that
+   * don't report it leave it empty).
+   */
+  | {
+      state: "running";
+      phase: "starting" | "fetching" | "comparing";
+      progress: number;
+      elapsed: number;
+      streams: AlignStreamStatus[];
+    }
+  /** Offsets applied; `unmatched`: players yt-dlp-z found no reliable offset for. */
+  | { state: "done"; unmatched: string[] }
+  | { state: "failed"; message: string };
+
 export interface SyncStatus {
   players: PlayerStatus[];
   audio: AudioStatus;
+  align: AlignStatus;
   /** Live streams and archives are both in the group: they can't be synced together. */
   mixed: boolean;
 }

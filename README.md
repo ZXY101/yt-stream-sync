@@ -21,10 +21,15 @@ so you can watch them side by side without fiddling with playback speed.
   pages this is automatic; embeds have no start time, so they keep the alignment they had
   when added.
 - **Nudge** any added stream ahead or back (±0.1 s, ±1 s) to fine-tune; the sync keeps it.
+- **Optional, for archives far apart:** if you run [yt-dlp-z](https://github.com/ZXY101/yt-dlp-z),
+  turn on "Align archives with yt-dlp-z" in the add-on's settings, and the popup can line the
+  group's archives up from their audio. See
+  [docs/align-with-yt-dlp-z.md](docs/align-with-yt-dlp-z.md).
 - Coming: a safety margin for shaky live streams, a "back to live" button, and a warning
   when added streams don't look like the same collab.
 
-No data collection, no network requests of its own, no remote code. See
+No data collection, no remote code, and no network requests of its own unless you turn on
+the yt-dlp-z alignment (then only to your server, only when you click Align). See
 [docs/permissions.md](docs/permissions.md).
 
 ## Development

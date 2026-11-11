@@ -9,7 +9,12 @@ const REFRESH_MS = 1000;
  * wait for buffers, so ten quick clicks would mean ten stutters instead of one.
  */
 const NUDGE_BATCH_MS = 400;
-const EMPTY: SyncStatus = { players: [], mixed: false, audio: { state: "waiting" } };
+const EMPTY: SyncStatus = {
+  players: [],
+  mixed: false,
+  audio: { state: "waiting" },
+  align: { state: "off" },
+};
 
 function request(message: PopupRequest): Promise<SyncStatus> {
   const response = ext.runtime.sendMessage(message) as Promise<SyncStatus | undefined>;
@@ -105,6 +110,14 @@ export function useSyncStatus() {
     setStatus(await request({ type: "clearGroup" }));
   }
 
+  async function alignArchives() {
+    setStatus(await request({ type: "alignArchives" }));
+  }
+
+  async function cancelAlign() {
+    setStatus(await request({ type: "cancelAlign" }));
+  }
+
   return {
     status: withPending(status, batch.pending),
     setInGroup,
@@ -112,5 +125,7 @@ export function useSyncStatus() {
     setAudioSync,
     rematchAudio,
     clearGroup,
+    alignArchives,
+    cancelAlign,
   };
 }

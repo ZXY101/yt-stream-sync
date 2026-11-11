@@ -4,7 +4,7 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
-// The popup and background script are built from src/, and static/ (manifest, icons) is copied into dist/ as it is.
+// The popup, settings page and background script are built from src/, and static/ (manifest, icons) is copied into dist/ as it is.
 // The output isn't minified so the published add-on stays readable for store reviewers.
 export default defineConfig({
   root: "src",
@@ -21,7 +21,11 @@ export default defineConfig({
     // React alone is ~550 kB unminified; it loads from disk, so size matters little.
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
-      input: { popup: "src/popup/index.html", background: "src/background/main.ts" },
+      input: {
+        popup: "src/popup/index.html",
+        options: "src/options/index.html",
+        background: "src/background/main.ts",
+      },
       // Stable file names: an add-on has no cache to bust, and diffs between builds stay small.
       output: {
         entryFileNames: "[name].js",
