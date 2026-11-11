@@ -59,7 +59,7 @@ async function installUblock() {
   writeFileSync(file, Buffer.from(await response.arrayBuffer()));
 }
 
-/** Tells scripts/firefox-control.mjs where web-ext's debugging connection listens. */
+/** Tells scripts/firefox-debug.mjs where web-ext's debugging connection listens. */
 function savePort(runner) {
   const port = runner.extensionRunners[0]?.runningInfo?.debuggerPort;
   if (!port) {
@@ -83,13 +83,6 @@ const runner = await cmd.run(
     pref: {
       // Firefox leaves add-ons that were put into the profile folder disabled unless this is 0.
       "extensions.autoDisableScopes": 0,
-      // Let pages play with sound without a click first, so streams opened by
-      // `npm run control -- open` start on their own. The add-on's "blocked" audio state can't
-      // be tested in this browser; test it in a normal Firefox.
-      "media.autoplay.default": 0,
-      // Windows: a window under other windows counts as hidden, and YouTube doesn't start or
-      // keep playing a hidden page. A test window must keep playing while you work elsewhere.
-      "widget.windows.window_occlusion_tracking.enabled": false,
       // Stopping web-ext ends Firefox like a crash; don't reopen the last test's pages.
       "browser.sessionstore.resume_from_crash": false,
     },

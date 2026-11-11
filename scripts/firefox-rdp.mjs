@@ -1,12 +1,11 @@
 // A small client for Firefox's remote debugging protocol (RDP), the connection web-ext already
-// uses to install the add-on in `npm run firefox`. It runs code in the add-on's background page.
+// uses to install the add-on in `npm run firefox`. It reads from the add-on's background page.
 // Unlike WebDriver, RDP doesn't set navigator.webdriver, so YouTube keeps playing normally.
 // Protocol: https://firefox-source-docs.mozilla.org/devtools/backend/protocol.html
 import net from "node:net";
 
 const ANSWER_TIMEOUT_MS = 15_000;
 const BACKGROUND_WAIT_MS = 3000;
-const WAKE_WAIT_MS = 10_000;
 
 /** Splits the byte stream into packets: `<length>:<JSON>`. */
 function packetReader(onPacket) {
@@ -77,8 +76,8 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** The console actor of a page under `descriptor` (an add-on or a tab) that `matches`. */
-async function pageConsole(rdp, descriptor, { matches, waitMs }) {
+/** The background page's console actor, if the page is running. */
+async function backgroundConsole(rdp, descriptor) {
   const targets = [];
   rdp.listen((packet) => {
     if (packet.type === "target-available-form") {
@@ -90,8 +89,8 @@ async function pageConsole(rdp, descriptor, { matches, waitMs }) {
   });
   await rdp.request(watcher.actor, "watchTargets", { targetType: "frame" });
   // Pages are announced shortly after the answer, not before it.
-  for (let waited = 0; waited < waitMs; waited += 100) {
-    const page = targets.find(matches);
+  for (let waited = 0; waited < BACKGROUND_WAIT_MS; waited += 100) {
+    const page = targets.find((target) => target.url.endsWith("/_generated_background_page.html"));
     if (page) {
       return page.consoleActor;
     }
@@ -99,31 +98,6 @@ async function pageConsole(rdp, descriptor, { matches, waitMs }) {
     await sleep(100);
   }
   return undefined;
-}
-
-/** The background page's console actor, if the page is running. */
-function backgroundConsole(rdp, descriptor, waitMs = BACKGROUND_WAIT_MS) {
-  return pageConsole(rdp, descriptor, {
-    matches: (target) => target.url.endsWith("/_generated_background_page.html"),
-    waitMs,
-  });
-}
-
-/** Runs `expression` in the top page of the tab whose address contains `urlPart`. */
-async function evaluateInTab(rdp, urlPart, expression) {
-  const { tabs } = await rdp.request("root", "listTabs");
-  const tab = tabs.find((item) => item.url.includes(urlPart));
-  if (!tab) {
-    throw new Error(`no tab with ${urlPart} in its address`);
-  }
-  const consoleActor = await pageConsole(rdp, tab.actor, {
-    matches: (target) => target.isTopLevelTarget,
-    waitMs: BACKGROUND_WAIT_MS,
-  });
-  if (!consoleActor) {
-    throw new Error(`can't reach the tab with ${urlPart}`);
-  }
-  return evaluate(rdp, consoleActor, expression);
 }
 
 async function addonActor(rdp, addonId) {
@@ -135,49 +109,20 @@ async function addonActor(rdp, addonId) {
   return addon.actor;
 }
 
-/** A connection plus the background page's console actor, or undefined if it isn't running. */
-async function tryBackground(port, addonId, waitMs) {
-  const rdp = await connect(port);
-  const consoleActor = await backgroundConsole(rdp, await addonActor(rdp, addonId), waitMs);
-  if (consoleActor) {
-    return { rdp, consoleActor };
-  }
-  return { rdp };
-}
-
-/** Reloads the add-on, then waits on fresh connections (an old one never sees the new page). */
-async function wakeBackground(port, addonId, asleep) {
-  console.warn("The add-on's background was asleep; reloading the add-on to wake it.");
-  await asleep.request(await addonActor(asleep, addonId), "reload");
-  asleep.close();
-  for (let waited = 0; waited < WAKE_WAIT_MS; waited += 1000) {
-    // oxlint-disable-next-line no-await-in-loop
-    await sleep(1000);
-    // oxlint-disable-next-line no-await-in-loop
-    const found = await tryBackground(port, addonId, 500);
-    if (found.consoleActor) {
-      return found;
-    }
-    found.rdp.close();
-  }
-  throw new Error("the add-on's background page didn't start");
-}
-
 /**
- * Connects to the add-on's background page in the Firefox on 127.0.0.1:<port>. Firefox suspends
- * the page after ~30 s without an open YouTube player (an event page); then the add-on is
- * reloaded to start it again. Nothing is lost by that: a suspended page holds no sync group.
+ * Connects to the add-on's background page in the Firefox on 127.0.0.1:<port>. Read-only use:
+ * this never wakes or reloads the add-on. Firefox suspends the page (an event page) after ~30 s
+ * without an open YouTube player; it starts again when a player opens.
  */
 export async function openBackground(port, addonId) {
-  let found = await tryBackground(port, addonId, BACKGROUND_WAIT_MS);
-  if (!found.consoleActor) {
-    found = await wakeBackground(port, addonId, found.rdp);
+  const rdp = await connect(port);
+  const consoleActor = await backgroundConsole(rdp, await addonActor(rdp, addonId));
+  if (!consoleActor) {
+    rdp.close();
+    throw new Error("the add-on's background is asleep: no YouTube player is open");
   }
-  const { rdp, consoleActor } = found;
   return {
     evaluate: (expression) => evaluate(rdp, consoleActor, expression),
-    /** For acting on a watch page like a user (seek, pause), not through the add-on. */
-    evaluateInTab: (urlPart, expression) => evaluateInTab(rdp, urlPart, expression),
     close: () => rdp.close(),
   };
 }

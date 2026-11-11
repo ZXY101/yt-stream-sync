@@ -26,17 +26,13 @@ way. If Firefox Developer Edition is installed, it's used instead of your everyd
 separate app, it can be the only browser a screen-control tool (such as an AI agent's computer
 use) gets access to. `FIREFOX_BIN` picks another Firefox.
 
-While that Firefox is open, `npm run control -- <command>` sends the popup's requests from a
-terminal, over the same debugging connection (`scripts/firefox-control.mjs`): `status`,
-`open <id|url>…`, `sync`, `remove`, `clear`, `nudge <player> <s>`, `offset <player> <t>`,
-`audio on|off`, `rematch`, `log` and `quit` (closes the test Firefox; on Windows, stopping
-`npm run firefox` with Ctrl+C can leave it running). `seek <player> <time>`, `pause <player>` and
-`play <player>` act on a watch page's own player, as a user would, to test what carries over to
-the rest of the group. A player is its video id, its number in `status` or part of its channel
-name. That's how a script or a coding agent can run a hand test without clicking in the browser.
-The launcher writes the connection's port to
-`.firefox-profile/debugger-port`. With no YouTube player open, Firefox suspends the add-on's
-background page after about 30 s; the next command then reloads the add-on to start it again.
+While you test in that Firefox, `npm run debug -- status` (add `--json` for everything) and
+`npm run debug -- log` show what the add-on is doing from a terminal: the popup's sync status and
+debug log, read over the same debugging connection (`scripts/firefox-debug.mjs`). It's read-only,
+so a coding agent can follow a hand test without touching it. The launcher writes the
+connection's port to `.firefox-profile/debugger-port`. With no YouTube player open, Firefox
+suspends the add-on's background page after about 30 s, and there's nothing to read until a
+player opens again.
 
 Or load it into your own browser after `npm run build`:
 
