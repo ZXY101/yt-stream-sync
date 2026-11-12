@@ -14,6 +14,7 @@ const EMPTY: SyncStatus = {
   mixed: false,
   audio: { state: "waiting" },
   align: { state: "off" },
+  saved: { groups: [], canSave: false, opening: 0 },
 };
 
 function request(message: PopupRequest): Promise<SyncStatus> {
@@ -70,6 +71,27 @@ function useNudgeBatch(setStatus: (status: SyncStatus) => void) {
   return { pending, nudge };
 }
 
+/** The popup's actions: each sends a request and shows the status it's answered with. */
+function actions(setStatus: (status: SyncStatus) => void) {
+  function send(message: PopupRequest) {
+    return request(message).then((status) => {
+      setStatus(status);
+      return undefined;
+    });
+  }
+  return {
+    setInGroup: (id: string, inGroup: boolean) => send({ type: "setInGroup", id, inGroup }),
+    setAudioSync: (on: boolean) => send({ type: "setAudioSync", on }),
+    rematchAudio: () => send({ type: "rematchAudio" }),
+    clearGroup: () => send({ type: "clearGroup" }),
+    alignArchives: () => send({ type: "alignArchives" }),
+    cancelAlign: () => send({ type: "cancelAlign" }),
+    saveGroup: () => send({ type: "saveGroup" }),
+    openSavedGroup: (groupId: string) => send({ type: "openSavedGroup", groupId }),
+    deleteSavedGroup: (groupId: string) => send({ type: "deleteSavedGroup", groupId }),
+  };
+}
+
 /**
  * The streams the background script knows about, refreshed every second, and the actions
  * the popup offers on them.
@@ -94,38 +116,5 @@ export function useSyncStatus() {
     };
   }, []);
 
-  async function setInGroup(id: string, inGroup: boolean) {
-    setStatus(await request({ type: "setInGroup", id, inGroup }));
-  }
-
-  async function setAudioSync(on: boolean) {
-    setStatus(await request({ type: "setAudioSync", on }));
-  }
-
-  async function rematchAudio() {
-    setStatus(await request({ type: "rematchAudio" }));
-  }
-
-  async function clearGroup() {
-    setStatus(await request({ type: "clearGroup" }));
-  }
-
-  async function alignArchives() {
-    setStatus(await request({ type: "alignArchives" }));
-  }
-
-  async function cancelAlign() {
-    setStatus(await request({ type: "cancelAlign" }));
-  }
-
-  return {
-    status: withPending(status, batch.pending),
-    setInGroup,
-    nudge: batch.nudge,
-    setAudioSync,
-    rematchAudio,
-    clearGroup,
-    alignArchives,
-    cancelAlign,
-  };
+  return { status: withPending(status, batch.pending), nudge: batch.nudge, ...actions(setStatus) };
 }

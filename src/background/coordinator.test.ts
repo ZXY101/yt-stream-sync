@@ -180,6 +180,14 @@ describe("coordinator", () => {
     expect(coordinator.status().players[0]?.offset).toBe(0);
   });
 
+  it("sets a member's offset outright (a saved group being opened)", () => {
+    const { coordinator, join } = setup();
+    join({ "1:0": {}, "2:0": {} });
+    coordinator.nudge("2:0", 1);
+    coordinator.setOffset("2:0", 130.2);
+    expect(coordinator.status().players.map((player) => player.offset)).toEqual([0, 130.2]);
+  });
+
   it("reports where archives are and whether their start time is known", () => {
     const { coordinator } = setup();
     coordinator.report("1:0", archive({ position: 42 }));

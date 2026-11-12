@@ -128,6 +128,11 @@ describe("isPopupRequest", () => {
     [{ type: "nudge", id: "3:0", seconds: -600 }, true],
     [{ type: "nudge", id: "3:0", seconds: 3601 }, false],
     [{ type: "nudge", id: "3:0", seconds: Number.NaN }, false],
+    [{ type: "saveGroup" }, true],
+    [{ type: "openSavedGroup", groupId: "g1" }, true],
+    [{ type: "openSavedGroup" }, false],
+    [{ type: "deleteSavedGroup", groupId: "g1" }, true],
+    [{ type: "deleteSavedGroup", groupId: 1 }, false],
     [{ type: "reload" }, false],
     [null, false],
   ])("%j → %s", (value, expected) => {

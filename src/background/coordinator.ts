@@ -84,7 +84,10 @@ interface StatusParts {
   outcome: StepOutcome;
 }
 
-function buildStatus(parts: StatusParts): SyncStatus {
+/** The coordinator's part of the popup's status (saved groups are added in main.ts). */
+export type CoordinatorStatus = Omit<SyncStatus, "saved">;
+
+function buildStatus(parts: StatusParts): CoordinatorStatus {
   const { reports, group, audio, outcome } = parts;
   const players = reports.all().map(([id, report]) => {
     const inGroup = group.has(id);
@@ -119,6 +122,27 @@ function audioApi(audio: ReturnType<typeof createGroupAudio>) {
 
 function alignApi(align: ReturnType<typeof createGroupAlign>) {
   return { setYtdlpz: align.setSettings, alignArchives: align.start, cancelAlign: align.cancel };
+}
+
+/** Group changes by the user, which the players follow at once. */
+function offsetApi(
+  group: ReturnType<typeof createGroup>,
+  tick: () => void,
+  align: ReturnType<typeof createGroupAlign>,
+) {
+  function setOffset(id: string, offset: number) {
+    group.nudge(id, offset - group.offset(id));
+  }
+  function clearGroup() {
+    align.cancel();
+    group.clear();
+  }
+  return {
+    setInGroup: group.set,
+    nudge: thenRun(group.nudge, tick),
+    setOffset: thenRun(setOffset, tick),
+    clearGroup: thenRun(clearGroup, tick),
+  };
 }
 
 /**
@@ -169,16 +193,10 @@ export function createCoordinator(options: CoordinatorOptions) {
     diagnostics.afterTick(audio.status(), reports.all());
   }
 
-  function status(): SyncStatus {
+  function status(): CoordinatorStatus {
     return buildStatus({ reports, group, audio, align, outcome });
   }
 
-  const nudge = thenRun(group.nudge, tick);
-  const clearGroup = thenRun(() => {
-    align.cancel();
-    group.clear();
-  }, tick);
-
-  const groupApi = { setInGroup: group.set, clearGroup, nudge, debugLog: diagnostics.text };
+  const groupApi = { ...offsetApi(group, tick, align), debugLog: diagnostics.text };
   return { report, remove, tick, status, ...groupApi, ...audioApi(audio), ...alignApi(align) };
 }

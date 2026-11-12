@@ -125,6 +125,11 @@ export type PopupRequest =
   | { type: "alignArchives" }
   /** Stop a running yt-dlp-z alignment. */
   | { type: "cancelAlign" }
+  /** Save the sync group's archives (it then keeps itself up to date). */
+  | { type: "saveGroup" }
+  /** Open a saved group's archives and put them back in sync with their saved offsets. */
+  | { type: "openSavedGroup"; groupId: string }
+  | { type: "deleteSavedGroup"; groupId: string }
   /** The debug log, answered with `{ log: string }` instead of a `SyncStatus`. */
   | { type: "getDebugLog" };
 
@@ -216,10 +221,33 @@ export type AlignStatus =
   | { state: "done"; unmatched: string[] }
   | { state: "failed"; message: string };
 
+/** A saved sync group, as the popup lists it. */
+export interface SavedGroupSummary {
+  id: string;
+  name: string;
+  /** Wall-clock time (ms) it was last saved or updated. */
+  updatedAt: number;
+  /** Seconds into the first stream when last updated. */
+  position: number;
+  streams: { videoId: string; title: string; channel: string }[];
+}
+
+export interface SavedStatus {
+  /** Newest first. */
+  groups: SavedGroupSummary[];
+  /** The saved group the sync group was opened from or saved as; it updates by itself. */
+  activeId?: string;
+  /** The sync group has archives that can be saved (two or more, on watch pages). */
+  canSave: boolean;
+  /** While a saved group opens: streams whose tabs haven't reported yet. */
+  opening: number;
+}
+
 export interface SyncStatus {
   players: PlayerStatus[];
   audio: AudioStatus;
   align: AlignStatus;
   /** Live streams and archives are both in the group: they can't be synced together. */
   mixed: boolean;
+  saved: SavedStatus;
 }
