@@ -16,7 +16,6 @@ and remembers groups of archives for later.
 [![Conventional Commits](https://img.shields.io/badge/conventional%20commits-1.0.0-fe5196?logo=conventionalcommits&logoColor=white)](https://www.conventionalcommits.org/)
 
 [Features](#features) ·
-[Screenshots](#screenshots) ·
 [Installation](#installation) ·
 [Usage](docs/usage.md) ·
 [Privacy](docs/privacy.md) ·
@@ -24,7 +23,10 @@ and remembers groups of archives for later.
 
 <br />
 
-<img src="docs/assets/screenshots/demo.gif" alt="The popup: a live stream is added, a second one joins and is slowed down until both show the same moment, then audio matching confirms the alignment" width="360" />
+<img src="docs/assets/screenshots/demo.gif" alt="Two players show the same live broadcast 10 seconds apart. Both are added in the popup: the one ahead pauses until the other catches up, then slows down until both show the same timecode and the popup says In sync" width="760" />
+
+<sub>The real add-on syncing two stand-in players that play Big Buck Bunny (© Blender Foundation,
+CC BY) and report their delay the way YouTube's player does.</sub>
 
 </div>
 
@@ -60,40 +62,6 @@ follow.
   [yt-dlp-z](https://github.com/ZXY101/yt-dlp-z) server.
 - **Private:** no data collection, no analytics, audio analysed in memory only. See the
   [privacy policy](docs/privacy.md).
-
-## Screenshots
-
-<table>
-  <tr>
-    <td width="50%" align="center" valign="top">
-      <b>Two live streams in sync</b><br />
-      <img src="docs/assets/screenshots/popup-live.png" alt="The popup with two live streams, both 3.1 s behind live and in sync, lined up by audio" width="300" />
-    </td>
-    <td width="50%" align="center" valign="top">
-      <b>Archives and a saved group</b><br />
-      <img src="docs/assets/screenshots/popup-archives.png" alt="The popup with two archives in sync, one offset by minus 1:36, and the saved group they belong to marked Playing" width="300" />
-    </td>
-  </tr>
-  <tr>
-    <td colspan="2" align="center">
-      <b>Saved groups page</b><br />
-      <img src="docs/assets/screenshots/saved-groups.png" alt="The saved groups page with one group opened to show its two streams, their places and editable offsets" width="100%" />
-    </td>
-  </tr>
-  <tr>
-    <td align="center" valign="top">
-      <b>Pick up a saved group</b><br />
-      <img src="docs/assets/screenshots/popup-recent.png" alt="The popup with no streams added, listing two recent saved groups with Open buttons" width="300" />
-    </td>
-    <td align="center" valign="top">
-      <b>Optional yt-dlp-z alignment</b><br />
-      <img src="docs/assets/screenshots/settings.png" alt="The settings tab explaining the optional yt-dlp-z alignment and its setup" width="100%" />
-    </td>
-  </tr>
-</table>
-
-<sub>Screenshots use made-up stream titles and thumbnails from Blender's open movies
-(© Blender Foundation, CC BY). The demo plays scripted states in the real popup.</sub>
 
 ## Installation
 
