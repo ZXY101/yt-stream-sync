@@ -4,7 +4,7 @@ A browser extension that keeps two or more YouTube live streams of the same coll
 so you can watch them side by side without fiddling with playback speed.
 
 > **Status:** early development. Live streams and archives sync in Firefox (watch pages and
-> embeds); you add streams to the sync group from the popup. Chrome support comes later. Chrome support and archived streams come later.
+> embeds); you add streams to the sync group from the popup. Chrome support comes later.
 
 ## How it will work
 
