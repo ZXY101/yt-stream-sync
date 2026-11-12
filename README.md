@@ -21,6 +21,11 @@ so you can watch them side by side without fiddling with playback speed.
   pages this is automatic; embeds have no start time, so they keep the alignment they had
   when added.
 - **Nudge** any added stream ahead or back (±0.1 s, ±1 s) to fine-tune; the sync keeps it.
+- **Saved groups** (archives on watch pages): long archives often take more than one
+  sitting. Save the sync group from the popup; while it's open it keeps your place and
+  offsets up to date by itself. Later, **Open** it: the add-on opens each archive at that
+  place and puts them back in sync with the saved offsets, without aligning again. Saved
+  groups stay in your browser.
 - **Optional, for archives far apart:** if you run [yt-dlp-z](https://github.com/ZXY101/yt-dlp-z),
   turn on "Align archives with yt-dlp-z" in the add-on's settings, and the popup can line the
   group's archives up from their audio. See

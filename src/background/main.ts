@@ -12,6 +12,8 @@ import {
 import { isAudioClip, isPlayerReport, isPopupRequest } from "../lib/validate.ts";
 import { readYtdlpzSettings, YTDLPZ_KEY } from "../lib/ytdlpz.ts";
 import { createCoordinator } from "./coordinator.ts";
+import { createSavedGroups } from "./saved/saved-groups.ts";
+import { SAVED_GROUPS_KEY } from "./saved/stored.ts";
 
 // Fixed until the popup gets its controls (milestone 5). Group and nudges are the coordinator's.
 const SETTINGS: Pick<SyncSettings, "enabled" | "safetyMargin"> = { enabled: true, safetyMargin: 0 };
@@ -27,6 +29,19 @@ const coordinator = createCoordinator({
   send,
   settings: () => SETTINGS,
   now: () => performance.now() / 1000,
+});
+
+const saved = createSavedGroups({
+  load: async () => (await ext.storage.local.get(SAVED_GROUPS_KEY))[SAVED_GROUPS_KEY],
+  save: (groups) => void ext.storage.local.set({ [SAVED_GROUPS_KEY]: groups }),
+  // Opening tabs needs no permission (only reading their URLs or titles would).
+  openTab: (url, active) => void ext.tabs.create({ url, active }),
+  players: () => coordinator.status().players,
+  setInGroup: coordinator.setInGroup,
+  setOffset: coordinator.setOffset,
+  clearGroup: coordinator.clearGroup,
+  now: Date.now,
+  newId: () => crypto.randomUUID(),
 });
 
 function portPlayerId(port: chrome.runtime.Port): string | undefined {
@@ -68,6 +83,7 @@ function isPopupUrl(url: string | undefined): boolean {
 }
 
 function handlePopupRequest(request: PopupRequest) {
+  saved.handle(request);
   if (request.type === "setInGroup") {
     coordinator.setInGroup(request.id, request.inGroup);
   } else if (request.type === "nudge") {
@@ -89,14 +105,25 @@ function handlePopupRequest(request: PopupRequest) {
 ext.runtime.onMessage.addListener((message: unknown, sender, sendResponse) => {
   // Only the popup may talk to the background this way; content scripts use their port.
   const fromPopup = isPopupUrl(sender.url);
-  if (fromPopup && isPopupRequest(message)) {
-    handlePopupRequest(message);
-    const header = `yt-stream-sync ${ext.runtime.getManifest().version} · ${navigator.userAgent}`;
-    const debug = { log: `${header}\n${coordinator.debugLog()}` };
-    sendResponse(message.type === "getDebugLog" ? debug : coordinator.status());
+  if (!fromPopup || !isPopupRequest(message)) {
+    return false;
   }
-  return false;
+  // Saved groups are read from storage when the background script starts.
+  void saved.ready.then(() => {
+    handlePopupRequest(message);
+    sendResponse(respond(message));
+    return undefined;
+  });
+  return true;
 });
+
+function respond(request: PopupRequest) {
+  if (request.type === "getDebugLog") {
+    const header = `yt-stream-sync ${ext.runtime.getManifest().version} · ${navigator.userAgent}`;
+    return { log: `${header}\n${coordinator.debugLog()}` };
+  }
+  return { ...coordinator.status(), saved: saved.status() };
+}
 
 // Matching by audio is on unless the user turned it off. yt-dlp-z alignment is off unless the
 // user set it up on the settings page.
@@ -116,4 +143,7 @@ ext.storage.onChanged.addListener((changes, area) => {
   }
 });
 
-setInterval(coordinator.tick, 1000);
+setInterval(() => {
+  coordinator.tick();
+  saved.tick();
+}, 1000);

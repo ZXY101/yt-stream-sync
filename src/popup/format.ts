@@ -1,7 +1,7 @@
 import type { PlayerStatus } from "../lib/messages.ts";
 
 /** 4521.3 → "1:15:21" */
-function formatPosition(seconds: number): string {
+export function formatPosition(seconds: number): string {
   const whole = Math.floor(seconds);
   const hours = Math.floor(whole / 3600);
   const minutes = Math.floor((whole % 3600) / 60);

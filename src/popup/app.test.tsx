@@ -32,13 +32,15 @@ function player(overrides: Partial<PlayerStatus>): PlayerStatus {
   };
 }
 
+const NO_SAVED: SyncStatus["saved"] = { groups: [], canSave: false, opening: 0 };
+
 function answer(
   players: PlayerStatus[],
   mixed = false,
   audio: SyncStatus["audio"] = { state: "waiting" },
   align: SyncStatus["align"] = { state: "off" },
 ): SyncStatus {
-  return { players, mixed, audio, align };
+  return { players, mixed, audio, align, saved: NO_SAVED };
 }
 
 const pair = [

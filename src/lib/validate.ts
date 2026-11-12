@@ -155,22 +155,29 @@ function isNudge(value: unknown): boolean {
   return typeof value === "number" && Number.isFinite(value) && Math.abs(value) <= MAX_NUDGE;
 }
 
+// Each popup request's own fields; requests without fields just need their type.
+const POPUP_REQUESTS: Record<string, (value: Fields) => boolean> = {
+  getStatus: () => true,
+  rematchAudio: () => true,
+  clearGroup: () => true,
+  getDebugLog: () => true,
+  alignArchives: () => true,
+  cancelAlign: () => true,
+  saveGroup: () => true,
+  setInGroup: (value) => isText(value.id) && typeof value.inGroup === "boolean",
+  setAudioSync: (value) => typeof value.on === "boolean",
+  nudge: (value) => isText(value.id) && isNudge(value.seconds),
+  openSavedGroup: (value) => isText(value.groupId),
+  deleteSavedGroup: (value) => isText(value.groupId),
+};
+
 export function isPopupRequest(value: unknown): value is PopupRequest {
-  if (!isObject(value)) {
+  if (
+    !isObject(value) ||
+    typeof value.type !== "string" ||
+    !Object.hasOwn(POPUP_REQUESTS, value.type)
+  ) {
     return false;
   }
-  if (value.type === "getStatus") {
-    return true;
-  }
-  if (value.type === "setInGroup") {
-    return isText(value.id) && typeof value.inGroup === "boolean";
-  }
-  if (value.type === "setAudioSync") {
-    return typeof value.on === "boolean";
-  }
-  const plain = ["rematchAudio", "clearGroup", "getDebugLog", "alignArchives", "cancelAlign"];
-  if (plain.includes(value.type as string)) {
-    return true;
-  }
-  return value.type === "nudge" && isText(value.id) && isNudge(value.seconds);
+  return POPUP_REQUESTS[value.type]?.(value) ?? false;
 }

@@ -23,8 +23,10 @@ function archive(id: string, title: string, hasStartTime = true): PlayerStatus {
 
 const PAIR = [archive("1:0", "Tsuzuri POV"), archive("2:0", "Kyoko POV")];
 
+const NO_SAVED: SyncStatus["saved"] = { groups: [], canSave: false, opening: 0 };
+
 function status(align: AlignStatus, mixed = false): SyncStatus {
-  return { players: PAIR, mixed, audio: { state: "off" }, align };
+  return { players: PAIR, mixed, audio: { state: "off" }, align, saved: NO_SAVED };
 }
 
 function renderPanel(align: AlignStatus, members = PAIR) {
