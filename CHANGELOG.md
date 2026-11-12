@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.1](https://github.com/ZXY101/yt-stream-sync/compare/yt-stream-sync-v0.1.0...yt-stream-sync-v0.1.1) (2026-11-12)
+
+
+### Features
+
+* **popup:** save sync groups and open them again later ([9b67adc](https://github.com/ZXY101/yt-stream-sync/commit/9b67adc087b144e84e334c7b6a969775dd9f6b01))
+* **popup:** save sync groups and open them again later ([0eba5bf](https://github.com/ZXY101/yt-stream-sync/commit/0eba5bf32dc9639d757d33edea7d6ddb2c681657))
+
 ## 0.1.0 (2026-11-11)
 
 

@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "yt-stream-sync",
   "short_name": "yt-stream-sync",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Keeps two or more YouTube live streams in sync, without touching playback speed by hand.",
   "icons": {
     "16": "icons/icon-16.png",
