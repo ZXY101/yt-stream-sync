@@ -89,12 +89,16 @@ function actions(setStatus: (status: SyncStatus) => void) {
     saveGroup: () => send({ type: "saveGroup" }),
     openSavedGroup: (groupId: string) => send({ type: "openSavedGroup", groupId }),
     deleteSavedGroup: (groupId: string) => send({ type: "deleteSavedGroup", groupId }),
+    renameSavedGroup: (groupId: string, name: string) =>
+      send({ type: "renameSavedGroup", groupId, name }),
+    removeSavedMember: (groupId: string, videoId: string) =>
+      send({ type: "removeSavedMember", groupId, videoId }),
   };
 }
 
 /**
  * The streams the background script knows about, refreshed every second, and the actions
- * the popup offers on them.
+ * the popup (and the saved groups page) offer on them.
  */
 export function useSyncStatus() {
   const [status, setStatus] = useState<SyncStatus>();

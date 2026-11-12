@@ -4,13 +4,16 @@ import userEvent from "@testing-library/user-event";
 import type { PlayerStatus, SyncStatus } from "../lib/messages.ts";
 import { App } from "./app.tsx";
 
-const { sendMessage, query, openOptionsPage } = vi.hoisted(() => ({
+const { sendMessage, query, create } = vi.hoisted(() => ({
   sendMessage: vi.fn<(message: unknown) => Promise<unknown>>(),
   query: vi.fn<(info: unknown) => Promise<{ id?: number }[]>>(),
-  openOptionsPage: vi.fn<() => Promise<void>>(),
+  create: vi.fn<(info: unknown) => Promise<unknown>>(),
 }));
 vi.mock("../lib/browser.ts", () => ({
-  ext: { runtime: { sendMessage, openOptionsPage }, tabs: { query } },
+  ext: {
+    runtime: { sendMessage, getURL: (path: string) => `moz-extension://id/${path}` },
+    tabs: { query, create },
+  },
 }));
 
 const CURRENT_TAB = 7;
@@ -86,13 +89,15 @@ describe("App", () => {
     expect(query).toHaveBeenCalledWith({ active: true, currentWindow: true });
   });
 
-  it("opens the settings page", async () => {
+  it("opens the settings page on its settings tab", async () => {
     const user = userEvent.setup();
     sendMessage.mockResolvedValue(answer([]));
-    openOptionsPage.mockResolvedValue(undefined);
+    create.mockResolvedValue({});
+    const close = vi.spyOn(window, "close").mockImplementation(() => undefined);
     render(<App />);
     await user.click(await screen.findByRole("button", { name: "Settings" }));
-    expect(openOptionsPage).toHaveBeenCalledOnce();
+    expect(create).toHaveBeenCalledWith({ url: "moz-extension://id/options/index.html#settings" });
+    expect(close).toHaveBeenCalled();
   });
 
   it("offers yt-dlp-z alignment for archives once it's set up", async () => {
