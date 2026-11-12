@@ -50,7 +50,10 @@ file names are stable (no hashes) and the code isn't minified, so store reviewer
 Third-party code goes into `chunks/vendor.js`.
 
 Because the add-on is bundled, a Mozilla Add-ons (AMO) submission needs the source code
-uploaded alongside it, with these build steps: `npm ci && npm run build`.
+uploaded alongside it (`git archive` of the release tag), with these build steps:
+`npm ci --ignore-scripts && npm run build`. Outside a git checkout, plain `npm ci` fails on
+the `prepare` script (`lefthook install`); `--ignore-scripts` skips it. The result matches the
+release zip file for file.
 
 ## Tests
 
