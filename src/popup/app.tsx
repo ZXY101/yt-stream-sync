@@ -56,7 +56,9 @@ function StreamPanels({ status, sync, tabId }: { status: SyncStatus; sync: Sync;
   // Waveforms are shown by default while matching by audio is on.
   const [showWaveforms, setShowWaveforms] = useState(true);
   const inTab = status.players.filter((player) => player.tabId === tabId);
-  const savedId = status.saved.activeId;
+  // Only a playing saved group (two or more of its streams in the sync group) takes new streams
+  // from the popup; otherwise Add only adds to the sync group.
+  const savedId = status.saved.inSync >= 2 ? status.saved.activeId : undefined;
   const members = status.players.filter((player) => player.inGroup);
   return (
     <>
@@ -115,7 +117,6 @@ export function App() {
             onOpen={(groupId) => void sync.openSavedGroup(groupId)}
             onDelete={(groupId) => void sync.deleteSavedGroup(groupId)}
             onRename={(groupId, name) => void sync.renameSavedGroup(groupId, name)}
-            onAddStreams={(groupId) => void sync.addToSavedGroup(groupId)}
             onManage={() => openSettingsPage("groups")}
           />
         </>

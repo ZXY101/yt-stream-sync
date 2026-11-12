@@ -132,12 +132,22 @@ describe("App", () => {
     expect(sendMessage).toHaveBeenCalledWith({ type: "alignArchives" });
   });
 
-  it("adds this tab's archive to the open saved group in one click; a live stream just to sync", async () => {
+  it("only offers Add to saved group while the saved group is playing", async () => {
+    const archive = player({ title: "Third POV", kind: "archive", hasStartTime: true });
+    const group = { id: "g1", name: "Collab", updatedAt: 0, position: 0, streams: [] };
+    const saved = { ...NO_SAVED, groups: [group], activeId: "g1", inSync: 1 };
+    sendMessage.mockResolvedValue({ ...answer([archive]), saved });
+    render(<App />);
+    expect(await screen.findByRole("button", { name: "Add Third POV to sync" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: /to the saved group$/ })).not.toBeInTheDocument();
+  });
+
+  it("adds this tab's archive to the playing saved group in one click; a live stream just to sync", async () => {
     const user = userEvent.setup();
     const archive = player({ title: "Third POV", kind: "archive", hasStartTime: true });
     const live = player({ id: "7:1", title: "Live POV" });
     const group = { id: "g1", name: "Collab", updatedAt: 0, position: 0, streams: [] };
-    const saved = { ...NO_SAVED, groups: [group], activeId: "g1" };
+    const saved = { ...NO_SAVED, groups: [group], activeId: "g1", inSync: 2 };
     sendMessage.mockResolvedValue({ ...answer([archive, live, ...pair]), saved });
     render(<App />);
 

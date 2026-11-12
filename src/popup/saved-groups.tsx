@@ -1,4 +1,4 @@
-import { Plus, RotateCcw, Save } from "lucide-react";
+import { RotateCcw, Save } from "lucide-react";
 
 import { Button } from "@/components/ui/button.tsx";
 import { describeGroup } from "@/components/saved/describe.ts";
@@ -18,8 +18,6 @@ interface SavedGroupsProps {
   onOpen: (groupId: string) => void;
   onDelete: (groupId: string) => void;
   onRename: (groupId: string, name: string) => void;
-  /** Adds the sync group's archives the open saved group doesn't have. */
-  onAddStreams: (groupId: string) => void;
   /** Opens the saved groups page. */
   onManage: () => void;
 }
@@ -82,14 +80,6 @@ function OpenGroupSection({ open, ...props }: SavedGroupsProps & { open: SavedGr
         <Button variant="outline" size="sm" onClick={() => props.onOpen(open.id)}>
           <RotateCcw data-icon="inline-start" />
           Reopen closed streams
-        </Button>
-      )}
-      {props.saved.addable > 0 && (
-        <Button variant="outline" size="sm" onClick={() => props.onAddStreams(open.id)}>
-          <Plus data-icon="inline-start" />
-          {props.saved.addable === 1
-            ? "Add 1 stream to the saved group"
-            : `Add ${props.saved.addable} streams to the saved group`}
         </Button>
       )}
       <ManageLink label="Manage saved groups" onManage={props.onManage} />

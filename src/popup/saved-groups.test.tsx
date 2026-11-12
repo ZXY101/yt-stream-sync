@@ -31,7 +31,6 @@ function renderSaved(saved: Partial<SavedStatus>, hasMembers = false) {
     onOpen: vi.fn<(groupId: string) => void>(),
     onDelete: vi.fn<(groupId: string) => void>(),
     onRename: vi.fn<(groupId: string, name: string) => void>(),
-    onAddStreams: vi.fn<(groupId: string) => void>(),
     onManage: vi.fn<() => void>(),
   };
   const status: SavedStatus = {
@@ -116,12 +115,9 @@ describe("SavedGroups", () => {
       expect(onDelete).toHaveBeenCalledWith("g1");
     });
 
-    it("offers to add streams the sync group has and the saved group doesn't", async () => {
-      const { onAddStreams } = renderSaved({ groups: [GROUP], activeId: "g1", addable: 1 }, true);
-      await userEvent.click(
-        screen.getByRole("button", { name: "Add 1 stream to the saved group" }),
-      );
-      expect(onAddStreams).toHaveBeenCalledWith("g1");
+    it("leaves adding streams to this tab's Add button", () => {
+      renderSaved({ groups: [GROUP], activeId: "g1", addable: 1, inSync: 2 }, true);
+      expect(screen.queryByRole("button", { name: /saved group$/ })).not.toBeInTheDocument();
     });
 
     it("isn't playing with one stream left, and offers to reopen the closed ones", async () => {
