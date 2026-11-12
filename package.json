@@ -1,7 +1,7 @@
 {
   "name": "yt-stream-sync",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Firefox and Chrome extension that keeps two or more YouTube live streams in sync.",
   "type": "module",
   "scripts": {
