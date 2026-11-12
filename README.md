@@ -38,8 +38,9 @@ so you can watch them side by side without fiddling with playback speed.
 - Coming: a safety margin for shaky live streams, a "back to live" button, and a warning
   when added streams don't look like the same collab.
 
-No data collection, no remote code, and no network requests of its own unless you turn on
-the yt-dlp-z alignment (then only to your server, only when you click Align). See
+No data collection, no remote code, and no network requests of its own besides the popup's
+thumbnails, unless you turn on the yt-dlp-z alignment (then only to your server, only when you
+click Align). See the [privacy policy](docs/privacy.md) and
 [docs/permissions.md](docs/permissions.md).
 
 ## Development
