@@ -3,7 +3,9 @@ import { useEffect, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs.tsx";
 import { useColorScheme } from "@/components/use-color-scheme.ts";
 
+import type { PlayerStatus } from "../lib/messages.ts";
 import { useSyncStatus } from "../popup/use-sync-status.ts";
+import type { OpenArchive } from "./add-stream.tsx";
 import { SavedGroupsPage } from "./saved-groups-page.tsx";
 import { YtdlpzSection } from "./ytdlpz-section.tsx";
 
@@ -31,6 +33,21 @@ function useHashTab() {
   return [tab, chooseTab] as const;
 }
 
+/** Archives open on their watch pages (what a saved group can hold), one per video. */
+function openArchives(players: PlayerStatus[]): OpenArchive[] {
+  const seen = new Map<string, OpenArchive>();
+  for (const player of players) {
+    if (player.kind === "archive" && player.hasStartTime === true && !seen.has(player.videoId)) {
+      seen.set(player.videoId, {
+        videoId: player.videoId,
+        title: player.title,
+        channel: player.channel,
+      });
+    }
+  }
+  return [...seen.values()];
+}
+
 function GroupsTab() {
   const sync = useSyncStatus();
   if (!sync.status) {
@@ -39,12 +56,13 @@ function GroupsTab() {
   return (
     <SavedGroupsPage
       saved={sync.status.saved}
+      openArchives={openArchives(sync.status.players)}
       onOpen={(groupId) => void sync.openSavedGroup(groupId)}
       onDelete={(groupId) => void sync.deleteSavedGroup(groupId)}
       onRename={(groupId, name) => void sync.renameSavedGroup(groupId, name)}
       onRemoveStream={(groupId, videoId) => void sync.removeSavedMember(groupId, videoId)}
       onSetOffset={(groupId, videoId, offset) => void sync.setSavedOffset(groupId, videoId, offset)}
-      onAddStreams={(groupId) => void sync.addToSavedGroup(groupId)}
+      onAddStream={(groupId, videoId) => void sync.addSavedStream(groupId, videoId)}
     />
   );
 }

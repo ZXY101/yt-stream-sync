@@ -66,6 +66,7 @@ function StreamPanels({ status, sync, tabId }: { status: SyncStatus; sync: Sync;
         players={inTab.filter((player) => !player.inGroup)}
         added={inTab.filter((player) => player.inGroup).length}
         onAdd={(id) => void setInGroup(id, true)}
+        savedName={status.saved.groups.find((group) => group.id === savedId)?.name}
         onAddToSaved={
           savedId === undefined ? undefined : (id) => void sync.addToSavedGroup(savedId, id)
         }

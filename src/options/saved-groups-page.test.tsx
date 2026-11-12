@@ -14,14 +14,19 @@ function group(id: string, name: string, streams = STREAMS) {
   return { id, name, updatedAt: Date.UTC(2026, 10, 12), position: 600, streams };
 }
 
-function renderPage(saved: Partial<SavedStatus>) {
+const OPEN_TAB = { videoId: "ddddddddddd", title: "Fourth POV", channel: "Fourth" };
+
+function renderPage(
+  saved: Partial<SavedStatus>,
+  openArchives = [OPEN_TAB, STREAMS[0] ?? OPEN_TAB],
+) {
   const actions = {
     onOpen: vi.fn<(groupId: string) => void>(),
     onDelete: vi.fn<(groupId: string) => void>(),
     onRename: vi.fn<(groupId: string, name: string) => void>(),
     onRemoveStream: vi.fn<(groupId: string, videoId: string) => void>(),
     onSetOffset: vi.fn<(groupId: string, videoId: string, offset: number) => void>(),
-    onAddStreams: vi.fn<(groupId: string) => void>(),
+    onAddStream: vi.fn<(groupId: string, videoId: string) => void>(),
   };
   const status: SavedStatus = {
     groups: [],
@@ -31,7 +36,7 @@ function renderPage(saved: Partial<SavedStatus>) {
     inSync: 0,
     ...saved,
   };
-  render(<SavedGroupsPage saved={status} {...actions} />);
+  render(<SavedGroupsPage saved={status} openArchives={openArchives} {...actions} />);
   return actions;
 }
 
@@ -121,10 +126,27 @@ describe("SavedGroupsPage", () => {
     expect(within(two).getByText(/keeps at least two streams/)).toBeInTheDocument();
   });
 
-  it("adds the sync group's new streams to the open group", async () => {
-    const actions = renderPage({ groups: [group("g1", "Overwatch")], activeId: "g1", addable: 2 });
+  it("adds a stream to any group from a pasted link, and says when the link isn't one", async () => {
+    const actions = renderPage({ groups: [group("g1", "Overwatch")] });
     await expand("Overwatch");
-    await userEvent.click(screen.getByRole("button", { name: "Add 2 streams to the saved group" }));
-    expect(actions.onAddStreams).toHaveBeenCalledWith("g1");
+    await userEvent.click(screen.getByRole("button", { name: "Add stream" }));
+    const field = screen.getByRole("textbox", { name: "YouTube link or video id" });
+    await userEvent.type(field, "not a link{Enter}");
+    expect(field).toHaveAttribute("aria-invalid", "true");
+    expect(actions.onAddStream).not.toHaveBeenCalled();
+    await userEvent.clear(field);
+    await userEvent.type(field, "https://youtu.be/ddddddddddd?si=x{Enter}");
+    expect(actions.onAddStream).toHaveBeenCalledWith("g1", "ddddddddddd");
+    expect(field).toHaveValue("");
+  });
+
+  it("offers archives open in tabs that the group doesn't have, one click each", async () => {
+    const actions = renderPage({ groups: [group("g1", "Overwatch")] });
+    await expand("Overwatch");
+    await userEvent.click(screen.getByRole("button", { name: "Add stream" }));
+    const open = screen.getByRole("list", { name: "Archives open in your tabs" });
+    expect(within(open).getAllByRole("listitem")).toHaveLength(1);
+    await userEvent.click(within(open).getByRole("button", { name: "Add Fourth POV" }));
+    expect(actions.onAddStream).toHaveBeenCalledWith("g1", "ddddddddddd");
   });
 });

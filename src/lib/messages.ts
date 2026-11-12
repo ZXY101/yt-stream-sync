@@ -137,6 +137,8 @@ export type PopupRequest =
   | { type: "setSavedOffset"; groupId: string; videoId: string; offset: number }
   /** Add the sync group's archives that the open saved group doesn't have yet. */
   | { type: "addToSavedGroup"; groupId: string }
+  /** Add one archive to a saved group by its video id (from a pasted link or an open tab). */
+  | { type: "addSavedStream"; groupId: string; videoId: string }
   /** The debug log, answered with `{ log: string }` instead of a `SyncStatus`. */
   | { type: "getDebugLog" };
 

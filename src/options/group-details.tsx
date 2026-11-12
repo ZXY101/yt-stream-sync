@@ -1,4 +1,4 @@
-import { ExternalLink, Plus, X } from "lucide-react";
+import { ExternalLink, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button.tsx";
 import { ThumbnailStack } from "@/components/saved/thumbnail-stack.tsx";
@@ -8,6 +8,7 @@ import { savedAt } from "@/components/saved/describe.ts";
 import type { SavedGroupSummary, SavedStreamSummary } from "../lib/messages.ts";
 import { formatPosition } from "../popup/format.ts";
 import { OffsetField } from "../popup/nudge-buttons.tsx";
+import { AddStream, type OpenArchive } from "./add-stream.tsx";
 import type { SavedGroupActions } from "./saved-groups-page.tsx";
 
 /** A saved group is for syncing, so it keeps at least two archives (as the background does). */
@@ -15,10 +16,13 @@ const MIN_STREAMS = 2;
 
 interface GroupDetailsProps {
   group: SavedGroupSummary;
-  isOpen: boolean;
   actions: SavedGroupActions;
-  addable: number;
+  /** Archives open in tabs; the ones not in this group are offered for adding. */
+  openArchives: OpenArchive[];
 }
+
+/** A saved group keeps at most this many archives (as the background does). */
+const MAX_STREAMS = 16;
 
 const VIDEO_ID = /^[\w-]{11}$/;
 
@@ -84,10 +88,11 @@ function StreamRow({ stream, canRemove, onSetOffset, onRemove }: StreamRowProps)
   );
 }
 
-/** An opened group: its streams, and adding the sync group's new ones. */
-export function GroupDetails({ group, isOpen, actions, addable }: GroupDetailsProps) {
+/** An opened group: its streams, and adding more. */
+export function GroupDetails({ group, actions, openArchives }: GroupDetailsProps) {
   const canRemove = group.streams.length > MIN_STREAMS;
-  const streams = addable === 1 ? "1 stream" : `${addable} streams`;
+  const known = new Set(group.streams.map((stream) => stream.videoId));
+  const addable = openArchives.filter((archive) => !known.has(archive.videoId));
   return (
     <div className="flex flex-col gap-2 border-t pt-1">
       <ul className="divide-y" aria-label={`Streams in ${group.name}`}>
@@ -106,13 +111,10 @@ export function GroupDetails({ group, isOpen, actions, addable }: GroupDetailsPr
           Offsets line each stream up on top of its broadcast start. Saved{" "}
           {savedAt(group.updatedAt)}.{!canRemove && " A group keeps at least two streams."}
         </span>
-        {isOpen && addable > 0 && (
-          <Button variant="outline" size="xs" onClick={() => actions.onAddStreams(group.id)}>
-            <Plus data-icon="inline-start" />
-            Add {streams} to the saved group
-          </Button>
-        )}
       </div>
+      {group.streams.length < MAX_STREAMS && (
+        <AddStream open={addable} onAdd={(videoId) => actions.onAddStream(group.id, videoId)} />
+      )}
     </div>
   );
 }

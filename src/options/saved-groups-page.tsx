@@ -8,6 +8,7 @@ import { RenameForm } from "@/components/saved/rename-form.tsx";
 import { ThumbnailStack } from "@/components/saved/thumbnail-stack.tsx";
 
 import type { SavedGroupSummary, SavedStatus } from "../lib/messages.ts";
+import type { OpenArchive } from "./add-stream.tsx";
 import { GroupDetails } from "./group-details.tsx";
 
 export interface SavedGroupActions {
@@ -16,7 +17,7 @@ export interface SavedGroupActions {
   onRename: (groupId: string, name: string) => void;
   onRemoveStream: (groupId: string, videoId: string) => void;
   onSetOffset: (groupId: string, videoId: string, offset: number) => void;
-  onAddStreams: (groupId: string) => void;
+  onAddStream: (groupId: string, videoId: string) => void;
 }
 
 interface GroupProps {
@@ -146,7 +147,7 @@ function GroupHeader(props: GroupProps & { expanded: boolean; onToggle: () => vo
   );
 }
 
-function GroupCard(props: GroupProps & { addable: number }) {
+function GroupCard(props: GroupProps & { openArchives: OpenArchive[] }) {
   const [expanded, setExpanded] = useState(false);
   const border = isPlaying(props) ? "border-2 border-emerald-500/70" : "border";
   return (
@@ -176,7 +177,11 @@ function Empty() {
 }
 
 /** Every saved group, newest first, each opening to its streams, offsets and places. */
-export function SavedGroupsPage({ saved, ...actions }: { saved: SavedStatus } & SavedGroupActions) {
+export function SavedGroupsPage({
+  saved,
+  openArchives,
+  ...actions
+}: { saved: SavedStatus; openArchives: OpenArchive[] } & SavedGroupActions) {
   return (
     <section aria-label="Saved groups" className="flex flex-col gap-3">
       <p className="text-sm text-muted-foreground">
@@ -193,7 +198,7 @@ export function SavedGroupsPage({ saved, ...actions }: { saved: SavedStatus } & 
               group={group}
               isOpen={group.id === saved.activeId}
               inSync={group.id === saved.activeId ? saved.inSync : 0}
-              addable={group.id === saved.activeId ? saved.addable : 0}
+              openArchives={openArchives}
               actions={actions}
             />
           ))}

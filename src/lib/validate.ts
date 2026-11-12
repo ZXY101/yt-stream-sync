@@ -10,6 +10,7 @@ import {
   type PlayerReport,
   type PopupRequest,
 } from "./messages.ts";
+import { isVideoId } from "./video-id.ts";
 
 // Anything in the page can post messages, so every field is checked before use.
 const STATES: ReadonlySet<unknown> = new Set<PlayerState>([
@@ -180,6 +181,8 @@ const POPUP_REQUESTS: Record<string, (value: Fields) => boolean> = {
   setSavedOffset: (value) =>
     isText(value.groupId) && isText(value.videoId) && isNudge(value.offset),
   addToSavedGroup: (value) => isText(value.groupId),
+  addSavedStream: (value) =>
+    isText(value.groupId) && typeof value.videoId === "string" && isVideoId(value.videoId),
 };
 
 export function isPopupRequest(value: unknown): value is PopupRequest {

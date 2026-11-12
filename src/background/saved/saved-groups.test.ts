@@ -290,6 +290,29 @@ describe("createSavedGroups", () => {
     expect(saved.status().addable).toBe(0);
   });
 
+  it("adds a stream by video id: names and place from an open tab, offset 0", async () => {
+    const tab = archive("5:0", "ccccccccccc", { inGroup: false, offset: 9, position: 321.26 });
+    const { saved, options } = await setUp([STORED], [tab]);
+    saved.handle({ type: "addSavedStream", groupId: "g1", videoId: "ccccccccccc" });
+    expect(lastSaved(options.save)[0]?.members[2]).toEqual({
+      videoId: "ccccccccccc",
+      title: "Title ccccccccccc",
+      channel: "Channel ccccccccccc",
+      offset: 0,
+      position: 321.3,
+    });
+    saved.handle({ type: "addSavedStream", groupId: "g1", videoId: "ccccccccccc" });
+    saved.handle({ type: "addSavedStream", groupId: "g1", videoId: "eeeeeeeeeee" });
+    expect(lastSaved(options.save)[0]?.members[3]).toEqual({
+      videoId: "eeeeeeeeeee",
+      title: "",
+      channel: "",
+      offset: 0,
+      position: 0,
+    });
+    expect(options.save).toHaveBeenCalledTimes(2);
+  });
+
   it("deletes a group, also the open one", async () => {
     const { saved, options } = await setUp([STORED, { ...STORED, id: "g2" }]);
     saved.handle({ type: "openSavedGroup", groupId: "g1" });

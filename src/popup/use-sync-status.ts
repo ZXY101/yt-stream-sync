@@ -95,6 +95,8 @@ function actions(setStatus: (status: SyncStatus) => void) {
       send({ type: "removeSavedMember", groupId, videoId }),
     setSavedOffset: (groupId: string, videoId: string, offset: number) =>
       send({ type: "setSavedOffset", groupId, videoId, offset }),
+    addSavedStream: (groupId: string, videoId: string) =>
+      send({ type: "addSavedStream", groupId, videoId }),
     /** With `playerId`, that player joins the sync group first. */
     addToSavedGroup: async (groupId: string, playerId?: string) => {
       if (playerId !== undefined) {

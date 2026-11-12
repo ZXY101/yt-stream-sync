@@ -1,6 +1,13 @@
 import type { PlayerStatus, PopupRequest, SavedStatus } from "../../lib/messages.ts";
 import { createRestore } from "./restore.ts";
-import { addToGroup, newMembers, removeSavedMember, renameGroup, setSavedOffset } from "./edits.ts";
+import {
+  addSavedStream,
+  addToGroup,
+  newMembers,
+  removeSavedMember,
+  renameGroup,
+  setSavedOffset,
+} from "./edits.ts";
 import { isSaveable, refreshMembers, saveableMembers, sameMembers } from "./snapshot.ts";
 import { capGroups, groupName, readSavedGroups, watchUrlAt, type SavedGroup } from "./stored.ts";
 
@@ -162,6 +169,8 @@ function handle(context: Context, request: PopupRequest) {
     setSavedOffset(context, request.groupId, request.videoId, request.offset);
   } else if (request.type === "addToSavedGroup") {
     addToGroup(context, request.groupId);
+  } else if (request.type === "addSavedStream") {
+    addSavedStream(context, request.groupId, request.videoId);
   } else if (request.type === "clearGroup") {
     activate(context, undefined);
   }

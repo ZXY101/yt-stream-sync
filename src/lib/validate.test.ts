@@ -141,6 +141,8 @@ describe("isPopupRequest", () => {
     [{ type: "setSavedOffset", groupId: "g1", videoId: "aaaaaaaaaaa", offset: -12.5 }, true],
     [{ type: "setSavedOffset", groupId: "g1", videoId: "aaaaaaaaaaa", offset: 99999 }, false],
     [{ type: "addToSavedGroup", groupId: "g1" }, true],
+    [{ type: "addSavedStream", groupId: "g1", videoId: "aaaaaaaaaaa" }, true],
+    [{ type: "addSavedStream", groupId: "g1", videoId: "a/../b" }, false],
     [{ type: "reload" }, false],
     [null, false],
   ])("%j → %s", (value, expected) => {

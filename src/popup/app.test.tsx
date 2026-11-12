@@ -152,6 +152,9 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByRole("button", { name: "Add Live POV to sync" })).toBeVisible();
+    expect(screen.getByText(/Add also saves it to/)).toHaveTextContent(
+      "Add also saves it to Collab.",
+    );
     await user.click(screen.getByRole("button", { name: "Add Third POV to the saved group" }));
     expect(sendMessage).toHaveBeenCalledWith({ type: "setInGroup", id: "7:0", inGroup: true });
     expect(sendMessage).toHaveBeenLastCalledWith({ type: "addToSavedGroup", groupId: "g1" });
