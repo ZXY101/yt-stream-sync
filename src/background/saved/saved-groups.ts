@@ -10,7 +10,10 @@ export interface SavedGroupsOptions {
   /** What storage holds (checked before use). */
   load: () => Promise<unknown>;
   save: (groups: SavedGroup[]) => void;
-  openTab: (url: string, active: boolean) => void;
+  /** Opens a tab in front and gives its id (undefined if it couldn't be opened). */
+  openTab: (url: string) => Promise<number | undefined>;
+  /** Brings a tab to the front. */
+  focusTab: (tabId: number) => void;
   players: () => PlayerStatus[];
   setInGroup: (id: string, inGroup: boolean) => void;
   setOffset: (id: string, offset: number) => void;
@@ -59,6 +62,23 @@ function saveGroup(context: Context) {
   }
 }
 
+/**
+ * Opens each member's tab in front, one after the other, then goes back to the first. Firefox
+ * won't start a video in a background tab until it has been shown, so every tab is shown once.
+ */
+async function openTabs(options: SavedGroupsOptions, members: SavedGroup["members"]) {
+  const tabIds: (number | undefined)[] = [];
+  for (const member of members) {
+    // One at a time on purpose: each tab is in front once, and the tab order stays the group's.
+    // oxlint-disable-next-line no-await-in-loop
+    tabIds.push(await options.openTab(watchUrlAt(member.videoId, member.position)));
+  }
+  const first = tabIds[0];
+  if (tabIds.length > 1 && first !== undefined) {
+    options.focusTab(first);
+  }
+}
+
 /** Opens tabs for the members that aren't open yet; they rejoin as their players report. */
 function openGroup(context: Context, groupId: string) {
   const { options, restore } = context;
@@ -75,9 +95,7 @@ function openGroup(context: Context, groupId: string) {
       .map((player) => player.videoId),
   );
   const toOpen = group.members.filter((member) => !open.has(member.videoId));
-  toOpen.forEach((member, index) => {
-    options.openTab(watchUrlAt(member.videoId, member.position), index === 0);
-  });
+  void openTabs(options, toOpen);
   activate(context, group.id);
   restore.expect(group.members);
   restore.tick(options.players());

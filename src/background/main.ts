@@ -35,7 +35,8 @@ const saved = createSavedGroups({
   load: async () => (await ext.storage.local.get(SAVED_GROUPS_KEY))[SAVED_GROUPS_KEY],
   save: (groups) => void ext.storage.local.set({ [SAVED_GROUPS_KEY]: groups }),
   // Opening tabs needs no permission (only reading their URLs or titles would).
-  openTab: (url, active) => void ext.tabs.create({ url, active }),
+  openTab: async (url) => (await ext.tabs.create({ url, active: true })).id,
+  focusTab: (tabId) => void ext.tabs.update(tabId, { active: true }),
   players: () => coordinator.status().players,
   setInGroup: coordinator.setInGroup,
   setOffset: coordinator.setOffset,

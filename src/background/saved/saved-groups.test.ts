@@ -38,11 +38,15 @@ const STORED: SavedGroup = {
 };
 
 async function setUp(stored: unknown = [], initial: PlayerStatus[] = []) {
-  const state = { players: initial, now: 1_000_000 };
+  const state = { players: initial, now: 1_000_000, nextTab: 100 };
   const options = {
     load: vi.fn<() => Promise<unknown>>(async () => stored),
     save: vi.fn<(groups: SavedGroup[]) => void>(),
-    openTab: vi.fn<(url: string, active: boolean) => void>(),
+    openTab: vi.fn<(url: string) => Promise<number | undefined>>(async () => {
+      state.nextTab += 1;
+      return state.nextTab;
+    }),
+    focusTab: vi.fn<(tabId: number) => void>(),
     players: () => state.players,
     setInGroup: vi.fn<(id: string, inGroup: boolean) => void>((id, inGroup) => {
       state.players = state.players.map((p) => (p.id === id ? { ...p, inGroup } : p));
@@ -128,9 +132,11 @@ describe("createSavedGroups", () => {
     const { saved, options, state } = await setUp([STORED]);
     saved.handle({ type: "openSavedGroup", groupId: "g1" });
     expect(options.clearGroup).toHaveBeenCalled();
+    // Each tab is opened in front (so Firefox lets its video start), then the first comes back.
+    await vi.waitFor(() => expect(options.focusTab).toHaveBeenCalledWith(101));
     expect(options.openTab.mock.calls).toEqual([
-      [`https://www.youtube.com/watch?v=${VIDEO_A}&t=3600s`, true],
-      [`https://www.youtube.com/watch?v=${VIDEO_B}&t=3600s`, false],
+      [`https://www.youtube.com/watch?v=${VIDEO_A}&t=3600s`],
+      [`https://www.youtube.com/watch?v=${VIDEO_B}&t=3600s`],
     ]);
     expect(saved.status()).toMatchObject({ activeId: "g1", opening: 2 });
 
@@ -164,8 +170,11 @@ describe("createSavedGroups", () => {
     );
     saved.handle({ type: "openSavedGroup", groupId: "g1" });
     expect(options.openTab.mock.calls).toEqual([
-      [`https://www.youtube.com/watch?v=${VIDEO_B}&t=3600s`, true],
+      [`https://www.youtube.com/watch?v=${VIDEO_B}&t=3600s`],
     ]);
+    // A single new tab is already in front.
+    await Promise.resolve();
+    expect(options.focusTab).not.toHaveBeenCalled();
     expect(options.setInGroup).toHaveBeenCalledWith("1:0", true);
     state.now += 121_000;
     saved.tick();

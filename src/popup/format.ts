@@ -84,5 +84,8 @@ export function describeSync(player: PlayerStatus, gap = 0): string {
   if (player.kind === "live") {
     return describeLive(player, player.error, gap);
   }
+  if (player.stuck === true && player.state === "paused") {
+    return "Won't start: open its tab once";
+  }
   return describeArchive(player.error);
 }

@@ -181,6 +181,26 @@ describe("archive sync against simulated players", () => {
     expect(spread(moments(last, { a: START_A, b: START_B }))).toBeLessThan(0.1);
   });
 
+  it("keeps playing without a background tab that won't start, and takes it back once shown", () => {
+    const a = new SimulatedArchive({ id: "a", position: 100, startTime: START_A });
+    const b = new SimulatedArchive({ id: "b", position: 30, startTime: START_B });
+    b.holdBack();
+
+    const ticks = runArchiveSync({
+      players: [a, b],
+      seconds: 60,
+      events: { 30: () => b.show() },
+    });
+
+    // a only waits a few seconds for b, then plays on: no endless pause and regroup loop.
+    const waiting = ticks.slice(0, 30).filter((tick) => tick.states.a !== "playing");
+    expect(waiting.length).toBeLessThanOrEqual(4);
+    expect(ticks.slice(10, 30).every((tick) => tick.states.a === "playing")).toBe(true);
+    const last = ticks.at(-1) as ArchiveTick;
+    expect(last.states).toEqual({ a: "playing", b: "playing" });
+    expect(spread(moments(last, { a: START_A, b: START_B }))).toBeLessThan(0.1);
+  });
+
   it("doesn't compound catch-up speeds when the user touches a catching-up stream", () => {
     const a = new SimulatedArchive({ id: "a", position: 100, startTime: START_A });
     // b is 0.5 s behind, so it gets sped up a little to catch up.

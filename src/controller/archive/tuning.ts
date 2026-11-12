@@ -9,6 +9,9 @@ export const ARCHIVE_TUNING: ArchiveTuning = {
   // longer than 8 s feels broken, so then everyone plays anyway.
   readyBuffer: 1.5,
   regroupSteps: 8,
+  // A follower still paused this many steps after it should have played is held back by the
+  // browser (a background tab); it is set aside instead of regrouping everyone for it.
+  refuseSteps: 3,
   startError: 0.15,
   stopError: 0.05,
   // 5% closes a 1 s gap in 20 s and is hard to notice.

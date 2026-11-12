@@ -41,6 +41,18 @@ export function createAudioTap(video: CapturableVideo) {
   processor.connect(context.destination);
   void context.resume();
 
+  // Without a click on the page first, the browser keeps the audio engine suspended, and it
+  // stays that way until it is asked again. So ask again on the user's next click or key.
+  const gestures = ["pointerdown", "keydown"] as const;
+  function retry() {
+    if (context.state === "suspended") {
+      void context.resume();
+    }
+  }
+  for (const gesture of gestures) {
+    window.addEventListener(gesture, retry, { capture: true, passive: true });
+  }
+
   const stream = source.mediaStream;
   const method = video.captureStream ? "captureStream" : "mozCaptureStream";
   const note = `${method} tracks=${stream.getAudioTracks().length} engine=${context.state} rate=${context.sampleRate} muted=${video.muted} volume=${video.volume}`;
@@ -50,6 +62,9 @@ export function createAudioTap(video: CapturableVideo) {
   }
 
   function stop() {
+    for (const gesture of gestures) {
+      window.removeEventListener(gesture, retry, { capture: true });
+    }
     processor.disconnect();
     source.disconnect();
     void context.close();
