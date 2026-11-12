@@ -10,6 +10,7 @@ import {
   type PlayerReport,
   type PopupRequest,
 } from "./messages.ts";
+import { isVideoId } from "./video-id.ts";
 
 // Anything in the page can post messages, so every field is checked before use.
 const STATES: ReadonlySet<unknown> = new Set<PlayerState>([
@@ -155,6 +156,12 @@ function isNudge(value: unknown): boolean {
   return typeof value === "number" && Number.isFinite(value) && Math.abs(value) <= MAX_NUDGE;
 }
 
+const MAX_GROUP_NAME = 80;
+
+function isGroupName(value: unknown): boolean {
+  return typeof value === "string" && value.trim() !== "" && value.length <= MAX_GROUP_NAME;
+}
+
 // Each popup request's own fields; requests without fields just need their type.
 const POPUP_REQUESTS: Record<string, (value: Fields) => boolean> = {
   getStatus: () => true,
@@ -169,6 +176,13 @@ const POPUP_REQUESTS: Record<string, (value: Fields) => boolean> = {
   nudge: (value) => isText(value.id) && isNudge(value.seconds),
   openSavedGroup: (value) => isText(value.groupId),
   deleteSavedGroup: (value) => isText(value.groupId),
+  renameSavedGroup: (value) => isText(value.groupId) && isGroupName(value.name),
+  removeSavedMember: (value) => isText(value.groupId) && isText(value.videoId),
+  setSavedOffset: (value) =>
+    isText(value.groupId) && isText(value.videoId) && isNudge(value.offset),
+  addToSavedGroup: (value) => isText(value.groupId),
+  addSavedStream: (value) =>
+    isText(value.groupId) && typeof value.videoId === "string" && isVideoId(value.videoId),
 };
 
 export function isPopupRequest(value: unknown): value is PopupRequest {

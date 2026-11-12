@@ -28,6 +28,8 @@ export class SimulatedArchive {
   private loadRate: number;
   /** What the player does once it has buffered after a stall or jump. */
   private wantsToPlay = true;
+  /** A background tab Firefox hasn't shown yet: play requests wait until it is shown. */
+  private heldBack = false;
 
   constructor(options: SimulatedArchiveOptions) {
     this.id = options.id;
@@ -52,7 +54,22 @@ export class SimulatedArchive {
       this.state = this.wantsToPlay ? "buffering" : "paused";
     } else {
       this.wantsToPlay = action.type === "play";
-      this.state = this.wantsToPlay ? this.playingState() : "paused";
+      this.state = this.wantsToPlay && !this.heldBack ? this.playingState() : "paused";
+    }
+  }
+
+  /** Opened in a background tab: paused, and play requests wait until `show()`. */
+  holdBack(): void {
+    this.heldBack = true;
+    this.wantsToPlay = false;
+    this.state = "paused";
+  }
+
+  /** The user shows the tab: a play asked for meanwhile starts now. */
+  show(): void {
+    this.heldBack = false;
+    if (this.wantsToPlay) {
+      this.state = this.playingState();
     }
   }
 

@@ -4,13 +4,16 @@ import userEvent from "@testing-library/user-event";
 import type { PlayerStatus, SyncStatus } from "../lib/messages.ts";
 import { App } from "./app.tsx";
 
-const { sendMessage, query, openOptionsPage } = vi.hoisted(() => ({
+const { sendMessage, query, create } = vi.hoisted(() => ({
   sendMessage: vi.fn<(message: unknown) => Promise<unknown>>(),
   query: vi.fn<(info: unknown) => Promise<{ id?: number }[]>>(),
-  openOptionsPage: vi.fn<() => Promise<void>>(),
+  create: vi.fn<(info: unknown) => Promise<unknown>>(),
 }));
 vi.mock("../lib/browser.ts", () => ({
-  ext: { runtime: { sendMessage, openOptionsPage }, tabs: { query } },
+  ext: {
+    runtime: { sendMessage, getURL: (path: string) => `moz-extension://id/${path}` },
+    tabs: { query, create },
+  },
 }));
 
 const CURRENT_TAB = 7;
@@ -32,7 +35,13 @@ function player(overrides: Partial<PlayerStatus>): PlayerStatus {
   };
 }
 
-const NO_SAVED: SyncStatus["saved"] = { groups: [], canSave: false, opening: 0 };
+const NO_SAVED: SyncStatus["saved"] = {
+  groups: [],
+  canSave: false,
+  opening: 0,
+  addable: 0,
+  inSync: 0,
+};
 
 function answer(
   players: PlayerStatus[],
@@ -86,13 +95,15 @@ describe("App", () => {
     expect(query).toHaveBeenCalledWith({ active: true, currentWindow: true });
   });
 
-  it("opens the settings page", async () => {
+  it("opens the settings page on its settings tab", async () => {
     const user = userEvent.setup();
     sendMessage.mockResolvedValue(answer([]));
-    openOptionsPage.mockResolvedValue(undefined);
+    create.mockResolvedValue({});
+    const close = vi.spyOn(window, "close").mockImplementation(() => undefined);
     render(<App />);
     await user.click(await screen.findByRole("button", { name: "Settings" }));
-    expect(openOptionsPage).toHaveBeenCalledOnce();
+    expect(create).toHaveBeenCalledWith({ url: "moz-extension://id/options/index.html#settings" });
+    expect(close).toHaveBeenCalled();
   });
 
   it("offers yt-dlp-z alignment for archives once it's set up", async () => {
@@ -119,6 +130,34 @@ describe("App", () => {
     render(<App />);
     await user.click(await screen.findByRole("button", { name: "Align with yt-dlp-z" }));
     expect(sendMessage).toHaveBeenCalledWith({ type: "alignArchives" });
+  });
+
+  it("only offers Add to saved group while the saved group is playing", async () => {
+    const archive = player({ title: "Third POV", kind: "archive", hasStartTime: true });
+    const group = { id: "g1", name: "Collab", updatedAt: 0, position: 0, streams: [] };
+    const saved = { ...NO_SAVED, groups: [group], activeId: "g1", inSync: 1 };
+    sendMessage.mockResolvedValue({ ...answer([archive]), saved });
+    render(<App />);
+    expect(await screen.findByRole("button", { name: "Add Third POV to sync" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: /to the saved group$/ })).not.toBeInTheDocument();
+  });
+
+  it("adds this tab's archive to the playing saved group in one click; a live stream just to sync", async () => {
+    const user = userEvent.setup();
+    const archive = player({ title: "Third POV", kind: "archive", hasStartTime: true });
+    const live = player({ id: "7:1", title: "Live POV" });
+    const group = { id: "g1", name: "Collab", updatedAt: 0, position: 0, streams: [] };
+    const saved = { ...NO_SAVED, groups: [group], activeId: "g1", inSync: 2 };
+    sendMessage.mockResolvedValue({ ...answer([archive, live, ...pair]), saved });
+    render(<App />);
+
+    expect(await screen.findByRole("button", { name: "Add Live POV to sync" })).toBeVisible();
+    expect(screen.getByText(/Add also saves it to/)).toHaveTextContent(
+      "Add also saves it to Collab.",
+    );
+    await user.click(screen.getByRole("button", { name: "Add Third POV to the saved group" }));
+    expect(sendMessage).toHaveBeenCalledWith({ type: "setInGroup", id: "7:0", inGroup: true });
+    expect(sendMessage).toHaveBeenLastCalledWith({ type: "addToSavedGroup", groupId: "g1" });
   });
 
   it("adds this tab's stream, then asks for the other one", async () => {

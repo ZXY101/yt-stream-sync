@@ -12,6 +12,43 @@ interface ThisTabProps {
   /** How many of the tab's streams are already in the group. */
   added: number;
   onAdd: (id: string) => void;
+  /** Set while a saved group plays: Add puts an archive in the sync group and that group. */
+  onAddToSaved?: (id: string) => void;
+  /** The playing saved group's name, for the note under the stream. */
+  savedName?: string;
+}
+
+/** What a saved group can hold: an archive on its watch page (see `isSaveable`). */
+function canSave(player: PlayerStatus): boolean {
+  return player.kind === "archive" && player.hasStartTime === true;
+}
+
+function AddButton({
+  player,
+  onAdd,
+  onAddToSaved,
+  savedName,
+}: Omit<ThisTabProps, "players" | "added"> & { player: PlayerStatus }) {
+  const title = player.title || "this stream";
+  if (onAddToSaved && canSave(player)) {
+    return (
+      <Button
+        size="sm"
+        onClick={() => onAddToSaved(player.id)}
+        aria-label={`Add ${title} to the saved group`}
+        title={`Adds it to the sync group and to the saved group ${savedName ?? ""}`.trim()}
+      >
+        <Plus data-icon="inline-start" />
+        Add
+      </Button>
+    );
+  }
+  return (
+    <Button size="sm" onClick={() => onAdd(player.id)} aria-label={`Add ${title} to sync`}>
+      <Plus data-icon="inline-start" />
+      Add
+    </Button>
+  );
 }
 
 function message(added: number): string {
@@ -24,7 +61,8 @@ function message(added: number): string {
 }
 
 /** The stream(s) in the current tab, ready to add to the sync group. */
-export function ThisTab({ players, added, onAdd }: ThisTabProps) {
+export function ThisTab({ players, added, onAdd, onAddToSaved, savedName }: ThisTabProps) {
+  const savesToo = onAddToSaved !== undefined && players.some(canSave);
   return (
     <section aria-labelledby="this-tab" className="flex flex-col gap-2">
       <h2
@@ -43,18 +81,21 @@ export function ThisTab({ players, added, onAdd }: ThisTabProps) {
               player={player}
               detail={describePlace(player)}
               actions={
-                <Button
-                  size="sm"
-                  onClick={() => onAdd(player.id)}
-                  aria-label={`Add ${player.title || "this stream"} to sync`}
-                >
-                  <Plus data-icon="inline-start" />
-                  Add
-                </Button>
+                <AddButton
+                  player={player}
+                  onAdd={onAdd}
+                  onAddToSaved={onAddToSaved}
+                  savedName={savedName}
+                />
               }
             />
           ))}
         </ul>
+      )}
+      {savesToo && (
+        <p className="truncate text-xs text-muted-foreground">
+          Add also saves it to <span className="font-medium">{savedName}</span>.
+        </p>
       )}
     </section>
   );

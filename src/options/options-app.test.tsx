@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 
 import { OptionsApp } from "./options-app.tsx";
 
-const { storage, permissions, fetchMock } = vi.hoisted(() => {
+const { storage, permissions, fetchMock, sendMessage } = vi.hoisted(() => {
   const data: Record<string, unknown> = {};
   return {
     storage: {
@@ -21,9 +21,12 @@ const { storage, permissions, fetchMock } = vi.hoisted(() => {
       remove: vi.fn<(access: unknown) => Promise<boolean>>(),
     },
     fetchMock: vi.fn<typeof fetch>(),
+    sendMessage: vi.fn<(message: unknown) => Promise<unknown>>(),
   };
 });
-vi.mock("../lib/browser.ts", () => ({ ext: { storage: { local: storage }, permissions } }));
+vi.mock("../lib/browser.ts", () => ({
+  ext: { storage: { local: storage }, permissions, runtime: { sendMessage } },
+}));
 
 const NOT_FOUND = { detail: "No such alignment" };
 
@@ -38,8 +41,29 @@ async function fillIn(address: string, token: string) {
   return user;
 }
 
-describe("OptionsApp", () => {
+describe("OptionsApp tabs", () => {
   beforeEach(() => {
+    sendMessage.mockResolvedValue(undefined);
+    permissions.getAll.mockResolvedValue({ permissions: [], data_collection: [] });
+  });
+
+  it("opens on saved groups and switches tabs with the address", async () => {
+    window.location.hash = "";
+    const user = userEvent.setup();
+    render(<OptionsApp />);
+    expect(await screen.findByText("No saved groups yet.")).toBeVisible();
+    await user.click(screen.getByRole("tab", { name: "Settings" }));
+    expect(window.location.hash).toBe("#settings");
+    expect(await screen.findByText("Align archives with yt-dlp-z")).toBeVisible();
+    window.location.hash = "#groups";
+    expect(await screen.findByText("No saved groups yet.")).toBeVisible();
+  });
+});
+
+describe("OptionsApp settings", () => {
+  beforeEach(() => {
+    window.location.hash = "#settings";
+    sendMessage.mockResolvedValue(undefined);
     for (const key of Object.keys(storage.data)) {
       delete storage.data[key];
     }

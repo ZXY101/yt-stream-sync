@@ -24,7 +24,7 @@ test.afterEach(async () => {
 
 async function openSettings(page: Page): Promise<Page> {
   const settings = await page.browser().newPage({ type: "window" });
-  await openExtensionPage(settings, "options/index.html");
+  await openExtensionPage(settings, "options/index.html#settings");
   await settings.waitForSelector("#ytdlpz-address");
   return settings;
 }

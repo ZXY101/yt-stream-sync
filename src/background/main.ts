@@ -35,7 +35,8 @@ const saved = createSavedGroups({
   load: async () => (await ext.storage.local.get(SAVED_GROUPS_KEY))[SAVED_GROUPS_KEY],
   save: (groups) => void ext.storage.local.set({ [SAVED_GROUPS_KEY]: groups }),
   // Opening tabs needs no permission (only reading their URLs or titles would).
-  openTab: (url, active) => void ext.tabs.create({ url, active }),
+  openTab: async (url) => (await ext.tabs.create({ url, active: true })).id,
+  focusTab: (tabId) => void ext.tabs.update(tabId, { active: true }),
   players: () => coordinator.status().players,
   setInGroup: coordinator.setInGroup,
   setOffset: coordinator.setOffset,
@@ -74,12 +75,17 @@ ext.runtime.onConnect.addListener((port) => {
   });
 });
 
-const POPUP_URL = new URL(ext.runtime.getURL("popup/index.html"));
+// The add-on's own pages that may send requests: the popup and the settings page (saved groups).
+const OWN_PAGES = ["popup/index.html", "options/index.html"].map(
+  (path) => new URL(ext.runtime.getURL(path)),
+);
 
-/** The popup's own page, whatever its query (tests open it with `?tab=`). */
-function isPopupUrl(url: string | undefined): boolean {
+/** One of the add-on's own pages, whatever its query (tests open the popup with `?tab=`). */
+function isOwnPage(url: string | undefined): boolean {
   const parsed = URL.parse(url ?? "");
-  return parsed?.origin === POPUP_URL.origin && parsed.pathname === POPUP_URL.pathname;
+  return OWN_PAGES.some(
+    (page) => parsed?.origin === page.origin && parsed.pathname === page.pathname,
+  );
 }
 
 function handlePopupRequest(request: PopupRequest) {
@@ -103,9 +109,9 @@ function handlePopupRequest(request: PopupRequest) {
 }
 
 ext.runtime.onMessage.addListener((message: unknown, sender, sendResponse) => {
-  // Only the popup may talk to the background this way; content scripts use their port.
-  const fromPopup = isPopupUrl(sender.url);
-  if (!fromPopup || !isPopupRequest(message)) {
+  // Only the add-on's own pages may talk to the background this way; content scripts use
+  // their port.
+  if (!isOwnPage(sender.url) || !isPopupRequest(message)) {
     return false;
   }
   // Saved groups are read from storage when the background script starts.

@@ -38,11 +38,15 @@ const STORED: SavedGroup = {
 };
 
 async function setUp(stored: unknown = [], initial: PlayerStatus[] = []) {
-  const state = { players: initial, now: 1_000_000 };
+  const state = { players: initial, now: 1_000_000, nextTab: 100 };
   const options = {
     load: vi.fn<() => Promise<unknown>>(async () => stored),
     save: vi.fn<(groups: SavedGroup[]) => void>(),
-    openTab: vi.fn<(url: string, active: boolean) => void>(),
+    openTab: vi.fn<(url: string) => Promise<number | undefined>>(async () => {
+      state.nextTab += 1;
+      return state.nextTab;
+    }),
+    focusTab: vi.fn<(tabId: number) => void>(),
     players: () => state.players,
     setInGroup: vi.fn<(id: string, inGroup: boolean) => void>((id, inGroup) => {
       state.players = state.players.map((p) => (p.id === id ? { ...p, inGroup } : p));
@@ -72,10 +76,7 @@ describe("createSavedGroups", () => {
         name: "Saved",
         updatedAt: 1000,
         position: 3600,
-        streams: [
-          { videoId: VIDEO_A, title: `Title ${VIDEO_A}`, channel: `Channel ${VIDEO_A}` },
-          { videoId: VIDEO_B, title: `Title ${VIDEO_B}`, channel: `Channel ${VIDEO_B}` },
-        ],
+        streams: [{ ...member(VIDEO_A, 0, 3600) }, { ...member(VIDEO_B, 130.2, 3600) }],
       },
     ]);
     const failing = createSavedGroups({
@@ -128,9 +129,11 @@ describe("createSavedGroups", () => {
     const { saved, options, state } = await setUp([STORED]);
     saved.handle({ type: "openSavedGroup", groupId: "g1" });
     expect(options.clearGroup).toHaveBeenCalled();
+    // Each tab is opened in front (so Firefox lets its video start), then the first comes back.
+    await vi.waitFor(() => expect(options.focusTab).toHaveBeenCalledWith(101));
     expect(options.openTab.mock.calls).toEqual([
-      [`https://www.youtube.com/watch?v=${VIDEO_A}&t=3600s`, true],
-      [`https://www.youtube.com/watch?v=${VIDEO_B}&t=3600s`, false],
+      [`https://www.youtube.com/watch?v=${VIDEO_A}&t=3600s`],
+      [`https://www.youtube.com/watch?v=${VIDEO_B}&t=3600s`],
     ]);
     expect(saved.status()).toMatchObject({ activeId: "g1", opening: 2 });
 
@@ -164,8 +167,11 @@ describe("createSavedGroups", () => {
     );
     saved.handle({ type: "openSavedGroup", groupId: "g1" });
     expect(options.openTab.mock.calls).toEqual([
-      [`https://www.youtube.com/watch?v=${VIDEO_B}&t=3600s`, true],
+      [`https://www.youtube.com/watch?v=${VIDEO_B}&t=3600s`],
     ]);
+    // A single new tab is already in front.
+    await Promise.resolve();
+    expect(options.focusTab).not.toHaveBeenCalled();
     expect(options.setInGroup).toHaveBeenCalledWith("1:0", true);
     state.now += 121_000;
     saved.tick();
@@ -178,16 +184,41 @@ describe("createSavedGroups", () => {
     expect(options.clearGroup).not.toHaveBeenCalled();
   });
 
-  it("drops a stream the user removes from the open group, not one whose tab closed", async () => {
-    const players = [archive("1:0", VIDEO_A), archive("2:0", VIDEO_B)];
+  it("keeps its archives when streams leave or join the sync group", async () => {
+    const players = [archive("1:0", VIDEO_A, { position: 200 }), archive("2:0", VIDEO_B)];
     const { saved, options, state } = await setUp([STORED], players);
     saved.handle({ type: "openSavedGroup", groupId: "g1" });
-    state.players = [players[0] as PlayerStatus];
+    saved.handle({ type: "setInGroup", id: "2:0", inGroup: false });
+    state.players = [
+      archive("1:0", VIDEO_A, { position: 200 }),
+      archive("2:0", VIDEO_B, { inGroup: false }),
+      archive("3:0", "ccccccccccc"),
+    ];
     state.now += 10_000;
     saved.tick();
+    const members = lastSaved(options.save)[0]?.members ?? [];
+    expect(members.map((m) => m.videoId)).toEqual([VIDEO_A, VIDEO_B]);
+    expect(members[0]?.position).toBe(200);
+  });
+
+  it("renames a group, ignoring blank names, without moving it in the list", async () => {
+    const { saved, options } = await setUp([STORED, { ...STORED, id: "g2", name: "Other" }]);
+    saved.handle({ type: "renameSavedGroup", groupId: "g2", name: "  Movie night  " });
+    expect(lastSaved(options.save).map((g) => g.name)).toEqual(["Saved", "Movie night"]);
+    saved.handle({ type: "renameSavedGroup", groupId: "g2", name: "   " });
+    saved.handle({ type: "renameSavedGroup", groupId: "g2", name: "Movie night" });
+    saved.handle({ type: "renameSavedGroup", groupId: "nope", name: "x" });
+    expect(options.save).toHaveBeenCalledTimes(1);
+  });
+
+  it("removes an archive from a saved group, but keeps at least two", async () => {
+    const three = { ...STORED, members: [...STORED.members, member("ccccccccccc")] };
+    const { saved, options } = await setUp([three]);
+    saved.handle({ type: "removeSavedMember", groupId: "g1", videoId: "ccccccccccc" });
     expect(lastSaved(options.save)[0]?.members.map((m) => m.videoId)).toEqual([VIDEO_A, VIDEO_B]);
-    saved.handle({ type: "setInGroup", id: "1:0", inGroup: false });
-    expect(lastSaved(options.save)[0]?.members.map((m) => m.videoId)).toEqual([VIDEO_B]);
+    saved.handle({ type: "removeSavedMember", groupId: "g1", videoId: VIDEO_A });
+    saved.handle({ type: "removeSavedMember", groupId: "nope", videoId: VIDEO_A });
+    expect(options.save).toHaveBeenCalledTimes(1);
   });
 
   it("stops updating once the group is cleared", async () => {
@@ -198,6 +229,88 @@ describe("createSavedGroups", () => {
     state.now += 10_000;
     saved.tick();
     expect(options.save).not.toHaveBeenCalled();
+  });
+
+  it("lets go of the open group once its tabs are all closed, so it can be opened again", async () => {
+    const players = [archive("1:0", VIDEO_A), archive("2:0", VIDEO_B)];
+    const { saved, state } = await setUp([STORED], players);
+    saved.handle({ type: "openSavedGroup", groupId: "g1" });
+    saved.tick();
+    expect(saved.status()).toMatchObject({ activeId: "g1", inSync: 2 });
+    state.players = [players[0] as PlayerStatus];
+    saved.tick();
+    expect(saved.status()).toMatchObject({ activeId: "g1", inSync: 1 });
+    state.players = [];
+    saved.tick();
+    expect(saved.status().activeId).toBeUndefined();
+  });
+
+  it("keeps the group open while its tabs are still loading", async () => {
+    const { saved, state } = await setUp([STORED]);
+    saved.handle({ type: "openSavedGroup", groupId: "g1" });
+    saved.tick();
+    expect(saved.status().activeId).toBe("g1");
+    state.now += 121_000;
+    saved.tick();
+    expect(saved.status().activeId).toBeUndefined();
+  });
+
+  it("sets an offset in a saved group, and on the open group's player too", async () => {
+    const players = [archive("1:0", VIDEO_A), archive("2:0", VIDEO_B, { offset: 130.2 })];
+    const { saved, options } = await setUp([STORED, { ...STORED, id: "g2" }], players);
+    saved.handle({ type: "setSavedOffset", groupId: "g2", videoId: VIDEO_B, offset: 12 });
+    expect(lastSaved(options.save)[1]?.members[1]?.offset).toBe(12);
+    expect(options.setOffset).not.toHaveBeenCalled();
+    saved.handle({ type: "openSavedGroup", groupId: "g1" });
+    options.setOffset.mockClear();
+    saved.handle({ type: "setSavedOffset", groupId: "g1", videoId: VIDEO_B, offset: 125 });
+    expect(lastSaved(options.save)[0]?.members[1]?.offset).toBe(125);
+    expect(options.setOffset).toHaveBeenCalledWith("2:0", 125);
+    const writes = options.save.mock.calls.length;
+    saved.handle({ type: "setSavedOffset", groupId: "g1", videoId: "ccccccccccc", offset: 1 });
+    expect(options.save).toHaveBeenCalledTimes(writes);
+  });
+
+  it("adds the sync group's new archives to the open group only", async () => {
+    const players = [archive("1:0", VIDEO_A), archive("2:0", VIDEO_B)];
+    const { saved, options, state } = await setUp([STORED, { ...STORED, id: "g2" }], players);
+    saved.handle({ type: "openSavedGroup", groupId: "g1" });
+    expect(saved.status().addable).toBe(0);
+    state.players = [...players, archive("3:0", "ccccccccccc", { offset: 4 })];
+    expect(saved.status().addable).toBe(1);
+    saved.handle({ type: "addToSavedGroup", groupId: "g2" });
+    expect(options.save).not.toHaveBeenCalled();
+    saved.handle({ type: "addToSavedGroup", groupId: "g1" });
+    const members = lastSaved(options.save)[0]?.members ?? [];
+    expect(members.map((m) => [m.videoId, m.offset])).toEqual([
+      [VIDEO_A, 0],
+      [VIDEO_B, 130.2],
+      ["ccccccccccc", 4],
+    ]);
+    expect(saved.status().addable).toBe(0);
+  });
+
+  it("adds a stream by video id: names and place from an open tab, offset 0", async () => {
+    const tab = archive("5:0", "ccccccccccc", { inGroup: false, offset: 9, position: 321.26 });
+    const { saved, options } = await setUp([STORED], [tab]);
+    saved.handle({ type: "addSavedStream", groupId: "g1", videoId: "ccccccccccc" });
+    expect(lastSaved(options.save)[0]?.members[2]).toEqual({
+      videoId: "ccccccccccc",
+      title: "Title ccccccccccc",
+      channel: "Channel ccccccccccc",
+      offset: 0,
+      position: 321.3,
+    });
+    saved.handle({ type: "addSavedStream", groupId: "g1", videoId: "ccccccccccc" });
+    saved.handle({ type: "addSavedStream", groupId: "g1", videoId: "eeeeeeeeeee" });
+    expect(lastSaved(options.save)[0]?.members[3]).toEqual({
+      videoId: "eeeeeeeeeee",
+      title: "",
+      channel: "",
+      offset: 0,
+      position: 0,
+    });
+    expect(options.save).toHaveBeenCalledTimes(2);
   });
 
   it("deletes a group, also the open one", async () => {

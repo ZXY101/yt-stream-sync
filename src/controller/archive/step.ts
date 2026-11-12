@@ -1,6 +1,6 @@
 import type { Action } from "../types.ts";
 import { assignBases, pickReference, shownMoment, targetPosition, wasTouched } from "./clock.ts";
-import { follow, isPlaying } from "./follow.ts";
+import { follow, isPlaying, isWaiting } from "./follow.ts";
 import { regroup } from "./regroup.ts";
 import { ARCHIVE_TUNING } from "./tuning.ts";
 import type {
@@ -105,8 +105,19 @@ function followAll(view: Frame, state: ArchiveState, tuning: ArchiveTuning) {
   const actions: Action[] = [];
   const trimming: Record<string, boolean> = {};
   const stuck = stillStuck(state, view.members);
+  const refusing = countRefusing(state, view);
+  for (const [id, steps] of Object.entries(refusing)) {
+    if (steps >= tuning.refuseSteps) {
+      stuck[id] = true;
+    }
+  }
   const followers = view.members.filter((sample) => sample !== view.reference && !stuck[sample.id]);
   for (const follower of followers) {
+    // Told to play but still paused: ask again, without regrouping everyone for it yet.
+    if (refusing[follower.id] !== undefined) {
+      actions.push({ type: "play", id: follower.id });
+      continue;
+    }
     const target = view.targets[follower.id] as number;
     const wasTrimming = state.trimming[follower.id] ?? false;
     const result = follow({
@@ -125,7 +136,7 @@ function followAll(view: Frame, state: ArchiveState, tuning: ArchiveTuning) {
     trimming[follower.id] = result.trimming;
   }
   return {
-    state: { ...view.next, trimming, stuck },
+    state: { ...view.next, trimming, stuck, refusing },
     actions: [...referenceRate(view), ...actions],
     errors: view.errors,
   };
@@ -138,6 +149,29 @@ function referenceRate(view: Frame): Action[] {
     return [];
   }
   return [{ type: "setRate", id: reference.id, rate: baseRate }];
+}
+
+/**
+ * A follower that stays paused while the reference plays, though it should play too. The user
+ * pausing it would have made it the reference, so the browser is holding it back: typically a
+ * tab opened in the background, where Firefox won't start a video until the tab is shown.
+ * Regrouping for it would only pause everyone again and again, so it's set aside instead.
+ */
+function refusesToPlay(sample: ArchiveSample, view: Frame): boolean {
+  const target = view.targets[sample.id] ?? 0;
+  const shouldPlay = !isWaiting(target) && target <= sample.duration;
+  return shouldPlay && isPlaying(view.reference) && sample.state === "paused";
+}
+
+/** Steps in a row each follower has refused to play, counting this one. */
+function countRefusing(state: ArchiveState, view: Frame): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const sample of view.members) {
+    if (sample !== view.reference && refusesToPlay(sample, view)) {
+      counts[sample.id] = (state.refusing?.[sample.id] ?? 0) + 1;
+    }
+  }
+  return counts;
 }
 
 /** Stuck players stay set aside until they play again; then they're synced like the rest. */

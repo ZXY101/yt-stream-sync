@@ -1,6 +1,14 @@
 import type { PlayerStatus, PopupRequest, SavedStatus } from "../../lib/messages.ts";
 import { createRestore } from "./restore.ts";
-import { isSaveable, mergeMembers, saveableMembers, sameMembers } from "./snapshot.ts";
+import {
+  addSavedStream,
+  addToGroup,
+  newMembers,
+  removeSavedMember,
+  renameGroup,
+  setSavedOffset,
+} from "./edits.ts";
+import { isSaveable, refreshMembers, saveableMembers, sameMembers } from "./snapshot.ts";
 import { capGroups, groupName, readSavedGroups, watchUrlAt, type SavedGroup } from "./stored.ts";
 
 // How often an open saved group takes the sync group's offsets and positions.
@@ -10,7 +18,10 @@ export interface SavedGroupsOptions {
   /** What storage holds (checked before use). */
   load: () => Promise<unknown>;
   save: (groups: SavedGroup[]) => void;
-  openTab: (url: string, active: boolean) => void;
+  /** Opens a tab in front and gives its id (undefined if it couldn't be opened). */
+  openTab: (url: string) => Promise<number | undefined>;
+  /** Brings a tab to the front. */
+  focusTab: (tabId: number) => void;
   players: () => PlayerStatus[];
   setInGroup: (id: string, inGroup: boolean) => void;
   setOffset: (id: string, offset: number) => void;
@@ -59,6 +70,23 @@ function saveGroup(context: Context) {
   }
 }
 
+/**
+ * Opens each member's tab in front, one after the other, then goes back to the first. Firefox
+ * won't start a video in a background tab until it has been shown, so every tab is shown once.
+ */
+async function openTabs(options: SavedGroupsOptions, members: SavedGroup["members"]) {
+  const tabIds: (number | undefined)[] = [];
+  for (const member of members) {
+    // One at a time on purpose: each tab is in front once, and the tab order stays the group's.
+    // oxlint-disable-next-line no-await-in-loop
+    tabIds.push(await options.openTab(watchUrlAt(member.videoId, member.position)));
+  }
+  const first = tabIds[0];
+  if (tabIds.length > 1 && first !== undefined) {
+    options.focusTab(first);
+  }
+}
+
 /** Opens tabs for the members that aren't open yet; they rejoin as their players report. */
 function openGroup(context: Context, groupId: string) {
   const { options, restore } = context;
@@ -75,9 +103,7 @@ function openGroup(context: Context, groupId: string) {
       .map((player) => player.videoId),
   );
   const toOpen = group.members.filter((member) => !open.has(member.videoId));
-  toOpen.forEach((member, index) => {
-    options.openTab(watchUrlAt(member.videoId, member.position), index === 0);
-  });
+  void openTabs(options, toOpen);
   activate(context, group.id);
   restore.expect(group.members);
   restore.tick(options.players());
@@ -91,13 +117,26 @@ function deleteGroup(context: Context, groupId: string) {
   context.options.save(context.groups);
 }
 
-/** The user took a stream out of the open group: it leaves the saved group too. */
-function removeMember(context: Context, playerId: string) {
+/** How many of `group`'s archives are in the sync group right now. */
+function membersInSync(context: Context, group: SavedGroup): number {
+  const videoIds = new Set(group.members.map((member) => member.videoId));
+  const inSync = context.options
+    .players()
+    .filter((player) => player.inGroup && isSaveable(player) && videoIds.has(player.videoId));
+  return new Set(inSync.map((player) => player.videoId)).size;
+}
+
+/**
+ * Lets go of the open saved group once none of its streams are in the sync group any more
+ * (their tabs closed or the user removed them) and none are still being opened.
+ */
+function releaseIfGone(context: Context) {
   const group = active(context);
-  const player = context.options.players().find((other) => other.id === playerId);
-  if (group && player) {
-    const members = group.members.filter((member) => member.videoId !== player.videoId);
-    put(context, { ...group, members, updatedAt: context.options.now() });
+  if (!group || context.restore.waiting() > 0) {
+    return;
+  }
+  if (membersInSync(context, group) === 0) {
+    activate(context, undefined);
   }
 }
 
@@ -108,7 +147,7 @@ function update(context: Context) {
     return;
   }
   context.lastUpdate = options.now();
-  const members = mergeMembers(group.members, saveableMembers(options.players()));
+  const members = refreshMembers(group.members, saveableMembers(options.players()));
   if (!sameMembers(members, group.members)) {
     put(context, { ...group, members, updatedAt: options.now() });
   }
@@ -122,21 +161,38 @@ function handle(context: Context, request: PopupRequest) {
     openGroup(context, request.groupId);
   } else if (request.type === "deleteSavedGroup") {
     deleteGroup(context, request.groupId);
-  } else if (request.type === "setInGroup" && !request.inGroup) {
-    removeMember(context, request.id);
+  } else if (request.type === "renameSavedGroup") {
+    renameGroup(context, request.groupId, request.name);
+  } else if (request.type === "removeSavedMember") {
+    removeSavedMember(context, request.groupId, request.videoId);
+  } else if (request.type === "setSavedOffset") {
+    setSavedOffset(context, request.groupId, request.videoId, request.offset);
+  } else if (request.type === "addToSavedGroup") {
+    addToGroup(context, request.groupId);
+  } else if (request.type === "addSavedStream") {
+    addSavedStream(context, request.groupId, request.videoId);
   } else if (request.type === "clearGroup") {
     activate(context, undefined);
   }
 }
 
 function summary(group: SavedGroup) {
-  const streams = group.members.map(({ videoId, title, channel }) => ({ videoId, title, channel }));
+  const streams = group.members.map(({ videoId, title, channel, offset, position }) => ({
+    videoId,
+    title,
+    channel,
+    offset,
+    position,
+  }));
   const position = group.members[0]?.position ?? 0;
   return { id: group.id, name: group.name, updatedAt: group.updatedAt, position, streams };
 }
 
 function status(context: Context): SavedStatus {
+  const open = active(context);
   return {
+    addable: open ? newMembers(context, open).length : 0,
+    inSync: open ? membersInSync(context, open) : 0,
     groups: context.groups.map(summary),
     activeId: active(context)?.id,
     canSave: saveableMembers(context.options.players()).length >= 2,
@@ -145,8 +201,9 @@ function status(context: Context): SavedStatus {
 }
 
 /**
- * Saved sync groups: saving the sync group's archives, opening a saved group again, and
- * keeping the open one up to date (offsets, positions, streams added or removed by the user).
+ * Saved sync groups: saving the sync group's archives, opening a saved group again, keeping
+ * the open one's offsets and positions up to date, and editing saved groups (rename, remove
+ * an archive, delete).
  */
 export function createSavedGroups(options: SavedGroupsOptions) {
   const context: Context = { options, restore: createRestore(options), groups: [], lastUpdate: 0 };
@@ -161,6 +218,7 @@ export function createSavedGroups(options: SavedGroupsOptions) {
 
   function tick() {
     context.restore.tick(options.players());
+    releaseIfGone(context);
     update(context);
   }
 

@@ -32,6 +32,7 @@ export interface ArchiveTuning {
   readyBuffer: number;
   /** Give up waiting for buffers after this many steps (about seconds) and play anyway. */
   regroupSteps: number;
+  refuseSteps: number;
   /** Start trimming the speed when a player is this many seconds off... */
   startError: number;
   /** ...and stop once it's within this. */
@@ -57,6 +58,8 @@ export interface ArchiveState {
   /** Players that never finished buffering in a regroup. The others carry on without them
    * until they play again. */
   stuck?: Readonly<Record<string, boolean>>;
+  /** Steps in a row each follower stayed paused while it should have played. */
+  refusing?: Readonly<Record<string, number>>;
   /** The speed the user chose (1 unless they changed it). Catch-up trims are on top. */
   baseRate?: number;
 }

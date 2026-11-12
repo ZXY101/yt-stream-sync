@@ -50,7 +50,9 @@ test("saves a sync group and opens it again with its offsets", async ({
   await expect.poll(() => memberOffsets(popup)).toEqual({ [VIDEO_A]: 0, [VIDEO_B]: 90 });
 
   await popup.locator("::-p-aria(Save this group)").click();
-  await expect.poll(() => popup.$("::-p-text(keeps your place)").then(Boolean)).toBe(true);
+  await expect
+    .poll(() => popup.$("::-p-aria(Open saved group Fake channel)").then(Boolean))
+    .toBe(true);
   expect((await status(popup)).saved.groups.map((group) => group.name)).toEqual(["Fake channel"]);
 
   await popup.locator("::-p-aria(Clear)").click();

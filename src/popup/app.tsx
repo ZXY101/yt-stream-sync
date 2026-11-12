@@ -16,6 +16,12 @@ import { useColorScheme } from "@/components/use-color-scheme.ts";
 import { useCurrentTab } from "./use-current-tab.ts";
 import { useSyncStatus } from "./use-sync-status.ts";
 
+/** The settings page, on its saved groups or settings tab. A new tab needs no permission. */
+function openSettingsPage(tab: "groups" | "settings") {
+  void ext.tabs.create({ url: ext.runtime.getURL(`options/index.html#${tab}`) });
+  window.close();
+}
+
 function isSyncing(status: SyncStatus): boolean {
   return !status.mixed && status.players.filter((player) => player.inGroup).length >= 2;
 }
@@ -34,7 +40,7 @@ function Header({ syncing }: { syncing: boolean }) {
         variant="ghost"
         size="icon-sm"
         aria-label="Settings"
-        onClick={() => void ext.runtime.openOptionsPage()}
+        onClick={() => openSettingsPage("settings")}
       >
         <Settings />
       </Button>
@@ -50,6 +56,9 @@ function StreamPanels({ status, sync, tabId }: { status: SyncStatus; sync: Sync;
   // Waveforms are shown by default while matching by audio is on.
   const [showWaveforms, setShowWaveforms] = useState(true);
   const inTab = status.players.filter((player) => player.tabId === tabId);
+  // Only a playing saved group (two or more of its streams in the sync group) takes new streams
+  // from the popup; otherwise Add only adds to the sync group.
+  const savedId = status.saved.inSync >= 2 ? status.saved.activeId : undefined;
   const members = status.players.filter((player) => player.inGroup);
   return (
     <>
@@ -57,6 +66,10 @@ function StreamPanels({ status, sync, tabId }: { status: SyncStatus; sync: Sync;
         players={inTab.filter((player) => !player.inGroup)}
         added={inTab.filter((player) => player.inGroup).length}
         onAdd={(id) => void setInGroup(id, true)}
+        savedName={status.saved.groups.find((group) => group.id === savedId)?.name}
+        onAddToSaved={
+          savedId === undefined ? undefined : (id) => void sync.addToSavedGroup(savedId, id)
+        }
       />
       {members.length >= 2 && !status.mixed && (
         <AudioPanel
@@ -100,9 +113,12 @@ export function App() {
           <StreamPanels status={status} sync={sync} tabId={tabId} />
           <SavedGroups
             saved={status.saved}
+            hasMembers={status.players.some((player) => player.inGroup)}
             onSave={() => void sync.saveGroup()}
             onOpen={(groupId) => void sync.openSavedGroup(groupId)}
             onDelete={(groupId) => void sync.deleteSavedGroup(groupId)}
+            onRename={(groupId, name) => void sync.renameSavedGroup(groupId, name)}
+            onManage={() => openSettingsPage("groups")}
           />
         </>
       )}
