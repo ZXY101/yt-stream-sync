@@ -24,9 +24,12 @@ so you can watch them side by side without fiddling with playback speed.
   when added.
 - **Nudge** any added stream ahead or back (±0.1 s, ±1 s) to fine-tune; the sync keeps it.
 - **Saved groups** (archives on watch pages): long archives often take more than one
-  sitting. Save the sync group from the popup; while it's open it keeps your place and
+  sitting. Save the sync group from the popup; while it plays it keeps your place and
   offsets up to date by itself. Later, **Open** it: the add-on opens each archive at that
-  place and puts them back in sync with the saved offsets, without aligning again. Saved
+  place and puts them back in sync with the saved offsets, without aligning again. The
+  **Saved groups** page (settings button, or the popup's link) lists them all: rename, set
+  offsets, add a stream (paste a link or pick an open tab), remove one, or delete a group.
+  Which streams are in a group only changes there (or with Add while it plays). Saved
   groups stay in your browser.
 - **Optional, for archives far apart:** if you run [yt-dlp-z](https://github.com/ZXY101/yt-dlp-z),
   turn on "Align archives with yt-dlp-z" in the add-on's settings, and the popup can line the

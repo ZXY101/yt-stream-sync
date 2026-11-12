@@ -40,8 +40,12 @@ that is set up.
 in the group, its video id, title, channel, offset and position, in `storage.local` only
 (never synced, never sent anywhere). While that group is open, the offsets and position are
 updated about every 10 s. Opening a saved group opens a tab per archive that isn't open yet
-(`tabs.create` with its watch page link, which needs no permission). Deleting a group removes
-it from storage; removing the add-on removes them all.
+(`tabs.create` with its watch page link) and brings each to the front once, then goes back to
+the first (`tabs.update` with `active`), so Firefox lets every video start; neither needs a
+permission. The saved groups page shows the same stored data, plus the archives already open in
+tabs (from what their content scripts report) to add with one click; a pasted link is reduced to
+its 11-character video id before it's stored. Deleting a group removes it from storage; removing
+the add-on removes them all.
 
 The popup asks the browser which tab is active (`tabs.query`, no permission needed) so it
 can offer that tab's streams; it never reads tab URLs or titles.
