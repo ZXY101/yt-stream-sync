@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.1.2](https://github.com/ZXY101/yt-stream-sync/compare/yt-stream-sync-v0.1.1...yt-stream-sync-v0.1.2) (2026-11-12)
+
+
+### Features
+
+* **options:** saved groups page next to the settings ([bb4788b](https://github.com/ZXY101/yt-stream-sync/commit/bb4788b28ba356dcc3f6c179b7d63059ec6feed2))
+* **popup:** saved groups by situation, with a card for the open group ([9e0e21b](https://github.com/ZXY101/yt-stream-sync/commit/9e0e21b2b9dc9eba5e39d895df748542c764c0e1))
+* **saved:** add a stream to any saved group on the page; plain Add in the popup ([b6401a8](https://github.com/ZXY101/yt-stream-sync/commit/b6401a84ca3e955bfb7431714a0bea22b829498d))
+* **saved:** fuller saved groups page; add to a saved group from the popup ([d8da847](https://github.com/ZXY101/yt-stream-sync/commit/d8da8475930287e9d7877d49f4ae5e405dceed19))
+* **saved:** saved groups change only when edited; rename and remove archives ([3379f18](https://github.com/ZXY101/yt-stream-sync/commit/3379f1808992041dc8bf93b9d9543b498a8db23c))
+
+
+### Bug Fixes
+
+* open saved groups so every stream can start, and stop pause loops ([b5cd61a](https://github.com/ZXY101/yt-stream-sync/commit/b5cd61a0f987a3c406f5722cc0ae1b0943728a21))
+* **popup:** add to a saved group only through this tab's Add, while it plays ([0c91bba](https://github.com/ZXY101/yt-stream-sync/commit/0c91bbac492c1e20576574449f7b17998f086bbc))
+* **saved:** let go of a saved group once its tabs are closed ([9c7fcdc](https://github.com/ZXY101/yt-stream-sync/commit/9c7fcdcd25193469507bceb556d8a3f4a65990c8))
+
 ## [0.1.1](https://github.com/ZXY101/yt-stream-sync/compare/yt-stream-sync-v0.1.0...yt-stream-sync-v0.1.1) (2026-11-12)
 
 
