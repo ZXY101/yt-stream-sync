@@ -3,10 +3,12 @@
 A browser extension that keeps two or more YouTube live streams of the same collab in sync,
 so you can watch them side by side without fiddling with playback speed.
 
-> **Status:** early development. Live streams and archives sync in Firefox (watch pages and
-> embeds); you add streams to the sync group from the popup. Chrome support comes later.
+> **Status:** usable in Firefox (watch pages and embeds) for live streams and archives;
+> you add streams to the sync group from the popup. Not on the add-on stores yet: load a
+> [release](https://github.com/ZXY101/yt-stream-sync/releases) build as a temporary add-on.
+> Chrome support comes later.
 
-## How it will work
+## How it works
 
 - **Opt-in:** on a stream's tab, click the add-on and **Add** it. Go to the other stream's
   tab and add that one too. Nothing is touched until you do, and syncing starts once two or
