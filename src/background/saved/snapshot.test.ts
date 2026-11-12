@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { PlayerStatus } from "../../lib/messages.ts";
-import { mergeMembers, saveableMembers, sameMembers } from "./snapshot.ts";
+import { refreshMembers, saveableMembers, sameMembers } from "./snapshot.ts";
 
 function archive(overrides: Partial<PlayerStatus> = {}): PlayerStatus {
   return {
@@ -41,11 +41,11 @@ describe("saveableMembers", () => {
   });
 });
 
-describe("mergeMembers", () => {
-  it("updates members still there, keeps closed ones and adds new ones", () => {
+describe("refreshMembers", () => {
+  it("updates members still there, keeps closed ones and never adds new ones", () => {
     const moved = { ...A, position: 900 };
     const added = { ...A, videoId: "ccccccccccc" };
-    expect(mergeMembers([A, B], [moved, added])).toEqual([moved, B, added]);
+    expect(refreshMembers([A, B], [moved, added])).toEqual([moved, B]);
   });
 });
 

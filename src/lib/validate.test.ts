@@ -133,6 +133,11 @@ describe("isPopupRequest", () => {
     [{ type: "openSavedGroup" }, false],
     [{ type: "deleteSavedGroup", groupId: "g1" }, true],
     [{ type: "deleteSavedGroup", groupId: 1 }, false],
+    [{ type: "renameSavedGroup", groupId: "g1", name: "Collab" }, true],
+    [{ type: "renameSavedGroup", groupId: "g1", name: "  " }, false],
+    [{ type: "renameSavedGroup", groupId: "g1", name: "x".repeat(81) }, false],
+    [{ type: "removeSavedMember", groupId: "g1", videoId: "aaaaaaaaaaa" }, true],
+    [{ type: "removeSavedMember", groupId: "g1" }, false],
     [{ type: "reload" }, false],
     [null, false],
   ])("%j → %s", (value, expected) => {

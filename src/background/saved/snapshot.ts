@@ -33,14 +33,13 @@ export function saveableMembers(players: PlayerStatus[]): SavedMember[] {
 
 /**
  * A saved group's members brought up to date with the sync group: members still there take
- * their current offset and position, new ones are added. Members whose tab was closed stay,
- * so closing the tabs at the end of a session doesn't empty the saved group.
+ * their current offset and position. Which archives are in the saved group doesn't change:
+ * streams added to or removed from the sync group, or tabs closed, leave it as saved. Only
+ * editing the saved group itself changes that.
  */
-export function mergeMembers(saved: SavedMember[], current: SavedMember[]): SavedMember[] {
+export function refreshMembers(saved: SavedMember[], current: SavedMember[]): SavedMember[] {
   const now = new Map(current.map((member) => [member.videoId, member]));
-  const kept = saved.map((member) => now.get(member.videoId) ?? member);
-  const known = new Set(saved.map((member) => member.videoId));
-  return [...kept, ...current.filter((member) => !known.has(member.videoId))];
+  return saved.map((member) => now.get(member.videoId) ?? member);
 }
 
 function sameMember(a: SavedMember, b: SavedMember | undefined): boolean {

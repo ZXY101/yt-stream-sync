@@ -1,6 +1,6 @@
 import type { PlayerStatus, PopupRequest, SavedStatus } from "../../lib/messages.ts";
 import { createRestore } from "./restore.ts";
-import { isSaveable, mergeMembers, saveableMembers, sameMembers } from "./snapshot.ts";
+import { isSaveable, refreshMembers, saveableMembers, sameMembers } from "./snapshot.ts";
 import { capGroups, groupName, readSavedGroups, watchUrlAt, type SavedGroup } from "./stored.ts";
 
 // How often an open saved group takes the sync group's offsets and positions.
@@ -109,14 +109,32 @@ function deleteGroup(context: Context, groupId: string) {
   context.options.save(context.groups);
 }
 
-/** The user took a stream out of the open group: it leaves the saved group too. */
-function removeMember(context: Context, playerId: string) {
-  const group = active(context);
-  const player = context.options.players().find((other) => other.id === playerId);
-  if (group && player) {
-    const members = group.members.filter((member) => member.videoId !== player.videoId);
-    put(context, { ...group, members, updatedAt: context.options.now() });
+function renameGroup(context: Context, groupId: string, name: string) {
+  const group = context.groups.find((other) => other.id === groupId);
+  const trimmed = name.trim();
+  if (group && trimmed !== "" && trimmed !== group.name) {
+    replace(context, { ...group, name: trimmed });
   }
+}
+
+/** A saved group is for syncing, so it keeps at least two archives. */
+const MIN_MEMBERS = 2;
+
+function removeSavedMember(context: Context, groupId: string, videoId: string) {
+  const group = context.groups.find((other) => other.id === groupId);
+  if (!group || group.members.length <= MIN_MEMBERS) {
+    return;
+  }
+  const members = group.members.filter((member) => member.videoId !== videoId);
+  if (members.length < group.members.length) {
+    replace(context, { ...group, members, updatedAt: context.options.now() });
+  }
+}
+
+/** Stores an edited group where it is in the list (editing doesn't make it the newest). */
+function replace(context: Context, group: SavedGroup) {
+  context.groups = context.groups.map((other) => (other.id === group.id ? group : other));
+  context.options.save(context.groups);
 }
 
 /**
@@ -144,7 +162,7 @@ function update(context: Context) {
     return;
   }
   context.lastUpdate = options.now();
-  const members = mergeMembers(group.members, saveableMembers(options.players()));
+  const members = refreshMembers(group.members, saveableMembers(options.players()));
   if (!sameMembers(members, group.members)) {
     put(context, { ...group, members, updatedAt: options.now() });
   }
@@ -158,8 +176,10 @@ function handle(context: Context, request: PopupRequest) {
     openGroup(context, request.groupId);
   } else if (request.type === "deleteSavedGroup") {
     deleteGroup(context, request.groupId);
-  } else if (request.type === "setInGroup" && !request.inGroup) {
-    removeMember(context, request.id);
+  } else if (request.type === "renameSavedGroup") {
+    renameGroup(context, request.groupId, request.name);
+  } else if (request.type === "removeSavedMember") {
+    removeSavedMember(context, request.groupId, request.videoId);
   } else if (request.type === "clearGroup") {
     activate(context, undefined);
   }
@@ -181,8 +201,9 @@ function status(context: Context): SavedStatus {
 }
 
 /**
- * Saved sync groups: saving the sync group's archives, opening a saved group again, and
- * keeping the open one up to date (offsets, positions, streams added or removed by the user).
+ * Saved sync groups: saving the sync group's archives, opening a saved group again, keeping
+ * the open one's offsets and positions up to date, and editing saved groups (rename, remove
+ * an archive, delete).
  */
 export function createSavedGroups(options: SavedGroupsOptions) {
   const context: Context = { options, restore: createRestore(options), groups: [], lastUpdate: 0 };

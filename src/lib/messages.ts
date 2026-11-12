@@ -108,7 +108,7 @@ export type ToBackground =
   { type: "report"; report: PlayerReport | null } | { type: "clip"; clip: AudioClip };
 export type ToContent = { type: "command"; command: PlayerCommand };
 
-/** Popup → background requests, each answered with a `SyncStatus`. */
+/** Popup (or settings page) → background requests, each answered with a `SyncStatus`. */
 export type PopupRequest =
   | { type: "getStatus" }
   /** The user added a player to the sync group or removed it. */
@@ -125,11 +125,14 @@ export type PopupRequest =
   | { type: "alignArchives" }
   /** Stop a running yt-dlp-z alignment. */
   | { type: "cancelAlign" }
-  /** Save the sync group's archives (it then keeps itself up to date). */
+  /** Save the sync group's archives (while open, it keeps its place and offsets up to date). */
   | { type: "saveGroup" }
   /** Open a saved group's archives and put them back in sync with their saved offsets. */
   | { type: "openSavedGroup"; groupId: string }
   | { type: "deleteSavedGroup"; groupId: string }
+  | { type: "renameSavedGroup"; groupId: string; name: string }
+  /** Take one archive out of a saved group (a group keeps at least two). */
+  | { type: "removeSavedMember"; groupId: string; videoId: string }
   /** The debug log, answered with `{ log: string }` instead of a `SyncStatus`. */
   | { type: "getDebugLog" };
 

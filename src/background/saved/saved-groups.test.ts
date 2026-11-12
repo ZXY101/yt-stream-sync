@@ -187,16 +187,41 @@ describe("createSavedGroups", () => {
     expect(options.clearGroup).not.toHaveBeenCalled();
   });
 
-  it("drops a stream the user removes from the open group, not one whose tab closed", async () => {
-    const players = [archive("1:0", VIDEO_A), archive("2:0", VIDEO_B)];
+  it("keeps its archives when streams leave or join the sync group", async () => {
+    const players = [archive("1:0", VIDEO_A, { position: 200 }), archive("2:0", VIDEO_B)];
     const { saved, options, state } = await setUp([STORED], players);
     saved.handle({ type: "openSavedGroup", groupId: "g1" });
-    state.players = [players[0] as PlayerStatus];
+    saved.handle({ type: "setInGroup", id: "2:0", inGroup: false });
+    state.players = [
+      archive("1:0", VIDEO_A, { position: 200 }),
+      archive("2:0", VIDEO_B, { inGroup: false }),
+      archive("3:0", "ccccccccccc"),
+    ];
     state.now += 10_000;
     saved.tick();
+    const members = lastSaved(options.save)[0]?.members ?? [];
+    expect(members.map((m) => m.videoId)).toEqual([VIDEO_A, VIDEO_B]);
+    expect(members[0]?.position).toBe(200);
+  });
+
+  it("renames a group, ignoring blank names, without moving it in the list", async () => {
+    const { saved, options } = await setUp([STORED, { ...STORED, id: "g2", name: "Other" }]);
+    saved.handle({ type: "renameSavedGroup", groupId: "g2", name: "  Movie night  " });
+    expect(lastSaved(options.save).map((g) => g.name)).toEqual(["Saved", "Movie night"]);
+    saved.handle({ type: "renameSavedGroup", groupId: "g2", name: "   " });
+    saved.handle({ type: "renameSavedGroup", groupId: "g2", name: "Movie night" });
+    saved.handle({ type: "renameSavedGroup", groupId: "nope", name: "x" });
+    expect(options.save).toHaveBeenCalledTimes(1);
+  });
+
+  it("removes an archive from a saved group, but keeps at least two", async () => {
+    const three = { ...STORED, members: [...STORED.members, member("ccccccccccc")] };
+    const { saved, options } = await setUp([three]);
+    saved.handle({ type: "removeSavedMember", groupId: "g1", videoId: "ccccccccccc" });
     expect(lastSaved(options.save)[0]?.members.map((m) => m.videoId)).toEqual([VIDEO_A, VIDEO_B]);
-    saved.handle({ type: "setInGroup", id: "1:0", inGroup: false });
-    expect(lastSaved(options.save)[0]?.members.map((m) => m.videoId)).toEqual([VIDEO_B]);
+    saved.handle({ type: "removeSavedMember", groupId: "g1", videoId: VIDEO_A });
+    saved.handle({ type: "removeSavedMember", groupId: "nope", videoId: VIDEO_A });
+    expect(options.save).toHaveBeenCalledTimes(1);
   });
 
   it("stops updating once the group is cleared", async () => {
