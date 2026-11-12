@@ -3,7 +3,7 @@ import { isSaveable, saveableMembers } from "./snapshot.ts";
 import { MAX_MEMBERS, type SavedGroup, type SavedMember } from "./stored.ts";
 
 /** What editing saved groups needs from the saved groups' state. */
-export interface EditContext {
+interface EditContext {
   options: {
     save: (groups: SavedGroup[]) => void;
     players: () => PlayerStatus[];
