@@ -48,7 +48,7 @@ describe("SavedGroups", () => {
 
   it("marks the open group and hides Save while it keeps itself up to date", () => {
     renderSaved({ groups: [GROUP], activeId: "g1", canSave: true });
-    expect(screen.getByText("Open")).toBeInTheDocument();
+    expect(screen.getByText("In use")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Open/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Save this group" })).not.toBeInTheDocument();
     expect(screen.getByText(/keeps your place/)).toBeInTheDocument();

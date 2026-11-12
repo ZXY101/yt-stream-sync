@@ -200,6 +200,30 @@ describe("createSavedGroups", () => {
     expect(options.save).not.toHaveBeenCalled();
   });
 
+  it("lets go of the open group once its tabs are all closed, so it can be opened again", async () => {
+    const players = [archive("1:0", VIDEO_A), archive("2:0", VIDEO_B)];
+    const { saved, state } = await setUp([STORED], players);
+    saved.handle({ type: "openSavedGroup", groupId: "g1" });
+    saved.tick();
+    expect(saved.status().activeId).toBe("g1");
+    state.players = [players[0] as PlayerStatus];
+    saved.tick();
+    expect(saved.status().activeId).toBe("g1");
+    state.players = [];
+    saved.tick();
+    expect(saved.status().activeId).toBeUndefined();
+  });
+
+  it("keeps the group open while its tabs are still loading", async () => {
+    const { saved, state } = await setUp([STORED]);
+    saved.handle({ type: "openSavedGroup", groupId: "g1" });
+    saved.tick();
+    expect(saved.status().activeId).toBe("g1");
+    state.now += 121_000;
+    saved.tick();
+    expect(saved.status().activeId).toBeUndefined();
+  });
+
   it("deletes a group, also the open one", async () => {
     const { saved, options } = await setUp([STORED, { ...STORED, id: "g2" }]);
     saved.handle({ type: "openSavedGroup", groupId: "g1" });

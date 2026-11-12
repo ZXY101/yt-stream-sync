@@ -101,6 +101,24 @@ function removeMember(context: Context, playerId: string) {
   }
 }
 
+/**
+ * Lets go of the open saved group once none of its streams are in the sync group any more
+ * (their tabs closed or the user removed them) and none are still being opened.
+ */
+function releaseIfGone(context: Context) {
+  const group = active(context);
+  if (!group || context.restore.waiting() > 0) {
+    return;
+  }
+  const videoIds = new Set(group.members.map((member) => member.videoId));
+  const anyLeft = context.options
+    .players()
+    .some((player) => player.inGroup && videoIds.has(player.videoId));
+  if (!anyLeft) {
+    activate(context, undefined);
+  }
+}
+
 function update(context: Context) {
   const { options } = context;
   const group = active(context);
@@ -161,6 +179,7 @@ export function createSavedGroups(options: SavedGroupsOptions) {
 
   function tick() {
     context.restore.tick(options.players());
+    releaseIfGone(context);
     update(context);
   }
 

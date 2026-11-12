@@ -71,7 +71,7 @@ function GroupRow({ group, isOpen, onOpen, onDelete }: GroupRowProps) {
         <p className="truncate text-xs text-muted-foreground">{describeGroup(group)}</p>
       </div>
       {isOpen ? (
-        <Badge variant="secondary">Open</Badge>
+        <Badge variant="secondary">In use</Badge>
       ) : (
         <Button variant="outline" size="xs" aria-label={`Open ${group.name}`} onClick={onOpen}>
           Open
