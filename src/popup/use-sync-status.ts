@@ -14,7 +14,7 @@ const EMPTY: SyncStatus = {
   mixed: false,
   audio: { state: "waiting" },
   align: { state: "off" },
-  saved: { groups: [], canSave: false, opening: 0 },
+  saved: { groups: [], canSave: false, opening: 0, addable: 0, inSync: 0 },
 };
 
 function request(message: PopupRequest): Promise<SyncStatus> {
@@ -93,6 +93,15 @@ function actions(setStatus: (status: SyncStatus) => void) {
       send({ type: "renameSavedGroup", groupId, name }),
     removeSavedMember: (groupId: string, videoId: string) =>
       send({ type: "removeSavedMember", groupId, videoId }),
+    setSavedOffset: (groupId: string, videoId: string, offset: number) =>
+      send({ type: "setSavedOffset", groupId, videoId, offset }),
+    /** With `playerId`, that player joins the sync group first. */
+    addToSavedGroup: async (groupId: string, playerId?: string) => {
+      if (playerId !== undefined) {
+        await send({ type: "setInGroup", id: playerId, inGroup: true });
+      }
+      return send({ type: "addToSavedGroup", groupId });
+    },
   };
 }
 

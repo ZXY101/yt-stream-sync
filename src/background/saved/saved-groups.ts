@@ -1,5 +1,6 @@
 import type { PlayerStatus, PopupRequest, SavedStatus } from "../../lib/messages.ts";
 import { createRestore } from "./restore.ts";
+import { addToGroup, newMembers, removeSavedMember, renameGroup, setSavedOffset } from "./edits.ts";
 import { isSaveable, refreshMembers, saveableMembers, sameMembers } from "./snapshot.ts";
 import { capGroups, groupName, readSavedGroups, watchUrlAt, type SavedGroup } from "./stored.ts";
 
@@ -109,32 +110,13 @@ function deleteGroup(context: Context, groupId: string) {
   context.options.save(context.groups);
 }
 
-function renameGroup(context: Context, groupId: string, name: string) {
-  const group = context.groups.find((other) => other.id === groupId);
-  const trimmed = name.trim();
-  if (group && trimmed !== "" && trimmed !== group.name) {
-    replace(context, { ...group, name: trimmed });
-  }
-}
-
-/** A saved group is for syncing, so it keeps at least two archives. */
-const MIN_MEMBERS = 2;
-
-function removeSavedMember(context: Context, groupId: string, videoId: string) {
-  const group = context.groups.find((other) => other.id === groupId);
-  if (!group || group.members.length <= MIN_MEMBERS) {
-    return;
-  }
-  const members = group.members.filter((member) => member.videoId !== videoId);
-  if (members.length < group.members.length) {
-    replace(context, { ...group, members, updatedAt: context.options.now() });
-  }
-}
-
-/** Stores an edited group where it is in the list (editing doesn't make it the newest). */
-function replace(context: Context, group: SavedGroup) {
-  context.groups = context.groups.map((other) => (other.id === group.id ? group : other));
-  context.options.save(context.groups);
+/** How many of `group`'s archives are in the sync group right now. */
+function membersInSync(context: Context, group: SavedGroup): number {
+  const videoIds = new Set(group.members.map((member) => member.videoId));
+  const inSync = context.options
+    .players()
+    .filter((player) => player.inGroup && isSaveable(player) && videoIds.has(player.videoId));
+  return new Set(inSync.map((player) => player.videoId)).size;
 }
 
 /**
@@ -146,11 +128,7 @@ function releaseIfGone(context: Context) {
   if (!group || context.restore.waiting() > 0) {
     return;
   }
-  const videoIds = new Set(group.members.map((member) => member.videoId));
-  const anyLeft = context.options
-    .players()
-    .some((player) => player.inGroup && videoIds.has(player.videoId));
-  if (!anyLeft) {
+  if (membersInSync(context, group) === 0) {
     activate(context, undefined);
   }
 }
@@ -180,19 +158,32 @@ function handle(context: Context, request: PopupRequest) {
     renameGroup(context, request.groupId, request.name);
   } else if (request.type === "removeSavedMember") {
     removeSavedMember(context, request.groupId, request.videoId);
+  } else if (request.type === "setSavedOffset") {
+    setSavedOffset(context, request.groupId, request.videoId, request.offset);
+  } else if (request.type === "addToSavedGroup") {
+    addToGroup(context, request.groupId);
   } else if (request.type === "clearGroup") {
     activate(context, undefined);
   }
 }
 
 function summary(group: SavedGroup) {
-  const streams = group.members.map(({ videoId, title, channel }) => ({ videoId, title, channel }));
+  const streams = group.members.map(({ videoId, title, channel, offset, position }) => ({
+    videoId,
+    title,
+    channel,
+    offset,
+    position,
+  }));
   const position = group.members[0]?.position ?? 0;
   return { id: group.id, name: group.name, updatedAt: group.updatedAt, position, streams };
 }
 
 function status(context: Context): SavedStatus {
+  const open = active(context);
   return {
+    addable: open ? newMembers(context, open).length : 0,
+    inSync: open ? membersInSync(context, open) : 0,
     groups: context.groups.map(summary),
     activeId: active(context)?.id,
     canSave: saveableMembers(context.options.players()).length >= 2,

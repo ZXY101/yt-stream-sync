@@ -133,6 +133,10 @@ export type PopupRequest =
   | { type: "renameSavedGroup"; groupId: string; name: string }
   /** Take one archive out of a saved group (a group keeps at least two). */
   | { type: "removeSavedMember"; groupId: string; videoId: string }
+  /** Set one archive's offset in a saved group (and in the sync group, if it's open). */
+  | { type: "setSavedOffset"; groupId: string; videoId: string; offset: number }
+  /** Add the sync group's archives that the open saved group doesn't have yet. */
+  | { type: "addToSavedGroup"; groupId: string }
   /** The debug log, answered with `{ log: string }` instead of a `SyncStatus`. */
   | { type: "getDebugLog" };
 
@@ -232,7 +236,17 @@ export interface SavedGroupSummary {
   updatedAt: number;
   /** Seconds into the first stream when last updated. */
   position: number;
-  streams: { videoId: string; title: string; channel: string }[];
+  streams: SavedStreamSummary[];
+}
+
+export interface SavedStreamSummary {
+  videoId: string;
+  title: string;
+  channel: string;
+  /** Its offset in the group (the nudge on top of lining up by broadcast start). */
+  offset: number;
+  /** Seconds into this video when last updated: where it opens. */
+  position: number;
 }
 
 export interface SavedStatus {
@@ -244,6 +258,10 @@ export interface SavedStatus {
   canSave: boolean;
   /** While a saved group opens: streams whose tabs haven't reported yet. */
   opening: number;
+  /** Archives in the sync group that the open saved group doesn't have (they can be added). */
+  addable: number;
+  /** How many of the open saved group's streams are in the sync group (tabs closed don't count). */
+  inSync: number;
 }
 
 export interface SyncStatus {

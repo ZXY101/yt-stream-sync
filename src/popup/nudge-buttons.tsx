@@ -25,7 +25,7 @@ interface OffsetFieldProps {
 }
 
 /** The offset as text the user can overwrite ("-2:05.3"): big gaps in one go. */
-function OffsetField({ title, offset, onSet }: OffsetFieldProps) {
+export function OffsetField({ title, offset, onSet }: OffsetFieldProps) {
   // While the user types, the second-by-second refresh mustn't overwrite the draft.
   const [draft, setDraft] = useState<string>();
 

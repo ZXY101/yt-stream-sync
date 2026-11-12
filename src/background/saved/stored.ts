@@ -23,7 +23,7 @@ export interface SavedGroup {
 }
 
 const MAX_GROUPS = 100;
-const MAX_MEMBERS = 16;
+export const MAX_MEMBERS = 16;
 const MAX_TEXT = 500;
 const MAX_OFFSET = 3600;
 const MAX_POSITION = 7 * 24 * 60 * 60;

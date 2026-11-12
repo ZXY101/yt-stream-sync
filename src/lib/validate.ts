@@ -177,6 +177,9 @@ const POPUP_REQUESTS: Record<string, (value: Fields) => boolean> = {
   deleteSavedGroup: (value) => isText(value.groupId),
   renameSavedGroup: (value) => isText(value.groupId) && isGroupName(value.name),
   removeSavedMember: (value) => isText(value.groupId) && isText(value.videoId),
+  setSavedOffset: (value) =>
+    isText(value.groupId) && isText(value.videoId) && isNudge(value.offset),
+  addToSavedGroup: (value) => isText(value.groupId),
 };
 
 export function isPopupRequest(value: unknown): value is PopupRequest {

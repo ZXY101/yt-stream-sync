@@ -10,8 +10,14 @@ const GROUP = {
   updatedAt: new Date(2026, 10, 12, 14, 3).getTime(),
   position: 4521,
   streams: [
-    { videoId: "Vh-YGhqy_Mo", title: "Tsuzuri POV", channel: "Tsuzuri" },
-    { videoId: "Cdp-8nmEQCA", title: "Kyoko POV", channel: "Kyoko" },
+    { videoId: "Vh-YGhqy_Mo", title: "Tsuzuri POV", channel: "Tsuzuri", offset: 0, position: 4521 },
+    {
+      videoId: "Cdp-8nmEQCA",
+      title: "Kyoko POV",
+      channel: "Kyoko",
+      offset: -130.2,
+      position: 4391,
+    },
   ],
 };
 
@@ -25,9 +31,17 @@ function renderSaved(saved: Partial<SavedStatus>, hasMembers = false) {
     onOpen: vi.fn<(groupId: string) => void>(),
     onDelete: vi.fn<(groupId: string) => void>(),
     onRename: vi.fn<(groupId: string, name: string) => void>(),
+    onAddStreams: vi.fn<(groupId: string) => void>(),
     onManage: vi.fn<() => void>(),
   };
-  const status: SavedStatus = { groups: [], canSave: false, opening: 0, ...saved };
+  const status: SavedStatus = {
+    groups: [],
+    canSave: false,
+    opening: 0,
+    addable: 0,
+    inSync: 0,
+    ...saved,
+  };
   const view = render(<SavedGroups saved={status} hasMembers={hasMembers} {...handlers} />);
   return { ...handlers, view };
 }
@@ -70,9 +84,10 @@ describe("SavedGroups", () => {
 
   describe("while a saved group is open", () => {
     it("shows only that group, playing, with a link to manage groups", () => {
-      renderSaved({ groups: [group("2"), GROUP], activeId: "g1", canSave: true }, true);
+      renderSaved({ groups: [group("2"), GROUP], activeId: "g1", canSave: true, inSync: 2 }, true);
       expect(screen.getByLabelText("Open saved group Tsuzuri + Kyoko")).toBeInTheDocument();
-      expect(screen.getByText("Playing · 2 streams")).toBeInTheDocument();
+      expect(screen.getByText("Playing")).toBeInTheDocument();
+      expect(screen.getByText("2 streams")).toBeInTheDocument();
       expect(screen.queryByText("Group 2")).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Save this group" })).not.toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Manage saved groups" })).toBeInTheDocument();
@@ -90,14 +105,31 @@ describe("SavedGroups", () => {
       expect(onRename).toHaveBeenCalledWith("g1", "Overwatch collab");
     });
 
-    it("asks before unsaving it", async () => {
+    it("asks before deleting it", async () => {
       const { onDelete } = renderSaved({ groups: [GROUP], activeId: "g1" }, true);
-      await userEvent.click(screen.getByRole("button", { name: "Unsave Tsuzuri + Kyoko" }));
+      await userEvent.click(screen.getByRole("button", { name: "Delete Tsuzuri + Kyoko" }));
+      expect(screen.getByText("Delete this group?")).toBeInTheDocument();
       await userEvent.click(screen.getByRole("button", { name: "Keep" }));
       expect(onDelete).not.toHaveBeenCalled();
-      await userEvent.click(screen.getByRole("button", { name: "Unsave Tsuzuri + Kyoko" }));
-      await userEvent.click(screen.getByRole("button", { name: "Unsave" }));
+      await userEvent.click(screen.getByRole("button", { name: "Delete Tsuzuri + Kyoko" }));
+      await userEvent.click(screen.getByRole("button", { name: "Delete" }));
       expect(onDelete).toHaveBeenCalledWith("g1");
+    });
+
+    it("offers to add streams the sync group has and the saved group doesn't", async () => {
+      const { onAddStreams } = renderSaved({ groups: [GROUP], activeId: "g1", addable: 1 }, true);
+      await userEvent.click(
+        screen.getByRole("button", { name: "Add 1 stream to the saved group" }),
+      );
+      expect(onAddStreams).toHaveBeenCalledWith("g1");
+    });
+
+    it("isn't playing with one stream left, and offers to reopen the closed ones", async () => {
+      const { onOpen } = renderSaved({ groups: [GROUP], activeId: "g1", inSync: 1 }, true);
+      expect(screen.queryByText("Playing")).not.toBeInTheDocument();
+      expect(screen.getByText("1 of 2 streams open")).toBeInTheDocument();
+      await userEvent.click(screen.getByRole("button", { name: "Reopen closed streams" }));
+      expect(onOpen).toHaveBeenCalledWith("g1");
     });
 
     it("says how many streams are still opening", () => {

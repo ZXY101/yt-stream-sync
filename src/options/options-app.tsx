@@ -43,6 +43,8 @@ function GroupsTab() {
       onDelete={(groupId) => void sync.deleteSavedGroup(groupId)}
       onRename={(groupId, name) => void sync.renameSavedGroup(groupId, name)}
       onRemoveStream={(groupId, videoId) => void sync.removeSavedMember(groupId, videoId)}
+      onSetOffset={(groupId, videoId, offset) => void sync.setSavedOffset(groupId, videoId, offset)}
+      onAddStreams={(groupId) => void sync.addToSavedGroup(groupId)}
     />
   );
 }

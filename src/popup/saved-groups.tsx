@@ -1,12 +1,11 @@
-import { Pencil, Save, X } from "lucide-react";
-import { useState } from "react";
+import { Plus, RotateCcw, Save } from "lucide-react";
 
 import { Button } from "@/components/ui/button.tsx";
-import { describeGroup, streamCount } from "@/components/saved/describe.ts";
-import { RenameForm } from "@/components/saved/rename-form.tsx";
+import { describeGroup } from "@/components/saved/describe.ts";
 import { ThumbnailStack } from "@/components/saved/thumbnail-stack.tsx";
 
 import type { SavedGroupSummary, SavedStatus } from "../lib/messages.ts";
+import { OpenGroupCard } from "./open-group-card.tsx";
 
 // The popup shows the newest few; the saved groups page has them all.
 const RECENT = 3;
@@ -19,6 +18,8 @@ interface SavedGroupsProps {
   onOpen: (groupId: string) => void;
   onDelete: (groupId: string) => void;
   onRename: (groupId: string, name: string) => void;
+  /** Adds the sync group's archives the open saved group doesn't have. */
+  onAddStreams: (groupId: string) => void;
   /** Opens the saved groups page. */
   onManage: () => void;
 }
@@ -50,95 +51,6 @@ function OpeningNote({ opening }: { opening: number }) {
   return <p className="text-sm text-muted-foreground">Opening: waiting for {streams}.</p>;
 }
 
-type CardMode = "view" | "rename" | "confirm";
-
-function CardText({ group, mode }: { group: SavedGroupSummary; mode: CardMode }) {
-  return (
-    <div className="min-w-0 flex-1">
-      <p className="truncate text-sm font-medium" title={group.name}>
-        {group.name}
-      </p>
-      <p className="truncate text-xs text-muted-foreground">
-        {mode === "confirm" ? "Unsave this group?" : `Playing · ${streamCount(group)}`}
-      </p>
-    </div>
-  );
-}
-
-function CardButtons({
-  name,
-  mode,
-  setMode,
-  onDelete,
-}: {
-  name: string;
-  mode: CardMode;
-  setMode: (mode: CardMode) => void;
-  onDelete: () => void;
-}) {
-  if (mode === "confirm") {
-    return (
-      <>
-        <Button variant="destructive" size="xs" onClick={onDelete}>
-          Unsave
-        </Button>
-        <Button variant="ghost" size="xs" onClick={() => setMode("view")}>
-          Keep
-        </Button>
-      </>
-    );
-  }
-  return (
-    <>
-      <Button
-        variant="ghost"
-        size="icon-xs"
-        aria-label={`Rename ${name}`}
-        onClick={() => setMode("rename")}
-      >
-        <Pencil />
-      </Button>
-      <Button
-        variant="ghost"
-        size="icon-xs"
-        aria-label={`Unsave ${name}`}
-        onClick={() => setMode("confirm")}
-      >
-        <X />
-      </Button>
-    </>
-  );
-}
-
-/** The saved group being watched: its place and offsets are kept as you watch. */
-function OpenGroupCard({
-  group,
-  onRename,
-  onDelete,
-}: {
-  group: SavedGroupSummary;
-  onRename: (name: string) => void;
-  onDelete: () => void;
-}) {
-  const [mode, setMode] = useState<CardMode>("view");
-  return (
-    <div
-      className="flex items-center gap-3 rounded-lg border-2 border-emerald-500/70 bg-card p-2"
-      aria-label={`Open saved group ${group.name}`}
-    >
-      <ThumbnailStack videoIds={group.streams.map((stream) => stream.videoId)} size="md" />
-      {mode === "rename" ? (
-        <RenameForm name={group.name} onRename={onRename} onDone={() => setMode("view")} />
-      ) : (
-        <>
-          <CardText group={group} mode={mode} />
-          <CardButtons name={group.name} mode={mode} setMode={setMode} onDelete={onDelete} />
-        </>
-      )}
-    </div>
-  );
-}
-
 function RecentRow({ group, onOpen }: { group: SavedGroupSummary; onOpen: () => void }) {
   const titles = group.streams.map((stream) => stream.title || stream.videoId).join("\n");
   return (
@@ -162,9 +74,24 @@ function OpenGroupSection({ open, ...props }: SavedGroupsProps & { open: SavedGr
       <OpeningNote opening={props.saved.opening} />
       <OpenGroupCard
         group={open}
+        inSync={props.saved.inSync}
         onRename={(name) => props.onRename(open.id, name)}
         onDelete={() => props.onDelete(open.id)}
       />
+      {props.saved.opening === 0 && props.saved.inSync < open.streams.length && (
+        <Button variant="outline" size="sm" onClick={() => props.onOpen(open.id)}>
+          <RotateCcw data-icon="inline-start" />
+          Reopen closed streams
+        </Button>
+      )}
+      {props.saved.addable > 0 && (
+        <Button variant="outline" size="sm" onClick={() => props.onAddStreams(open.id)}>
+          <Plus data-icon="inline-start" />
+          {props.saved.addable === 1
+            ? "Add 1 stream to the saved group"
+            : `Add ${props.saved.addable} streams to the saved group`}
+        </Button>
+      )}
       <ManageLink label="Manage saved groups" onManage={props.onManage} />
     </section>
   );

@@ -35,7 +35,13 @@ function player(overrides: Partial<PlayerStatus>): PlayerStatus {
   };
 }
 
-const NO_SAVED: SyncStatus["saved"] = { groups: [], canSave: false, opening: 0 };
+const NO_SAVED: SyncStatus["saved"] = {
+  groups: [],
+  canSave: false,
+  opening: 0,
+  addable: 0,
+  inSync: 0,
+};
 
 function answer(
   players: PlayerStatus[],
@@ -124,6 +130,21 @@ describe("App", () => {
     render(<App />);
     await user.click(await screen.findByRole("button", { name: "Align with yt-dlp-z" }));
     expect(sendMessage).toHaveBeenCalledWith({ type: "alignArchives" });
+  });
+
+  it("adds this tab's archive to the open saved group in one click; a live stream just to sync", async () => {
+    const user = userEvent.setup();
+    const archive = player({ title: "Third POV", kind: "archive", hasStartTime: true });
+    const live = player({ id: "7:1", title: "Live POV" });
+    const group = { id: "g1", name: "Collab", updatedAt: 0, position: 0, streams: [] };
+    const saved = { ...NO_SAVED, groups: [group], activeId: "g1" };
+    sendMessage.mockResolvedValue({ ...answer([archive, live, ...pair]), saved });
+    render(<App />);
+
+    expect(await screen.findByRole("button", { name: "Add Live POV to sync" })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Add Third POV to the saved group" }));
+    expect(sendMessage).toHaveBeenCalledWith({ type: "setInGroup", id: "7:0", inGroup: true });
+    expect(sendMessage).toHaveBeenLastCalledWith({ type: "addToSavedGroup", groupId: "g1" });
   });
 
   it("adds this tab's stream, then asks for the other one", async () => {

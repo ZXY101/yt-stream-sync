@@ -76,10 +76,7 @@ describe("createSavedGroups", () => {
         name: "Saved",
         updatedAt: 1000,
         position: 3600,
-        streams: [
-          { videoId: VIDEO_A, title: `Title ${VIDEO_A}`, channel: `Channel ${VIDEO_A}` },
-          { videoId: VIDEO_B, title: `Title ${VIDEO_B}`, channel: `Channel ${VIDEO_B}` },
-        ],
+        streams: [{ ...member(VIDEO_A, 0, 3600) }, { ...member(VIDEO_B, 130.2, 3600) }],
       },
     ]);
     const failing = createSavedGroups({
@@ -239,10 +236,10 @@ describe("createSavedGroups", () => {
     const { saved, state } = await setUp([STORED], players);
     saved.handle({ type: "openSavedGroup", groupId: "g1" });
     saved.tick();
-    expect(saved.status().activeId).toBe("g1");
+    expect(saved.status()).toMatchObject({ activeId: "g1", inSync: 2 });
     state.players = [players[0] as PlayerStatus];
     saved.tick();
-    expect(saved.status().activeId).toBe("g1");
+    expect(saved.status()).toMatchObject({ activeId: "g1", inSync: 1 });
     state.players = [];
     saved.tick();
     expect(saved.status().activeId).toBeUndefined();
@@ -256,6 +253,41 @@ describe("createSavedGroups", () => {
     state.now += 121_000;
     saved.tick();
     expect(saved.status().activeId).toBeUndefined();
+  });
+
+  it("sets an offset in a saved group, and on the open group's player too", async () => {
+    const players = [archive("1:0", VIDEO_A), archive("2:0", VIDEO_B, { offset: 130.2 })];
+    const { saved, options } = await setUp([STORED, { ...STORED, id: "g2" }], players);
+    saved.handle({ type: "setSavedOffset", groupId: "g2", videoId: VIDEO_B, offset: 12 });
+    expect(lastSaved(options.save)[1]?.members[1]?.offset).toBe(12);
+    expect(options.setOffset).not.toHaveBeenCalled();
+    saved.handle({ type: "openSavedGroup", groupId: "g1" });
+    options.setOffset.mockClear();
+    saved.handle({ type: "setSavedOffset", groupId: "g1", videoId: VIDEO_B, offset: 125 });
+    expect(lastSaved(options.save)[0]?.members[1]?.offset).toBe(125);
+    expect(options.setOffset).toHaveBeenCalledWith("2:0", 125);
+    const writes = options.save.mock.calls.length;
+    saved.handle({ type: "setSavedOffset", groupId: "g1", videoId: "ccccccccccc", offset: 1 });
+    expect(options.save).toHaveBeenCalledTimes(writes);
+  });
+
+  it("adds the sync group's new archives to the open group only", async () => {
+    const players = [archive("1:0", VIDEO_A), archive("2:0", VIDEO_B)];
+    const { saved, options, state } = await setUp([STORED, { ...STORED, id: "g2" }], players);
+    saved.handle({ type: "openSavedGroup", groupId: "g1" });
+    expect(saved.status().addable).toBe(0);
+    state.players = [...players, archive("3:0", "ccccccccccc", { offset: 4 })];
+    expect(saved.status().addable).toBe(1);
+    saved.handle({ type: "addToSavedGroup", groupId: "g2" });
+    expect(options.save).not.toHaveBeenCalled();
+    saved.handle({ type: "addToSavedGroup", groupId: "g1" });
+    const members = lastSaved(options.save)[0]?.members ?? [];
+    expect(members.map((m) => [m.videoId, m.offset])).toEqual([
+      [VIDEO_A, 0],
+      [VIDEO_B, 130.2],
+      ["ccccccccccc", 4],
+    ]);
+    expect(saved.status().addable).toBe(0);
   });
 
   it("deletes a group, also the open one", async () => {
