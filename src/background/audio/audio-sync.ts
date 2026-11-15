@@ -4,6 +4,8 @@ import { createClipCollector } from "./clip-collector.ts";
 import { decide, type Situation } from "./decide.ts";
 import { createListenSet } from "./listen-set.ts";
 import { createMatchBook } from "./match-book.ts";
+import { createKnownGaps } from "./known-gaps.ts";
+import { describeAsk, describeMatch } from "./match-log.ts";
 import { createReadiness } from "./readiness.ts";
 
 /** Seconds of audio compared. Longer is more reliable; the page keeps 36. */
@@ -19,6 +21,8 @@ export interface AudioSyncOptions {
   adjust: (id: string, seconds: number) => void;
   /** Seconds on a monotonic clock. */
   now: () => number;
+  /** Writes a line to the debug log: what was asked for and how each comparison went. */
+  log?: (line: string) => void;
 }
 
 export interface AudioMember {
@@ -83,35 +87,59 @@ function applyMatch({ reference, result, members, book, adjust }: Applied): Audi
   return book.status(members, result.tooShort === true);
 }
 
+interface SettleParts {
+  collector: ReturnType<typeof createClipCollector>;
+  readiness: ReturnType<typeof createReadiness>;
+  book: MatchBook;
+  tries: ReturnType<typeof createTries>;
+  log: (line: string) => void;
+  adjust: AudioSyncOptions["adjust"];
+}
+
+/** A try is over: logs how it went, applies what matched, and says what comes next. */
+function settle(
+  parts: SettleParts,
+  outcome: { reference: string; result: MatchResult; members: string[] },
+): AudioStatus {
+  const { collector, readiness, book, tries, log, adjust } = parts;
+  collector.clear();
+  readiness.reset(); // The next match must hear audio played after this one took effect.
+  describeMatch(outcome.result).forEach(log);
+  const status = applyMatch({ ...outcome, book, adjust });
+  tries.after(status, outcome.result);
+  return tries.mark(status);
+}
+
 /**
- * The audio lag includes any gap the sync already knows about and keeps on purpose (a
- * low-latency stream that can't be held back further). Only the rest is a wrong offset:
- * moving the offset by the whole lag would count that gap twice. Keeps the players' errors
- * from when the clips were asked for (the moment the clips end) to take that gap out.
+ * Tries since a fresh start that left someone unmatched, so the popup can say it's another go.
+ * Only a try where someone was compared and didn't match counts; a player that simply hasn't
+ * started playing isn't a failure.
  */
-function createKnownGaps() {
-  let latest: Record<string, number> = {};
-  let atAsk: Record<string, number> = {};
-
-  function update(members: readonly AudioMember[]) {
-    latest = Object.fromEntries(members.map((member) => [member.id, member.error ?? 0]));
-  }
-
-  function remove(result: MatchResult, reference: string): MatchResult {
-    const referenceError = atAsk[reference] ?? 0;
-    const lags = Object.fromEntries(
-      Object.entries(result.lags).map(([id, lag]) => [id, lag + (atAsk[id] ?? 0) - referenceError]),
-    );
-    return { ...result, lags };
-  }
-
+function createTries() {
+  let tries = 0;
   return {
-    update,
-    remember: () => {
-      atAsk = latest;
+    mark: (next: AudioStatus): AudioStatus =>
+      next.state === "listening" && tries > 0 ? { ...next, tries } : next,
+    after(next: AudioStatus, result: MatchResult) {
+      if (next.state !== "listening") {
+        tries = 0;
+      } else if (result.unmatched.length > 0) {
+        tries += 1;
+      }
     },
-    remove,
+    reset() {
+      tries = 0;
+    },
   };
+}
+
+type Pending = ReturnType<ReturnType<typeof createClipCollector>["pending"]>;
+
+/** Not every player answered in time: a failed try for all of them. */
+function gaveUp(asked: Pending, log: (line: string) => void): [string, MatchResult] {
+  const missing = asked?.ids.filter((id) => !asked.clips[id]).join(", ") || "a player";
+  log(`audio: no clip from ${missing} in time; trying again later`);
+  return [asked?.reference ?? "", { lags: {}, unmatched: asked?.ids ?? [], tooShort: true }];
 }
 
 /** Matched players stay the reference when they can, so new players join them. */
@@ -120,6 +148,7 @@ function pickReference(eligible: string[], book: MatchBook): string {
 }
 
 interface AskParts {
+  log: (line: string) => void;
   collector: ReturnType<typeof createClipCollector>;
   knownGaps: ReturnType<typeof createKnownGaps>;
   eligible: string[];
@@ -127,8 +156,9 @@ interface AskParts {
 }
 
 /** Asks the eligible players for their last seconds of audio. */
-function askForClips({ collector, knownGaps, eligible, book }: AskParts): AudioStatus {
+function askForClips({ log, collector, knownGaps, eligible, book }: AskParts): AudioStatus {
   const reference = pickReference(eligible, book);
+  log(describeAsk(eligible, reference, CLIP_SECONDS));
   collector.ask({ ids: eligible, reference, seconds: CLIP_SECONDS });
   knownGaps.remember();
   return { state: "matching" };
@@ -148,12 +178,14 @@ export function createAudioSync(options: AudioSyncOptions) {
   let enabled = true;
   let status: AudioStatus = { state: "waiting" };
   let memberIds: string[] = [];
+  const tries = createTries();
   const knownGaps = createKnownGaps();
+  const log = options.log ?? (() => undefined);
+
+  const parts = { collector, readiness, book, tries, log, adjust: options.adjust };
 
   function finish(reference: string, result: MatchResult) {
-    collector.clear();
-    readiness.reset(); // The next match must hear audio played after this one took effect.
-    status = applyMatch({ reference, result, members: memberIds, book, adjust: options.adjust });
+    status = settle(parts, { reference, result, members: memberIds });
   }
 
   /** Call after every sync step with the group's members. */
@@ -165,13 +197,11 @@ export function createAudioSync(options: AudioSyncOptions) {
     const facts = { enabled, pendingFor: collector.waitingFor(), progress };
     const decision = decide(situation(members, eligible, book, facts));
     if (decision.do === "show") {
-      status = decision.status;
+      status = tries.mark(decision.status);
     } else if (decision.do === "ask") {
-      status = askForClips({ collector, knownGaps, eligible, book });
+      status = askForClips({ log, collector, knownGaps, eligible, book });
     } else if (decision.do === "give-up") {
-      // Not every player answered in time: a failed try for all of them.
-      const asked = collector.pending();
-      finish(asked?.reference ?? "", { lags: {}, unmatched: asked?.ids ?? [], tooShort: true });
+      finish(...gaveUp(collector.pending(), log));
     }
   }
 
@@ -185,6 +215,7 @@ export function createAudioSync(options: AudioSyncOptions) {
 
   /** Forget all matches: match again with fresh audio. */
   function rematch(next: AudioStatus = { state: "listening", progress: 0 }) {
+    tries.reset();
     book.clear();
     collector.clear();
     readiness.reset();

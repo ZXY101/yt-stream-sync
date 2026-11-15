@@ -10,10 +10,21 @@ interface NudgeButtonsProps {
   title: string;
   offset: number;
   onNudge: (seconds: number) => void;
+  /** A direction the stream can't move any further (see `blockedNudge`): those buttons are off. */
+  blocked?: "ahead" | "back";
+}
+
+const BLOCKED_HELP = {
+  ahead: "YouTube won't keep this stream any closer to live",
+  back: "YouTube won't keep this stream any further behind live",
+} as const;
+
+function directionOf(seconds: number): "ahead" | "back" {
+  return seconds > 0 ? "ahead" : "back";
 }
 
 function describeStep(title: string, seconds: number): string {
-  const direction = seconds > 0 ? "ahead" : "back";
+  const direction = directionOf(seconds);
   const amount = Math.abs(seconds) === 1 ? "1 second" : `${Math.abs(seconds)} seconds`;
   return `Move ${title} ${direction} ${amount}`;
 }
@@ -62,21 +73,52 @@ export function OffsetField({ title, offset, onSet }: OffsetFieldProps) {
   );
 }
 
+interface StepButtonProps {
+  title: string;
+  seconds: number;
+  blocked: "ahead" | "back" | undefined;
+  onNudge: (seconds: number) => void;
+}
+
+/**
+ * One nudge step. A disabled button gets no pointer events (so no tooltip), so a blocked one
+ * sits in a wrapper that carries the explanation instead.
+ */
+function StepButton({ title, seconds, blocked, onNudge }: StepButtonProps) {
+  const button = (
+    <Button
+      variant="outline"
+      size="xs"
+      className="min-w-9 px-1.5"
+      aria-label={describeStep(title, seconds)}
+      disabled={blocked !== undefined}
+      onClick={() => onNudge(seconds)}
+    >
+      {seconds > 0 ? `+${seconds}` : `−${Math.abs(seconds)}`}
+    </Button>
+  );
+  if (blocked === undefined) {
+    return button;
+  }
+  return (
+    <span className="inline-flex cursor-not-allowed" title={BLOCKED_HELP[blocked]}>
+      {button}
+    </span>
+  );
+}
+
 /** Fine-tunes one stream against the others; the sync keeps whatever the user sets. */
-export function NudgeButtons({ title, offset, onNudge }: NudgeButtonsProps) {
+export function NudgeButtons({ title, offset, onNudge, blocked }: NudgeButtonsProps) {
   return (
     <fieldset className="mt-2 flex flex-wrap items-center gap-1" aria-label={`Nudge ${title}`}>
       {STEPS.map((seconds) => (
-        <Button
+        <StepButton
           key={seconds}
-          variant="outline"
-          size="xs"
-          className="min-w-9 px-1.5"
-          aria-label={describeStep(title, seconds)}
-          onClick={() => onNudge(seconds)}
-        >
-          {seconds > 0 ? `+${seconds}` : `−${Math.abs(seconds)}`}
-        </Button>
+          title={title}
+          seconds={seconds}
+          blocked={blocked !== undefined && directionOf(seconds) === blocked ? blocked : undefined}
+          onNudge={onNudge}
+        />
       ))}
       <OffsetField title={title} offset={offset} onSet={(seconds) => onNudge(seconds - offset)} />
     </fieldset>

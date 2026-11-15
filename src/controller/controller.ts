@@ -1,4 +1,5 @@
 import { type PinnedInput, stepPinned } from "./pinned-step.ts";
+import { type PlannedInput, stepPlanned } from "./planned-step.ts";
 import { actionsFor, nextMode, releaseActions } from "./player-step.ts";
 import { computeErrors } from "./target.ts";
 import { DEFAULT_TUNING } from "./tuning.ts";
@@ -13,7 +14,7 @@ import type {
 } from "./types.ts";
 
 export function initialState(): ControllerState {
-  return { modes: {}, cooldowns: {}, held: {}, ceilings: {}, floors: {} };
+  return { modes: {}, cooldowns: {}, held: {}, ceilings: {}, floors: {}, reach: {} };
 }
 
 interface PlayerStep {
@@ -84,8 +85,13 @@ function release(state: ControllerState, samples: readonly PlayerSample[]): Acti
 }
 
 function idle(state: ControllerState, samples: readonly PlayerSample[]): StepResult {
-  // Ceilings and floors are learned per stream, so they outlive a pause in syncing.
-  const next = { ...initialState(), ceilings: state.ceilings ?? {}, floors: state.floors ?? {} };
+  // Ceilings, floors and reach are learned per stream, so they outlive a pause in syncing.
+  const learned = {
+    ceilings: state.ceilings ?? {},
+    floors: state.floors ?? {},
+    reach: state.reach ?? {},
+  };
+  const next = { ...initialState(), ...learned };
   return { state: next, actions: release(state, samples), errors: {}, stuck: [] };
 }
 
@@ -113,12 +119,23 @@ export function step(
   }
   const others = samples.filter((sample) => !synced.includes(sample));
   const floors = updateFloors(state.floors ?? {}, synced);
+  const group = { state, synced, settings, tuning, floors };
+  // Streams without rewind need their own plan: see `planned-step.ts`.
+  const result = synced.some((sample) => sample.noRewind === true)
+    ? stepPlanned(group)
+    : stepHeldBack(group);
+  return { ...result, actions: [...release(state, others), ...result.actions] };
+}
+
+/** The usual step: the group waits for the player furthest behind (or meets pinned ones). */
+function stepHeldBack(group: PlannedInput): StepResult {
+  const { state, synced, settings, tuning, floors } = group;
   const minBuffer = tuning.minBuffer + settings.safetyMargin;
   const held = new Set(Object.keys(state.held ?? {}));
   const errors = computeErrors(synced, settings, { minBuffer, floors, held });
   const ceilings = { ...state.ceilings };
   const next: MutableState = { modes: {}, cooldowns: {}, held: {}, ceilings, floors };
-  const actions = release(state, others);
+  const actions: Action[] = [];
   const stuck: string[] = [];
   for (const sample of synced) {
     const result = stepPlayer(sample, state, errors[sample.id] ?? 0, tuning);
@@ -128,7 +145,7 @@ export function step(
     }
     actions.push(...result.actions);
   }
-  return { state: next, actions, errors, stuck };
+  return { state: { ...next, reach: state.reach }, actions, errors, stuck };
 }
 
 /** The lowest latency each pinned player has shown: where its live edge is. */
@@ -146,7 +163,10 @@ function updateFloors(
 }
 
 type MutableState = {
-  [K in keyof ControllerState]-?: Record<string, NonNullable<ControllerState[K]>[string]>;
+  [K in Exclude<keyof ControllerState, "reach" | "aim">]-?: Record<
+    string,
+    NonNullable<ControllerState[K]>[string]
+  >;
 };
 
 function record(next: MutableState, id: string, result: PlayerStep) {

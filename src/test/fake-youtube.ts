@@ -16,13 +16,19 @@ export interface FakePlayerState {
   duration: number;
   /** e.g. "MDE_STREAM_OPTIMIZATIONS_RENDERER_LATENCY_ULTRA_LOW". */
   latencyClass?: string;
+  /** Rewind (DVR); left out like on players that don't say. */
+  isLiveDvrEnabled?: boolean;
 }
 
 function playerResponse(fake: FakePlayerState): PlayerResponse {
   const startTimestamp = fake.startTimestamp;
   const broadcast = { playerMicroformatRenderer: { liveBroadcastDetails: { startTimestamp } } };
   return {
-    videoDetails: { isLiveContent: fake.isLiveContent, latencyClass: fake.latencyClass },
+    videoDetails: {
+      isLiveContent: fake.isLiveContent,
+      latencyClass: fake.latencyClass,
+      isLiveDvrEnabled: fake.isLiveDvrEnabled,
+    },
     microformat: startTimestamp ? broadcast : undefined,
   };
 }

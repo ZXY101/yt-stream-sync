@@ -2,7 +2,8 @@ const KEEP = 300;
 
 /**
  * Recent decisions and observations, newest last, for the popup's "Copy debug log": the only
- * way to see what the add-on did in someone else's browser. Never holds audio or URLs.
+ * way to see what the add-on did in someone else's browser. Never holds audio. Holds the
+ * YouTube link of each stream that joins the group, so a report says which streams it was.
  */
 export function createDebugLog(now: () => number = Date.now) {
   const lines: string[] = [];

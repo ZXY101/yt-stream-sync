@@ -155,7 +155,12 @@ export function createCoordinator(options: CoordinatorOptions) {
   const controllers = createControllers();
   const diagnostics = createDiagnostics(options.now);
   const send = diagnostics.logged(options.send);
-  const audio = createGroupAudio({ send, adjust: group.nudge, now: options.now });
+  const audio = createGroupAudio({
+    send,
+    adjust: group.nudge,
+    now: options.now,
+    log: diagnostics.note,
+  });
   let outcome: StepOutcome = { errors: {}, stuck: [] };
   // After yt-dlp-z lined archives up, audio matching fine-tunes them.
   const align = alignment({ group, reports, options }, () => {
@@ -190,7 +195,7 @@ export function createCoordinator(options: CoordinatorOptions) {
     sendAll(result.actions, send, reports);
     audio.afterTick(memberViews(groupIds, reports, outcome));
     align.tick();
-    diagnostics.afterTick(audio.status(), reports.all());
+    diagnostics.afterTick(audio.status(), reports.all(), group.ids());
   }
 
   function status(): CoordinatorStatus {

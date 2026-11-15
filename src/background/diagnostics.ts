@@ -6,9 +6,29 @@ const LEVELS_EVERY = 5;
 function describe(report: PlayerReport): string {
   const where =
     report.kind === "live"
-      ? `latency ${report.latency.toFixed(1)}`
+      ? `latency ${report.latency.toFixed(1)} buffer ${report.bufferAhead.toFixed(1)}`
       : `at ${report.position.toFixed(1)}`;
   return `${report.state} ${where} x${report.playbackRate.toFixed(2)}`;
+}
+
+/** "MDE_STREAM_OPTIMIZATIONS_RENDERER_LATENCY_LOW" → "LOW". */
+function shortClass(latencyClass: string | undefined): string {
+  return latencyClass?.replace(/^.*_LATENCY_/, "") || "unknown";
+}
+
+/** Who a player is, for the log: enough to look the stream up again. */
+function identify(report: PlayerReport): string {
+  const url = `https://www.youtube.com/watch?v=${report.videoId}`;
+  const who = `"${report.title}" by ${report.channel || "?"}`;
+  if (report.kind !== "live") {
+    return `archive ${url} ${who}`;
+  }
+  const flags = [
+    `latency class ${shortClass(report.latencyClass)}`,
+    `rewind ${report.noRewind === true ? "off" : "on"}`,
+    ...(report.pinned === true ? ["pinned"] : []),
+  ];
+  return `live ${url} ${who} (${flags.join(", ")})`;
 }
 
 function userActed(report: PlayerReport, previous: PlayerReport | undefined): boolean {
@@ -16,6 +36,28 @@ function userActed(report: PlayerReport, previous: PlayerReport | undefined): bo
     return false;
   }
   return report.userActions > previous.userActions;
+}
+
+/** Logs players joining (with who they are) and leaving the sync group. */
+function createGroupLog(log: ReturnType<typeof createDebugLog>) {
+  let members = new Set<string>();
+
+  return function onGroup(ids: readonly string[], reports: ReadonlyMap<string, PlayerReport>) {
+    // Only players with a report count as joined, so each join is logged with its details.
+    const next = new Set(ids.filter((id) => reports.has(id)));
+    for (const id of next) {
+      const report = reports.get(id);
+      if (!members.has(id) && report) {
+        log.add(`joined group: ${id} ${identify(report)}`);
+      }
+    }
+    for (const id of members) {
+      if (!next.has(id)) {
+        log.add(`left group: ${id}`);
+      }
+    }
+    members = next;
+  };
 }
 
 /**
@@ -26,6 +68,7 @@ export function createDiagnostics(now: () => number, log = createDebugLog()) {
   const loudest = new Map<string, number>();
   let lastAudio = "";
   let levelsAt = 0;
+  const onGroup = createGroupLog(log);
 
   function onCommand(id: string, command: PlayerCommand) {
     if (command.type !== "clip") {
@@ -52,7 +95,12 @@ export function createDiagnostics(now: () => number, log = createDebugLog()) {
     loudest.set(id, Math.max(loudest.get(id) ?? 0, peak));
   }
 
-  function afterTick(audio: AudioStatus, reports: [string, PlayerReport][]) {
+  function afterTick(
+    audio: AudioStatus,
+    reports: [string, PlayerReport][],
+    groupIds: readonly string[] = [],
+  ) {
+    onGroup(groupIds, new Map(reports));
     const text = JSON.stringify(audio);
     if (text !== lastAudio) {
       log.add(`audio: ${text}`);
@@ -68,5 +116,5 @@ export function createDiagnostics(now: () => number, log = createDebugLog()) {
     }
   }
 
-  return { logged, onReport, afterTick, text: log.text };
+  return { logged, onReport, afterTick, note: log.add, text: log.text };
 }

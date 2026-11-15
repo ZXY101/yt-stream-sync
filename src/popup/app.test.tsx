@@ -484,8 +484,60 @@ describe("App", () => {
     const badges = screen.getAllByText("Low latency");
     expect(badges).toHaveLength(2);
     expect(badges[0]).toHaveAttribute("title", expect.stringMatching(/can't be slowed/));
-    expect(screen.getByText(/Still 5\.0 s apart: the Gigi stream is ultra-low/)).toBeVisible();
+    expect(screen.getByText(/Still 5\.0 s apart\. The Gigi stream is ultra-low/)).toBeVisible();
     expect(screen.getByText(/The others have jumped as far ahead/)).toBeVisible();
+  });
+
+  it("explains an outlier among streams with rewind turned off", async () => {
+    sendMessage.mockResolvedValue(
+      answer([
+        player({
+          id: "1:0",
+          title: "Su live",
+          channel: "Su",
+          inGroup: true,
+          noRewind: true,
+          error: 0,
+        }),
+        player({
+          id: "2:0",
+          tabId: 2,
+          channel: "Pekora",
+          inGroup: true,
+          noRewind: true,
+          error: 0.1,
+        }),
+        player({
+          id: "3:0",
+          tabId: 3,
+          title: "Riona live",
+          channel: "Riona",
+          inGroup: true,
+          noRewind: true,
+          stuck: true,
+          error: -10.5,
+        }),
+      ]),
+    );
+    render(<App />);
+
+    expect(await screen.findByText(/Can't get closer, 10\.5 s behind/)).toBeVisible();
+    expect(screen.getAllByText(/In sync/)).toHaveLength(2);
+    expect(
+      screen.getByText(/Still 10\.5 s apart\. The Riona stream has rewind turned off/),
+    ).toBeVisible();
+    expect(screen.queryByText(/The others have jumped/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Low latency")).not.toBeInTheDocument();
+    // Riona can't get any closer to live, so nudging her ahead is off; back still works.
+    const blocked = screen.getByRole("button", { name: "Move Riona live ahead 1 second" });
+    expect(blocked).toBeDisabled();
+    // The tooltip sits on a wrapper: a disabled button gets no hover.
+    expect(blocked.parentElement).toHaveAttribute(
+      "title",
+      expect.stringMatching(/any closer to live/),
+    );
+    expect(screen.getByRole("button", { name: "Move Riona live back 1 second" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Move Su live ahead 1 second" })).toBeEnabled();
   });
 
   it("names every low-latency stream in the gap note", async () => {
@@ -498,7 +550,7 @@ describe("App", () => {
     );
     render(<App />);
 
-    expect(await screen.findByText(/the A and B streams are ultra-low latency/)).toBeVisible();
+    expect(await screen.findByText(/The A and B streams are ultra-low latency/)).toBeVisible();
     expect(screen.queryByText(/The others have jumped/)).not.toBeInTheDocument();
     expect(screen.getAllByText(/In sync/)).toHaveLength(1);
   });

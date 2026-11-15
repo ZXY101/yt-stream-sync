@@ -23,8 +23,8 @@ export function toCommand(action: Action): PlayerCommand {
 }
 
 export function toLiveSample(id: string, report: LiveReport): PlayerSample {
-  const { latency, bufferAhead, bufferLow, pinned, state, playbackRate } = report;
-  return { id, latency, bufferAhead, bufferLow, pinned, state, playbackRate };
+  const { latency, bufferAhead, bufferLow, pinned, noRewind, state, playbackRate } = report;
+  return { id, latency, bufferAhead, bufferLow, pinned, noRewind, state, playbackRate };
 }
 
 /**
@@ -72,7 +72,7 @@ export type SyncInfo = Pick<PlayerStatus, "inGroup" | "offset" | "error" | "stuc
 
 function kindDetails(report: PlayerReport): Partial<PlayerStatus> {
   if (report.kind === "live") {
-    return { latency: report.latency, pinned: report.pinned };
+    return { latency: report.latency, pinned: report.pinned, noRewind: report.noRewind };
   }
   return { position: report.position, hasStartTime: report.startTime !== undefined };
 }
