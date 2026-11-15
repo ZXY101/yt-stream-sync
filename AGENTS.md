@@ -100,8 +100,8 @@ src/
   page/         page script (page world, `"world": "MAIN"`): reads YouTube's player, runs commands
   popup/        toolbar popup (React, Tailwind, shadcn/ui)
   options/      settings page (React; uses the popup's theme, popup/popup.css)
-  components/   shared React hooks and components (colour scheme, theme toggle) for the popup and
-                settings page; the theme choice itself is in `lib/theme.ts`
+  components/   shared React hooks (colour scheme) for the popup and settings page; the theme
+                choice is in `lib/theme.ts`, picked in the settings page
   components/ui/  shadcn/ui components (generated, edit sparingly; copied from yt-dlp-z)
   lib/          shared code: browser API wrapper, message types, settings
   test/         test setup and fakes (simulated player)
