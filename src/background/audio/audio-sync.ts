@@ -40,11 +40,22 @@ export interface AudioMember {
 type MatchBook = ReturnType<typeof createMatchBook>;
 
 /** Players that have played in sync for a whole clip, and progress towards two of them. */
-function readinessOf(seconds: Map<string, number>) {
+function readinessOf(seconds: Map<string, number>, book: MatchBook) {
   const eligible = [...seconds].filter(([, s]) => s >= CLIP_SECONDS).map(([id]) => id);
   const sorted = [...seconds.values()].toSorted((a, b) => b - a);
-  // Matching needs two players, so progress follows the second most settled one.
-  return { eligible, progress: Math.min(1, Math.max(0, sorted[1] ?? 0) / CLIP_SECONDS) };
+  // Matching needs two players, so progress follows the second most settled one, and a player
+  // that still needs matching: the matched ones alone would show a full bar that leads nowhere.
+  const open = [...seconds].filter(([id]) => !book.isDone(id)).map(([, s]) => s);
+  const needed = Math.min(sorted[1] ?? 0, Math.max(0, ...open));
+  return { eligible, progress: Math.min(1, needed / CLIP_SECONDS) };
+}
+
+/** Some members are matched, and none of the others plays steadily yet. */
+function partialOf(members: readonly AudioMember[], book: MatchBook): AudioStatus | undefined {
+  const open = members.filter((member) => !book.isDone(member.id));
+  const idle = open.length > 0 && open.every((member) => !member.settled);
+  const anyMatched = members.some((member) => book.isMatched(member.id));
+  return idle && anyMatched ? book.partial(members.map((member) => member.id)) : undefined;
 }
 
 function situation(
@@ -60,6 +71,7 @@ function situation(
     unavailable: members.some((member) => member.unavailable === true),
     ready: eligible.length >= 2 && eligible.some((id) => !book.isDone(id)),
     allMatched: members.every((member) => book.isDone(member.id)),
+    partial: partialOf(members, book),
     clipTimeout: CLIP_TIMEOUT,
   };
 }
@@ -193,7 +205,7 @@ export function createAudioSync(options: AudioSyncOptions) {
     memberIds = members.map((member) => member.id);
     knownGaps.update(members);
     listenSet.set(enabled ? memberIds : []);
-    const { eligible, progress } = readinessOf(readiness.update(members));
+    const { eligible, progress } = readinessOf(readiness.update(members), book);
     const facts = { enabled, pendingFor: collector.waitingFor(), progress };
     const decision = decide(situation(members, eligible, book, facts));
     if (decision.do === "show") {

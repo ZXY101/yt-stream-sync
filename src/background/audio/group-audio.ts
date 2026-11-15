@@ -7,7 +7,10 @@ const SETTLED_ERROR = 0.2;
 // Low-latency streams' latency readings jitter by about 0.1 s, and the sync leaves them
 // alone until 0.3 s off (`holdError`), so they're steady anywhere below that.
 const PINNED_SETTLED_ERROR = 0.3;
-const STEADY_MAX_GAP = 2;
+// A stream that can't reach its spot still counts when it's this close: the match searches
+// 15 s either way, and the gap the sync knows about is taken out of the result. At 2 s, a real
+// ultra-low-latency stream sat right on the limit (2.0 s ahead) and never got matched.
+const STEADY_MAX_GAP = 5;
 // Steady playback moves a gap by hundredths of a second per step; a skip moves it by tenths.
 const MOVED_ERROR = 0.25;
 

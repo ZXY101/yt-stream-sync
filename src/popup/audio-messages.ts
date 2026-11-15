@@ -25,6 +25,15 @@ function listeningMessage(status: Extract<AudioStatus, { state: "listening" }>):
   return { text, retry: false, progress: 0 };
 }
 
+function matchedMessage(status: Extract<AudioStatus, { state: "matched" }>): AudioMessage {
+  const waiting = status.waiting?.length ?? 0;
+  if (waiting === 0) {
+    return { text: "Lined up by audio.", retry: true };
+  }
+  const streams = waiting === 1 ? "1 more stream" : `${waiting} more streams`;
+  return { text: `Lined up by audio. Waiting for ${streams} to play steadily.`, retry: true };
+}
+
 /** What to tell the user about audio matching. `undefined`: nothing worth saying. */
 export function audioMessage(status: AudioStatus): AudioMessage | undefined {
   switch (status.state) {
@@ -38,7 +47,7 @@ export function audioMessage(status: AudioStatus): AudioMessage | undefined {
     case "matching":
       return { text: "Comparing the audio…", retry: false };
     case "matched":
-      return { text: "Lined up by audio.", retry: true };
+      return matchedMessage(status);
     case "failed":
       return status.reason === "no-shared-sound"
         ? { text: "Couldn't match the audio: these streams may not share any sound.", retry: true }
