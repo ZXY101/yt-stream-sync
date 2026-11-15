@@ -103,6 +103,8 @@ export function createGroupAudio(options: GroupAudioOptions) {
     setEnabled: sync.setEnabled,
     rematch: sync.rematch,
     status: sync.status,
+    /** Seconds each member has played steadily, for the debug log. */
+    steady: () => Object.fromEntries(sync.readiness.seconds()),
     waveform: waveforms.get,
   };
 }

@@ -38,6 +38,30 @@ function userActed(report: PlayerReport, previous: PlayerReport | undefined): bo
   return report.userActions > previous.userActions;
 }
 
+/** Where the sync has each grouped player, and how long audio matching has heard it steady. */
+export interface SyncNotes {
+  /** Seconds ahead of the group's spot (negative: behind). */
+  errors: Readonly<Record<string, number>>;
+  /** Players the sync can't move any closer. */
+  stuck: readonly string[];
+  /** Seconds each has played steadily; audio matching needs 30. */
+  steady: Readonly<Record<string, number>>;
+}
+
+const NO_NOTES: SyncNotes = { errors: {}, stuck: [], steady: {} };
+
+/** " 2.0 s ahead stuck steady 0 s" for a grouped player; nothing for the others. */
+function place(id: string, sync: SyncNotes): string {
+  const error = sync.errors[id];
+  if (error === undefined) {
+    return "";
+  }
+  const off = Math.abs(error).toFixed(1);
+  const where = off === "0.0" ? "in sync" : `${off} s ${error > 0 ? "ahead" : "behind"}`;
+  const stuck = sync.stuck.includes(id) ? " stuck" : "";
+  return ` ${where}${stuck} steady ${Math.round(sync.steady[id] ?? 0)} s`;
+}
+
 /** Logs players joining (with who they are) and leaving the sync group. */
 function createGroupLog(log: ReturnType<typeof createDebugLog>) {
   let members = new Set<string>();
@@ -99,6 +123,7 @@ export function createDiagnostics(now: () => number, log = createDebugLog()) {
     audio: AudioStatus,
     reports: [string, PlayerReport][],
     groupIds: readonly string[] = [],
+    sync: SyncNotes = NO_NOTES,
   ) {
     onGroup(groupIds, new Map(reports));
     const text = JSON.stringify(audio);
@@ -109,7 +134,8 @@ export function createDiagnostics(now: () => number, log = createDebugLog()) {
     if (now() - levelsAt >= LEVELS_EVERY) {
       levelsAt = now();
       const players = reports.map(
-        ([id, report]) => `${id} ${describe(report)} loudest ${(loudest.get(id) ?? 0).toFixed(3)}`,
+        ([id, report]) =>
+          `${id} ${describe(report)} loudest ${(loudest.get(id) ?? 0).toFixed(3)}${place(id, sync)}`,
       );
       log.add(`players: ${players.join(" | ") || "none"}`);
       loudest.clear();

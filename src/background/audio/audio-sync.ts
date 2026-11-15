@@ -239,5 +239,5 @@ export function createAudioSync(options: AudioSyncOptions) {
     rematch({ state: "waiting" });
   }
 
-  return { update, receiveClip, setEnabled, rematch, status: () => status };
+  return { update, receiveClip, setEnabled, rematch, readiness, status: () => status };
 }
