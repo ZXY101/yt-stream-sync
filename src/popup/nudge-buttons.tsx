@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 
 import { Button } from "@/components/ui/button.tsx";
 
@@ -85,12 +85,15 @@ interface StepButtonProps {
  * sits in a wrapper that carries the explanation instead.
  */
 function StepButton({ title, seconds, blocked, onNudge }: StepButtonProps) {
+  // Disabled buttons can't be focused, so the reason is also their accessible description.
+  const reasonId = useId();
   const button = (
     <Button
       variant="outline"
       size="xs"
       className="min-w-9 px-1.5"
       aria-label={describeStep(title, seconds)}
+      aria-describedby={blocked === undefined ? undefined : reasonId}
       disabled={blocked !== undefined}
       onClick={() => onNudge(seconds)}
     >
@@ -103,6 +106,9 @@ function StepButton({ title, seconds, blocked, onNudge }: StepButtonProps) {
   return (
     <span className="inline-flex cursor-not-allowed" title={BLOCKED_HELP[blocked]}>
       {button}
+      <span id={reasonId} className="sr-only">
+        {BLOCKED_HELP[blocked]}
+      </span>
     </span>
   );
 }
