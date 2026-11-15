@@ -164,6 +164,46 @@ describe("step", () => {
       ]);
     });
 
+    it("never pushes them ahead of the one furthest ahead (real group at 11:00)", () => {
+      const samples = [
+        sample("a", { latency: 7.5, bufferAhead: 4.3, noRewind: true }),
+        sample("b", { latency: 5.4, bufferAhead: 4, noRewind: true }),
+        sample("c", { latency: 5.2, bufferAhead: 4.4, noRewind: true }),
+      ];
+
+      const result = step(initialState(), samples, settings);
+
+      expect(result.actions).toEqual([{ type: "skip", id: "a", seconds: expect.closeTo(2.3, 5) }]);
+      expect(result.errors.c).toBeCloseTo(0, 5);
+    });
+
+    it("remembers a jump YouTube undid, and won't push that stream past it again", () => {
+      // Real: a low-latency stream jumped from 5.2 s toward 2.5 s and re-buffered at 8.3 s.
+      const jumped = step(
+        initialState(),
+        [
+          sample("a", { latency: 5.2, bufferAhead: 4.4, noRewind: true }),
+          sample("b", { latency: 2.5, noRewind: true }),
+        ],
+        settings,
+      );
+      expect(jumped.state.jumps).toEqual({ a: { from: 5.2, to: expect.closeTo(2.5, 5) } });
+
+      let state = jumped.state;
+      const putBack = [
+        sample("a", { latency: 8.3, bufferAhead: 7.8, noRewind: true }),
+        sample("b", { latency: 3.2, bufferAhead: 2.7, noRewind: true }),
+      ];
+      // Waits out the cooldown (10 steps, the first one was the jump).
+      for (let steps = 0; steps < 9; steps++) {
+        state = step(state, putBack, settings).state;
+      }
+      expect(state.keeps).toEqual({ a: 5.2 });
+
+      const result = step(state, putBack, settings);
+      expect(result.actions).toEqual([{ type: "skip", id: "a", seconds: expect.closeTo(3.1, 5) }]);
+    });
+
     it("jumps a rewindable stream behind ahead to meet one without rewind", () => {
       const samples = [
         sample("a", { latency: 6, bufferAhead: 2, noRewind: true }),
@@ -172,8 +212,8 @@ describe("step", () => {
 
       const result = step(initialState(), samples, settings);
 
-      // Both jump as far ahead as their buffer allows (keeping 1.5 s): the target is 5.5 s.
-      expect(result.actions).toEqual([{ type: "skip", id: "b", seconds: expect.closeTo(6.5, 5) }]);
+      // b could reach 5.5 s, but never further ahead than a, which can't be held back.
+      expect(result.actions).toEqual([{ type: "skip", id: "b", seconds: expect.closeTo(6, 5) }]);
       expect(result.stuck).toEqual([]);
     });
   });

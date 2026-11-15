@@ -76,6 +76,18 @@ export interface ControllerState {
   ceilings?: Readonly<Record<string, number>>;
   /** Pinned players: the lowest latency each has shown, i.e. its live edge. */
   floors?: Readonly<Record<string, number>>;
+  /** No-rewind players that just jumped ahead: the latency before the jump and the one aimed at. */
+  jumps?: Readonly<Record<string, Jump>>;
+  /**
+   * No-rewind players whose jump ahead didn't hold (YouTube put them back, seen on a real
+   * low-latency stream): the least latency each keeps, so it isn't pushed past it again.
+   */
+  keeps?: Readonly<Record<string, number>>;
+}
+
+export interface Jump {
+  from: number;
+  to: number;
 }
 
 export type Action =

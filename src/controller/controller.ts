@@ -5,6 +5,7 @@ import { DEFAULT_TUNING } from "./tuning.ts";
 import type {
   Action,
   ControllerState,
+  Jump,
   Mode,
   PlayerSample,
   StepResult,
@@ -13,7 +14,7 @@ import type {
 } from "./types.ts";
 
 export function initialState(): ControllerState {
-  return { modes: {}, cooldowns: {}, held: {}, ceilings: {}, floors: {} };
+  return { modes: {}, cooldowns: {}, held: {}, ceilings: {}, floors: {}, jumps: {}, keeps: {} };
 }
 
 interface PlayerStep {
@@ -23,7 +24,13 @@ interface PlayerStep {
   held?: number;
   ceiling?: number;
   stuck?: boolean;
+  jump?: Jump;
+  keep?: number;
 }
+
+// A latency reading takes about a second to follow a jump; YouTube putting a low-latency
+// stream back took under 3 s (seen on a real stream). A jump is judged after this many steps.
+const JUMP_SETTLE_STEPS = 3;
 
 function pinnedInput(
   sample: PlayerSample,
@@ -59,7 +66,8 @@ function stepPlayer(
     return { mode: "normal", ...stepPinned(pinnedInput(sample, state, error, tuning)) };
   }
   if (sample.noRewind === true) {
-    return stepNoRewind(sample, cooldown, error, tuning);
+    const learned = judgeJump(sample, state.jumps?.[sample.id], cooldown, tuning);
+    return { ...stepNoRewind(sample, cooldown, error, tuning), ...learned };
   }
   if (error < -tuning.jumpError && cooldown === 0 && sample.state === "playing") {
     const actions = actionsFor(sample, "normal", tuning);
@@ -68,6 +76,27 @@ function stepPlayer(
   }
   const mode = nextMode(previous, error, tuning);
   return { mode, cooldown, actions: actionsFor(sample, mode, tuning) };
+}
+
+/**
+ * Whether a no-rewind player's last jump ahead held. One that ends up nearer where it jumped
+ * from than where it aimed was put back (a low-latency stream re-buffers to its own latency):
+ * it keeps the latency it jumped from, so the sync won't push it past that again.
+ */
+function judgeJump(
+  sample: PlayerSample,
+  jump: Jump | undefined,
+  cooldown: number,
+  tuning: Tuning,
+): Pick<PlayerStep, "jump" | "keep"> {
+  if (!jump) {
+    return {};
+  }
+  const settled = cooldown <= tuning.jumpCooldown - JUMP_SETTLE_STEPS;
+  if (settled && sample.state === "playing" && sample.latency > (jump.from + jump.to) / 2) {
+    return { keep: jump.from };
+  }
+  return cooldown === 0 ? {} : { jump };
 }
 
 /**
@@ -87,7 +116,8 @@ function stepNoRewind(
   const stuck = error > tuning.holdError;
   if (error < -tuning.jumpError && cooldown === 0 && sample.state === "playing") {
     actions.push({ type: "skip", id: sample.id, seconds: -error });
-    return { mode: "normal", cooldown: tuning.jumpCooldown, actions, stuck };
+    const jump = { from: sample.latency, to: sample.latency + error };
+    return { mode: "normal", cooldown: tuning.jumpCooldown, actions, stuck, jump };
   }
   return { mode: "normal", cooldown, actions, stuck };
 }
@@ -110,7 +140,12 @@ function release(state: ControllerState, samples: readonly PlayerSample[]): Acti
 
 function idle(state: ControllerState, samples: readonly PlayerSample[]): StepResult {
   // Ceilings and floors are learned per stream, so they outlive a pause in syncing.
-  const next = { ...initialState(), ceilings: state.ceilings ?? {}, floors: state.floors ?? {} };
+  const learned = {
+    ceilings: state.ceilings ?? {},
+    floors: state.floors ?? {},
+    keeps: state.keeps ?? {},
+  };
+  const next = { ...initialState(), ...learned };
   return { state: next, actions: release(state, samples), errors: {}, stuck: [] };
 }
 
@@ -140,9 +175,18 @@ export function step(
   const floors = updateFloors(state.floors ?? {}, synced);
   const minBuffer = tuning.minBuffer + settings.safetyMargin;
   const held = new Set(Object.keys(state.held ?? {}));
-  const errors = computeErrors(synced, settings, { minBuffer, floors, held });
+  const keeps = { ...state.keeps };
+  const errors = computeErrors(synced, settings, { minBuffer, floors, held, keeps });
   const ceilings = { ...state.ceilings };
-  const next: MutableState = { modes: {}, cooldowns: {}, held: {}, ceilings, floors };
+  const next: MutableState = {
+    modes: {},
+    cooldowns: {},
+    held: {},
+    ceilings,
+    floors,
+    jumps: {},
+    keeps,
+  };
   const actions = release(state, others);
   const stuck: string[] = [];
   for (const sample of synced) {
@@ -182,5 +226,11 @@ function record(next: MutableState, id: string, result: PlayerStep) {
   }
   if (result.ceiling !== undefined) {
     next.ceilings[id] = result.ceiling;
+  }
+  if (result.jump !== undefined) {
+    next.jumps[id] = result.jump;
+  }
+  if (result.keep !== undefined) {
+    next.keeps[id] = result.keep;
   }
 }

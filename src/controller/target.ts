@@ -37,7 +37,7 @@ function pinnedTarget(
   settings: SyncSettings,
   options: TargetOptions,
 ): number {
-  const { minBuffer, floors, held } = options;
+  const { minBuffer, floors, held, keeps = {} } = options;
   // Only a pinned player the sync held back can jump ahead again: as far as its buffer
   // allows, but never past its own live edge (the lowest latency it has shown). Counting
   // the others' tiny headroom too would set the target just below them all, and their
@@ -54,8 +54,14 @@ function pinnedTarget(
   const lowestLags = others.map((sample) => {
     const lag = effectiveLag(sample, settings);
     const reachable = lag - (sample.bufferLow ?? sample.bufferAhead) + minBuffer;
-    // A stream without rewind can't be held back to grow its buffer: it only moves ahead.
-    return sample.noRewind === true ? Math.min(lag, reachable) : reachable;
+    if (sample.noRewind !== true) {
+      return reachable;
+    }
+    // A stream without rewind can't be held back to grow its buffer: it only moves ahead, and
+    // not past the latency it was put back to after a jump that didn't hold.
+    const kept = keeps[sample.id];
+    const limit = kept === undefined ? reachable : Math.max(reachable, kept + lag - sample.latency);
+    return Math.min(lag, limit);
   });
   return Math.max(...pinnedLags, ...lowestLags);
 }
@@ -71,6 +77,24 @@ export interface TargetOptions {
   floors: Readonly<Record<string, number>>;
   /** Pinned players the sync has held back. */
   held: ReadonlySet<string>;
+  /** No-rewind players: the least latency each keeps (see `ControllerState.keeps`). */
+  keeps?: Readonly<Record<string, number>>;
+}
+
+/**
+ * Never aims ahead of the no-rewind stream furthest ahead: nothing could hold it back to the
+ * target, so the others would only be pushed toward the live edge, buffers thinning, until they
+ * stall (seen on a real group of three).
+ */
+function notAheadOfNoRewind(
+  target: number,
+  samples: readonly PlayerSample[],
+  settings: SyncSettings,
+): number {
+  const lags = samples
+    .filter((sample) => sample.noRewind === true && sample.pinned !== true)
+    .map((sample) => effectiveLag(sample, settings));
+  return lags.length > 0 ? Math.max(target, Math.min(...lags)) : target;
 }
 
 export function computeErrors(
@@ -88,8 +112,9 @@ export function computeErrors(
     ? pinnedTarget(pinned, others, settings, options)
     : holdBackTarget(samples, settings, minBuffer);
   const errors: Record<string, number> = {};
+  const aim = notAheadOfNoRewind(target, samples, settings);
   for (const sample of samples) {
-    errors[sample.id] = target - effectiveLag(sample, settings);
+    errors[sample.id] = aim - effectiveLag(sample, settings);
   }
   return errors;
 }
