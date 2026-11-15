@@ -1,14 +1,32 @@
-import { useEffect } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 
-/** Follows the system's light or dark setting, with the theme's `.dark` class. */
+import {
+  applyTheme,
+  getTheme,
+  reloadTheme,
+  subscribeToTheme,
+  systemThemeQuery,
+  type Theme,
+} from "@/lib/theme.ts";
+
+/**
+ * Applies the theme with its `.dark` class: the user's choice from the theme toggle, or the
+ * system's light or dark setting. Follows system changes, and choices made in another page.
+ */
 export function useColorScheme() {
   useEffect(() => {
-    const query = window.matchMedia("(prefers-color-scheme: dark)");
-    function apply() {
-      document.documentElement.classList.toggle("dark", query.matches);
-    }
-    apply();
-    query.addEventListener("change", apply);
-    return () => query.removeEventListener("change", apply);
+    reloadTheme();
+    const query = systemThemeQuery();
+    query.addEventListener("change", applyTheme);
+    window.addEventListener("storage", reloadTheme);
+    return () => {
+      query.removeEventListener("change", applyTheme);
+      window.removeEventListener("storage", reloadTheme);
+    };
   }, []);
+}
+
+/** The theme in use now, for controls that show it. */
+export function useTheme(): Theme {
+  return useSyncExternalStore(subscribeToTheme, getTheme);
 }

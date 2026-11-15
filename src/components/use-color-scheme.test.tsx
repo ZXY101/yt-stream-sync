@@ -19,5 +19,9 @@ describe("useColorScheme", () => {
 
     unmount();
     expect(colorScheme.listeners.size).toBe(0);
+    // It stops following choices made in other pages too.
+    const removed = vi.spyOn(window, "removeEventListener");
+    render(<Probe />).unmount();
+    expect(removed).toHaveBeenCalledWith("storage", expect.any(Function));
   });
 });

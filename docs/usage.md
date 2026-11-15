@@ -80,6 +80,12 @@ group.
 
 Saved groups stay in your browser.
 
+## Theme
+
+The sun or moon button at the top of the popup and the settings page switches between light
+and dark. Both pages follow the choice. Picking the look your system already has goes back to
+following the system.
+
 ## Troubleshooting
 
 - **A tab's stream doesn't show up in the popup.** A tab opened in the background hasn't loaded
