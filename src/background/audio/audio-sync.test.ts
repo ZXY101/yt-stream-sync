@@ -103,7 +103,8 @@ describe("audio sync", () => {
       sync.receiveClip("c", unrelatedClip(first));
 
       expect(adjust).toHaveBeenCalledOnce();
-      expect(sync.status()).toEqual({ state: "listening", progress: 0 });
+      // c was compared and didn't match: the popup says this is another try.
+      expect(sync.status()).toEqual({ state: "listening", progress: 0, tries: 1 });
       run(31, three);
       const second = lastRequest();
       expect(second.ids).toEqual(["a", "b", "c"]);

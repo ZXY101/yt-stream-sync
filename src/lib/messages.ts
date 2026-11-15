@@ -195,8 +195,11 @@ export type AudioStatus =
   | { state: "off" }
   /** Fewer than two streams in the group. */
   | { state: "waiting" }
-  /** Hearing the streams play in sync; `progress` 0–1 until there's enough audio. */
-  | { state: "listening"; progress: number }
+  /**
+   * Hearing the streams play in sync; `progress` 0–1 until there's enough audio. `tries`:
+   * earlier tries that didn't match everyone, so this is another go.
+   */
+  | { state: "listening"; progress: number; tries?: number }
   | { state: "matching" }
   /**
    * Lag measured per player (seconds, positive: was behind) and applied. `unmatched`: players

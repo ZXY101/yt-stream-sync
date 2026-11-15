@@ -38,7 +38,7 @@ export function learnReach(
   if (!previous) {
     return { home: latency, last: latency };
   }
-  const reach = countDown(previous, tuning);
+  const { jump, ...reach } = countDown(previous, tuning);
   const moved = latency - previous.last;
   const forgetIn = tuning.learnedSteps;
   if (moved > tuning.moveJump) {
@@ -49,7 +49,27 @@ export function learnReach(
     const ceiling = previous.last - tuning.learnedMargin;
     return { ...reach, home: latency, last: latency, ceiling, forgetIn, pressedFor: 0 };
   }
-  return { ...reach, last: latency };
+  return judgeJump({ ...reach, last: latency }, jump, sample, tuning);
+}
+
+/**
+ * Whether a jump ahead held. Small ones are undone gradually rather than by a snap (a real
+ * stream drifted back from a 0.6 s jump within seconds, and was jumped again every 10 s): one
+ * that ends nearer where it started than where it aimed gets a floor just past the aim.
+ */
+function judgeJump(reach: Reach, jump: Reach["jump"], sample: PlayerSample, tuning: Tuning): Reach {
+  if (!jump) {
+    return reach;
+  }
+  if (jump.judgeIn > 1) {
+    return { ...reach, jump: { ...jump, judgeIn: jump.judgeIn - 1 } };
+  }
+  const undone = sample.state === "playing" && sample.latency > (jump.from + jump.to) / 2;
+  if (!undone) {
+    return reach;
+  }
+  const floor = Math.max(reach.floor ?? -Infinity, jump.to + tuning.learnedMargin);
+  return { ...reach, floor, forgetIn: tuning.learnedSteps };
 }
 
 export interface Range {

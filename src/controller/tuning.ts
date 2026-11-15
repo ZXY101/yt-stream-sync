@@ -30,4 +30,6 @@ export const DEFAULT_TUNING: Tuning = {
   learnedSteps: 300,
   learnedMargin: 0.5,
   probeSteps: 30,
+  // A real stream drifted back from a 0.6 s jump within about 4 s (2026-11-15).
+  jumpJudgeSteps: 5,
 };

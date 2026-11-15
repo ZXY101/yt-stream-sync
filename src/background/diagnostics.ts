@@ -116,5 +116,5 @@ export function createDiagnostics(now: () => number, log = createDebugLog()) {
     }
   }
 
-  return { logged, onReport, afterTick, text: log.text };
+  return { logged, onReport, afterTick, note: log.add, text: log.text };
 }

@@ -10,6 +10,8 @@ interface NoRewindOptions {
   minLatency?: number;
   /** YouTube pulls it back home once it's further behind than this (a low-latency stream). */
   maxLatency?: number;
+  /** Closer to live than this, it drifts back slowly instead of snapping (seen on Riona). */
+  driftBelow?: number;
 }
 
 const INGEST = 1;
@@ -84,7 +86,15 @@ class NoRewindPlayer {
         this.state = "buffering";
       }
     }
-    const { minLatency = 0, maxLatency = Infinity } = this.options;
+    this.youTubeMoves(seconds);
+  }
+
+  /** What YouTube does to a no-rewind player outside where it wants it. */
+  private youTubeMoves(seconds: number): void {
+    const { minLatency = 0, maxLatency = Infinity, driftBelow } = this.options;
+    if (driftBelow !== undefined && this.latency < driftBelow) {
+      this.position -= seconds * 0.2;
+    }
     if (this.latency < minLatency || this.latency > maxLatency) {
       this.goHome();
     }
@@ -173,5 +183,26 @@ describe("no-rewind streams against simulated YouTube players", () => {
     expect(close).toBeGreaterThan(0.85);
     expect(riona.movedByYouTube).toBeLessThanOrEqual(8);
     expect(actions.some((action) => action.type === "pause")).toBe(false);
+  });
+
+  it("stops re-jumping a stream that drifts back from small jumps", () => {
+    // Real (11:48–11:56): Riona sat ~1.4 s behind the others and was jumped 0.6 s every 10 s.
+    // Su and Pekora won't stay much past 9 s, so the group's spot stays near 8.5 s.
+    const su = new NoRewindPlayer({ id: "su", home: 8.5, segmentLength: 1, maxLatency: 9.2 });
+    const pekora = new NoRewindPlayer({
+      id: "pekora",
+      home: 8.5,
+      segmentLength: 1,
+      maxLatency: 9.2,
+    });
+    const riona = new NoRewindPlayer({ id: "riona", home: 9.9, segmentLength: 2, driftBelow: 9.8 });
+
+    const { actions } = run([su, pekora, riona], 600);
+
+    const lateJumps = actions.slice(-200).filter((a) => a.type === "skip" && a.id === "riona");
+    const allJumps = actions.filter((a) => a.type === "skip" && a.id === "riona");
+    // A couple of tries to learn it, then at most a retry when the floor eases (every 5 min).
+    expect(allJumps.length).toBeLessThanOrEqual(6);
+    expect(lateJumps.length).toBeLessThanOrEqual(2);
   });
 });

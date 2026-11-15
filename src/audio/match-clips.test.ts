@@ -1,5 +1,5 @@
 import { noise } from "../test/noise.ts";
-import { matchClips } from "./match-clips.ts";
+import { type MatchResult, matchClips } from "./match-clips.ts";
 import { AUDIO_RATE } from "./ring.ts";
 
 // The shared sound (the collab's voices).
@@ -17,6 +17,11 @@ function heard(startMs: number, seconds: number, behind: number, seed: number) {
 
 const options = { maxLag: 4, minSeconds: 15 };
 
+/** The outcome without the per-comparison log entries. */
+function core({ lags, unmatched, tooShort }: MatchResult) {
+  return { lags, unmatched, tooShort };
+}
+
 describe("matchClips", () => {
   it("measures each player's lag against the reference, from clips that start apart", () => {
     const clips = {
@@ -27,7 +32,7 @@ describe("matchClips", () => {
 
     const result = matchClips(clips, "a", options);
 
-    expect(result).toEqual({
+    expect(core(result)).toEqual({
       lags: { b: expect.closeTo(0.42, 2) as number, c: expect.closeTo(-1.1, 2) as number },
       unmatched: [],
     });
@@ -42,14 +47,20 @@ describe("matchClips", () => {
 
     const result = matchClips(clips, "a", { maxLag: 15, minSeconds: 15 });
 
-    expect(result).toEqual({ lags: { b: expect.closeTo(9.5, 2) as number }, unmatched: ["c"] });
+    expect(core(result)).toEqual({
+      lags: { b: expect.closeTo(9.5, 2) as number },
+      unmatched: ["c"],
+    });
     // Several real 30 s matches; slow under coverage instrumentation.
   }, 30_000);
 
   it("refuses when the clips share no sound", () => {
     const clips = { a: heard(0, 30, 0, 2), b: { start: 0, samples: noise(30 * AUDIO_RATE, 77) } };
 
-    expect(matchClips(clips, "a", options)).toEqual({ lags: {}, unmatched: ["b"] });
+    const result = matchClips(clips, "a", options);
+    expect(core(result)).toEqual({ lags: {}, unmatched: ["b"] });
+    // The log gets the failed comparison and why.
+    expect(result.attempts).toEqual([expect.objectContaining({ id: "b", anchor: "a", ok: false })]);
   });
 
   it("refuses when the clips overlap too little", () => {
@@ -80,7 +91,7 @@ describe("matchClips", () => {
 
     const result = matchClips(clips, "a", { maxLag: 15, minSeconds: 15 });
 
-    expect(result).toEqual({
+    expect(core(result)).toEqual({
       lags: { b: expect.closeTo(2, 2) as number, c: expect.closeTo(-6, 2) as number },
       unmatched: [],
     });

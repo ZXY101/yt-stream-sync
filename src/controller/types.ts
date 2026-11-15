@@ -75,6 +75,8 @@ export interface Tuning {
   learnedMargin: number;
   /** Steps held at its back limit before a no-rewind stream gets a second more room. */
   probeSteps: number;
+  /** Steps after a jump ahead before judging whether YouTube let it stay. */
+  jumpJudgeSteps: number;
 }
 
 /** What the controller is doing to a player. */
@@ -110,6 +112,8 @@ export interface Reach {
   forgetIn?: number;
   /** Steps it has been held at its back limit while the group wanted it further back. */
   pressedFor?: number;
+  /** A jump ahead the sync made, judged once the latency reading has caught up. */
+  jump?: { from: number; to: number; judgeIn: number };
 }
 
 export type Action =

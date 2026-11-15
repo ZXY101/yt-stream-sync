@@ -31,4 +31,19 @@ describe("isSettled", () => {
       isSettled({ id: "a", report: live({ playbackRate: 0.92 }), error: 1, stuck: true }),
     ).toBe(false);
   });
+
+  it("counts a no-rewind stream close to its spot even when it isn't stuck", () => {
+    // Real: Riona sat 1.4 s behind the others for minutes and audio never ran with her.
+    expect(isSettled({ id: "a", report: live(), error: -1.4 })).toBe(true);
+  });
+
+  it("doesn't count a stream whose gap just jumped (a skip mid-clip)", () => {
+    expect(isSettled({ id: "a", report: live(), error: 0.1 }, true)).toBe(false);
+  });
+
+  it("keeps the strict rule for streams with rewind", () => {
+    const rewindable = live({ noRewind: false });
+    expect(isSettled({ id: "a", report: rewindable, error: 0.1 })).toBe(true);
+    expect(isSettled({ id: "a", report: rewindable, error: -1.4 })).toBe(false);
+  });
 });

@@ -130,6 +130,27 @@ export interface PlannedResult {
   stuck: string[];
 }
 
+interface Where {
+  sample: PlayerSample;
+  range: Range;
+  aim: number;
+  lag: number;
+  /** A stream behind the group can't come any closer. */
+  outlierBehind: boolean;
+}
+
+/** Probes for more room when pressed at its back limit, and notes a jump to judge later. */
+function afterStep(known: Reach, where: Where, plan: PlayerPlan, tuning: Tuning): Reach {
+  const { sample, range, aim, lag, outlierBehind } = where;
+  const atLimit = range.high - aim <= tuning.holdError && lag >= range.high - 2 * tuning.holdError;
+  const probed = probeRoom(known, atLimit && outlierBehind, tuning);
+  if (plan.jumpedTo === undefined) {
+    return probed;
+  }
+  const jump = { from: sample.latency, to: plan.jumpedTo, judgeIn: tuning.jumpJudgeSteps };
+  return { ...probed, last: plan.jumpedTo, jump };
+}
+
 function learnAll(input: PlannedInput): Record<string, Reach> {
   const reach: Record<string, Reach> = { ...input.state.reach };
   for (const sample of input.synced) {
@@ -183,12 +204,8 @@ export function stepPlanned(input: PlannedInput): PlannedResult {
     }
     const known = reach[sample.id];
     if (known) {
-      // At its back limit, with a stream behind the group that can't come any closer.
-      const atLimit =
-        range.high - aim <= tuning.holdError && lag >= range.high - 2 * tuning.holdError;
-      const pressed = atLimit && outlierBehind;
-      const probed = probeRoom(known, pressed, tuning);
-      reach[sample.id] = plan.jumpedTo === undefined ? probed : { ...probed, last: plan.jumpedTo };
+      const where = { sample, range, aim, lag, outlierBehind };
+      reach[sample.id] = afterStep(known, where, plan, tuning);
     }
     if (Math.abs(goal - aim) > tuning.holdError || plan.stuck === true) {
       stuck.push(sample.id);

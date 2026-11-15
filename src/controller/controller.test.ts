@@ -164,7 +164,11 @@ describe("step", () => {
 
       const second = step(first.state, jumped, settings);
 
-      expect(second.state.reach?.c).toEqual({ home: 18.4, last: 8.6 });
+      expect(second.state.reach?.c).toEqual({
+        home: 18.4,
+        last: 8.6,
+        jump: { from: 18.4, to: expect.closeTo(8.6, 5), judgeIn: 4 },
+      });
     });
 
     it("slows one far ahead instead of pausing it, and jumps the other to meet it", () => {

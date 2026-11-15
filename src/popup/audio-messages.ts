@@ -8,6 +8,23 @@ export interface AudioMessage {
   progress?: number;
 }
 
+/**
+ * Matching needs two streams playing steadily in sync for 30 s; until then nothing moves.
+ * After a try that didn't match, say so rather than "waiting" again.
+ */
+function listeningMessage(status: Extract<AudioStatus, { state: "listening" }>): AudioMessage {
+  const { progress } = status;
+  if (status.tries !== undefined && status.tries > 0) {
+    const text = "Couldn't match the audio yet. Listening again for another try…";
+    return { text, retry: false, progress };
+  }
+  if (progress > 0) {
+    return { text: "Listening to line up the audio…", retry: false, progress };
+  }
+  const text = "Waiting for two streams to play steadily in sync before listening…";
+  return { text, retry: false, progress: 0 };
+}
+
 /** What to tell the user about audio matching. `undefined`: nothing worth saying. */
 export function audioMessage(status: AudioStatus): AudioMessage | undefined {
   switch (status.state) {
@@ -17,14 +34,7 @@ export function audioMessage(status: AudioStatus): AudioMessage | undefined {
         retry: false,
       };
     case "listening":
-      // Matching needs two streams playing steadily in sync for 30 s; until then nothing moves.
-      return status.progress > 0
-        ? { text: "Listening to line up the audio…", retry: false, progress: status.progress }
-        : {
-            text: "Waiting for two streams to play steadily in sync before listening…",
-            retry: false,
-            progress: 0,
-          };
+      return listeningMessage(status);
     case "matching":
       return { text: "Comparing the audio…", retry: false };
     case "matched":

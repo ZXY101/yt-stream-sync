@@ -34,6 +34,29 @@ describe("learnReach", () => {
   });
 });
 
+describe("judging a jump ahead", () => {
+  // Real: Riona at 9.9 s was jumped 0.66 s ahead and drifted back to 9.6 s within seconds.
+  const jumped = { home: 18.4, last: 9.24, jump: { from: 9.9, to: 9.24, judgeIn: 2 } };
+
+  it("learns a floor just past the aim when the stream drifts back", () => {
+    let reach = learnReach(jumped, sample({ latency: 9.5 }), DEFAULT_TUNING);
+    expect(reach.jump?.judgeIn).toBe(1);
+
+    reach = learnReach(reach, sample({ latency: 9.6 }), DEFAULT_TUNING);
+
+    expect(reach.jump).toBeUndefined();
+    expect(reach.floor).toBeCloseTo(9.74, 5);
+    expect(reach.forgetIn).toBe(300);
+  });
+
+  it("learns nothing when the jump held", () => {
+    let reach = learnReach(jumped, sample({ latency: 9.3 }), DEFAULT_TUNING);
+    reach = learnReach(reach, sample({ latency: 9.3 }), DEFAULT_TUNING);
+
+    expect(reach).toEqual({ home: 18.4, last: 9.3 });
+  });
+});
+
 describe("reachRange", () => {
   it("reaches ahead as its buffer allows and back a little past home", () => {
     const range = reachRange(
