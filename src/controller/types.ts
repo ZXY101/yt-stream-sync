@@ -61,6 +61,20 @@ export interface Tuning {
   snapDrop: number;
   /** After a snap-back, the player's ceiling goes this far below where it snapped. */
   snapMargin: number;
+  /** No-rewind players keep this much buffer after a jump ahead (5 s segments stall below). */
+  noRewindMinBuffer: number;
+  /** A no-rewind player this many seconds behind its spot jumps ahead (nothing else moves it ahead). */
+  noRewindJumpError: number;
+  /** A no-rewind player may be slowed to this many seconds behind where YouTube keeps it. */
+  slowRoom: number;
+  /** A no-rewind player's latency changing this much in one step means YouTube moved it. */
+  moveJump: number;
+  /** Steps a learned floor or ceiling is kept before it eases a little. */
+  learnedSteps: number;
+  /** A learned floor or ceiling sits this far inside where YouTube moved the stream. */
+  learnedMargin: number;
+  /** Steps held at its back limit before a no-rewind stream gets a second more room. */
+  probeSteps: number;
 }
 
 /** What the controller is doing to a player. */
@@ -76,18 +90,26 @@ export interface ControllerState {
   ceilings?: Readonly<Record<string, number>>;
   /** Pinned players: the lowest latency each has shown, i.e. its live edge. */
   floors?: Readonly<Record<string, number>>;
-  /** No-rewind players that just jumped ahead: the latency before the jump and the one aimed at. */
-  jumps?: Readonly<Record<string, Jump>>;
-  /**
-   * No-rewind players whose jump ahead didn't hold (YouTube put them back, seen on a real
-   * low-latency stream): the least latency each keeps, so it isn't pushed past it again.
-   */
-  keeps?: Readonly<Record<string, number>>;
+  /** No-rewind players: where each one stays without YouTube moving it (see `reach.ts`). */
+  reach?: Readonly<Record<string, Reach>>;
+  /** The lag a group with a no-rewind player lines up at (see `aim.ts`). */
+  aim?: number;
 }
 
-export interface Jump {
-  from: number;
-  to: number;
+/** What the sync has learned about where a no-rewind stream stays. Latencies in seconds. */
+export interface Reach {
+  /** Where YouTube keeps it when left alone: its first latency, or where YouTube last moved it. */
+  home: number;
+  /** Its latency at the last step (or where a jump that step should leave it). */
+  last: number;
+  /** YouTube put it further back from here: it won't stay closer to live than this, for now. */
+  floor?: number;
+  /** YouTube pulled it toward live from here: it won't stay further back than this, for now. */
+  ceiling?: number;
+  /** Steps until `floor` and `ceiling` ease a little, so they're tried again now and then. */
+  forgetIn?: number;
+  /** Steps it has been held at its back limit while the group wanted it further back. */
+  pressedFor?: number;
 }
 
 export type Action =

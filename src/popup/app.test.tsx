@@ -488,16 +488,16 @@ describe("App", () => {
     expect(screen.getByText(/The others have jumped as far ahead/)).toBeVisible();
   });
 
-  it("explains a gap from streams with rewind turned off", async () => {
+  it("explains an outlier among streams with rewind turned off", async () => {
     sendMessage.mockResolvedValue(
       answer([
         player({
           id: "1:0",
+          title: "Su live",
           channel: "Su",
           inGroup: true,
           noRewind: true,
-          stuck: true,
-          error: 5.4,
+          error: 0,
         }),
         player({
           id: "2:0",
@@ -505,21 +505,33 @@ describe("App", () => {
           channel: "Pekora",
           inGroup: true,
           noRewind: true,
-          stuck: true,
-          error: 2.6,
+          error: 0.1,
         }),
-        player({ id: "3:0", tabId: 3, channel: "Riona", inGroup: true, noRewind: true, error: 0 }),
+        player({
+          id: "3:0",
+          tabId: 3,
+          title: "Riona live",
+          channel: "Riona",
+          inGroup: true,
+          noRewind: true,
+          stuck: true,
+          error: -10.5,
+        }),
       ]),
     );
     render(<App />);
 
-    expect(await screen.findByText(/behind live · 5\.4 s ahead/)).toBeVisible();
-    expect(screen.getByText(/Can't get closer/)).toBeVisible();
+    expect(await screen.findByText(/Can't get closer, 10\.5 s behind/)).toBeVisible();
+    expect(screen.getAllByText(/In sync/)).toHaveLength(2);
     expect(
-      screen.getByText(/Still 5\.4 s apart\. The Su and Pekora streams have rewind turned off/),
+      screen.getByText(/Still 10\.5 s apart\. The Riona stream has rewind turned off/),
     ).toBeVisible();
-    expect(screen.getByText(/The others have jumped as far ahead/)).toBeVisible();
+    expect(screen.queryByText(/The others have jumped/)).not.toBeInTheDocument();
     expect(screen.queryByText("Low latency")).not.toBeInTheDocument();
+    // Riona can't get any closer to live, so nudging her ahead is off; back still works.
+    expect(screen.getByRole("button", { name: "Move Riona live ahead 1 second" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Move Riona live back 1 second" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Move Su live ahead 1 second" })).toBeEnabled();
   });
 
   it("names every low-latency stream in the gap note", async () => {

@@ -133,23 +133,55 @@ describe("step", () => {
   });
 
   describe("with streams that have rewind turned off", () => {
-    // The three streams of a real hand test (2026-11-15): all without rewind, two of them low latency.
+    // Su, Pekora and Riona as they first joined in a real hand test (2026-11-15).
     const realGroup = [
-      sample("a", { latency: 5.8, bufferAhead: 2, noRewind: true }),
-      sample("b", { latency: 8.6, bufferAhead: 2, noRewind: true }),
-      sample("c", { latency: 15.7, bufferAhead: 6, noRewind: true }),
+      sample("a", { latency: 8, bufferAhead: 5.6, noRewind: true }),
+      sample("b", { latency: 8.6, bufferAhead: 7.8, noRewind: true }),
+      sample("c", { latency: 18.4, bufferAhead: 17, noRewind: true }),
     ];
+    function withRiona(changes: Partial<PlayerSample>): PlayerSample[] {
+      return [
+        realGroup[0] as PlayerSample,
+        realGroup[1] as PlayerSample,
+        sample("c", { bufferAhead: 17, noRewind: true, ...changes }),
+      ];
+    }
 
-    it("never pauses or slows them: the one behind jumps ahead, the ones ahead are stuck", () => {
+    it("lines them up where most already are: the one far behind jumps, the one ahead slows", () => {
       const result = step(initialState(), realGroup, settings);
 
-      expect(result.actions).toEqual([{ type: "skip", id: "c", seconds: expect.closeTo(4.5, 5) }]);
-      expect(result.errors.a).toBeCloseTo(5.4, 5);
-      expect(result.errors.b).toBeCloseTo(2.6, 5);
-      expect(result.stuck).toEqual(["a", "b"]);
+      expect(result.state.aim).toBeCloseTo(8.6, 5);
+      expect(result.actions).toEqual([
+        { type: "setRate", id: "a", rate: 0.92 },
+        { type: "skip", id: "c", seconds: expect.closeTo(9.8, 5) },
+      ]);
+      expect(result.stuck).toEqual([]);
     });
 
-    it("plays one the sync paused before, at normal speed", () => {
+    it("doesn't count its own jump as YouTube moving the stream", () => {
+      const first = step(initialState(), realGroup, settings);
+      const jumped = withRiona({ latency: 8.6, bufferAhead: 7.2 });
+
+      const second = step(first.state, jumped, settings);
+
+      expect(second.state.reach?.c).toEqual({ home: 18.4, last: 8.6 });
+    });
+
+    it("slows one far ahead instead of pausing it, and jumps the other to meet it", () => {
+      const samples = [
+        sample("a", { latency: 3.2, bufferAhead: 2.7, noRewind: true }),
+        sample("b", { latency: 8.6, bufferAhead: 7.8, noRewind: true }),
+      ];
+
+      const result = step(initialState(), samples, settings);
+
+      expect(result.actions).toEqual([
+        { type: "setRate", id: "a", rate: 0.92 },
+        { type: "skip", id: "b", seconds: expect.closeTo(3.9, 5) },
+      ]);
+    });
+
+    it("plays one the old sync paused, and never pauses", () => {
       const state: ControllerState = { modes: { a: "paused" } };
       const samples = [
         sample("a", { latency: 9, state: "paused", playbackRate: 0.92, noRewind: true }),
@@ -158,63 +190,29 @@ describe("step", () => {
 
       const result = step(state, samples, settings);
 
-      expect(result.actions).toEqual([
-        { type: "play", id: "a" },
-        { type: "setRate", id: "a", rate: 1 },
-      ]);
+      expect(result.actions).toContainEqual({ type: "play", id: "a" });
+      expect(result.actions.some((action) => action.type === "pause")).toBe(false);
     });
 
-    it("never pushes them ahead of the one furthest ahead (real group at 11:00)", () => {
-      const samples = [
-        sample("a", { latency: 7.5, bufferAhead: 4.3, noRewind: true }),
-        sample("b", { latency: 5.4, bufferAhead: 4, noRewind: true }),
-        sample("c", { latency: 5.2, bufferAhead: 4.4, noRewind: true }),
-      ];
+    it("keeps the majority together and moves an outlier as close as YouTube lets it", () => {
+      // Riona was put back to 19.1 s after a jump to 15 s: she won't stay closer than 16 s.
+      const state: ControllerState = {
+        ...initialState(),
+        reach: { c: { home: 19.1, last: 19.1, floor: 16, forgetIn: 100 } },
+      };
+      const samples = withRiona({ latency: 19.1 });
 
-      const result = step(initialState(), samples, settings);
+      const result = step(state, samples, settings);
 
-      expect(result.actions).toEqual([{ type: "skip", id: "a", seconds: expect.closeTo(2.3, 5) }]);
-      expect(result.errors.c).toBeCloseTo(0, 5);
-    });
-
-    it("remembers a jump YouTube undid, and won't push that stream past it again", () => {
-      // Real: a low-latency stream jumped from 5.2 s toward 2.5 s and re-buffered at 8.3 s.
-      const jumped = step(
-        initialState(),
-        [
-          sample("a", { latency: 5.2, bufferAhead: 4.4, noRewind: true }),
-          sample("b", { latency: 2.5, noRewind: true }),
-        ],
-        settings,
-      );
-      expect(jumped.state.jumps).toEqual({ a: { from: 5.2, to: expect.closeTo(2.5, 5) } });
-
-      let state = jumped.state;
-      const putBack = [
-        sample("a", { latency: 8.3, bufferAhead: 7.8, noRewind: true }),
-        sample("b", { latency: 3.2, bufferAhead: 2.7, noRewind: true }),
-      ];
-      // Waits out the cooldown (10 steps, the first one was the jump).
-      for (let steps = 0; steps < 9; steps++) {
-        state = step(state, putBack, settings).state;
-      }
-      expect(state.keeps).toEqual({ a: 5.2 });
-
-      const result = step(state, putBack, settings);
-      expect(result.actions).toEqual([{ type: "skip", id: "a", seconds: expect.closeTo(3.1, 5) }]);
-    });
-
-    it("jumps a rewindable stream behind ahead to meet one without rewind", () => {
-      const samples = [
-        sample("a", { latency: 6, bufferAhead: 2, noRewind: true }),
-        sample("b", { latency: 12, bufferAhead: 8 }),
-      ];
-
-      const result = step(initialState(), samples, settings);
-
-      // b could reach 5.5 s, but never further ahead than a, which can't be held back.
-      expect(result.actions).toEqual([{ type: "skip", id: "b", seconds: expect.closeTo(6, 5) }]);
-      expect(result.stuck).toEqual([]);
+      // The other two lean toward her, to just inside their own limit (10 s).
+      expect(result.state.aim).toBeCloseTo(9.8, 5);
+      expect(result.actions).toContainEqual({
+        type: "skip",
+        id: "c",
+        seconds: expect.closeTo(3.1, 5),
+      });
+      expect(result.stuck).toEqual(["c"]);
+      expect(result.errors.c).toBeCloseTo(-9.3, 5);
     });
   });
 

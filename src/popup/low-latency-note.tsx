@@ -21,10 +21,11 @@ function pinnedReason(players: readonly PlayerStatus[]): string {
 
 function noRewindReason(players: readonly PlayerStatus[]): string {
   const one = players.length === 1;
+  const object = one ? "it" : "them";
   return (
-    `The ${names(players)} ${one ? "stream has" : "streams have"} rewind turned off: YouTube ` +
-    `sends ${one ? "it" : "them"} back to the live edge after a pause, so the sync can't hold ` +
-    `${one ? "it" : "them"} back.`
+    `The ${names(players)} ${one ? "stream has" : "streams have"} rewind turned off, and ` +
+    `YouTube moves ${object} back when ${one ? "it is" : "they are"} held or jumped further, ` +
+    `so the sync keeps ${object} as close as YouTube allows and tries again now and then.`
   );
 }
 
@@ -41,7 +42,9 @@ export function LowLatencyNote({ members }: { members: readonly PlayerStatus[] }
   const ahead = members.filter((member) => member.stuck === true);
   const pinned = ahead.filter((member) => member.pinned === true);
   const noRewind = ahead.filter((member) => member.pinned !== true && member.noRewind === true);
-  const othersJumped = members.some((member) => member.stuck !== true && member.pinned !== true);
+  // Only next to an ultra-low-latency stream do the others jump as far as they can.
+  const othersJumped =
+    pinned.length > 0 && members.some((member) => member.stuck !== true && member.pinned !== true);
   return (
     <Alert>
       <Zap />

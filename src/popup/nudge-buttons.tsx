@@ -10,10 +10,21 @@ interface NudgeButtonsProps {
   title: string;
   offset: number;
   onNudge: (seconds: number) => void;
+  /** A direction the stream can't move any further (see `blockedNudge`): those buttons are off. */
+  blocked?: "ahead" | "back";
+}
+
+const BLOCKED_HELP = {
+  ahead: "YouTube won't keep this stream any closer to live",
+  back: "YouTube won't keep this stream any further behind live",
+} as const;
+
+function directionOf(seconds: number): "ahead" | "back" {
+  return seconds > 0 ? "ahead" : "back";
 }
 
 function describeStep(title: string, seconds: number): string {
-  const direction = seconds > 0 ? "ahead" : "back";
+  const direction = directionOf(seconds);
   const amount = Math.abs(seconds) === 1 ? "1 second" : `${Math.abs(seconds)} seconds`;
   return `Move ${title} ${direction} ${amount}`;
 }
@@ -63,7 +74,7 @@ export function OffsetField({ title, offset, onSet }: OffsetFieldProps) {
 }
 
 /** Fine-tunes one stream against the others; the sync keeps whatever the user sets. */
-export function NudgeButtons({ title, offset, onNudge }: NudgeButtonsProps) {
+export function NudgeButtons({ title, offset, onNudge, blocked }: NudgeButtonsProps) {
   return (
     <fieldset className="mt-2 flex flex-wrap items-center gap-1" aria-label={`Nudge ${title}`}>
       {STEPS.map((seconds) => (
@@ -73,6 +84,12 @@ export function NudgeButtons({ title, offset, onNudge }: NudgeButtonsProps) {
           size="xs"
           className="min-w-9 px-1.5"
           aria-label={describeStep(title, seconds)}
+          disabled={blocked !== undefined && directionOf(seconds) === blocked}
+          title={
+            blocked !== undefined && directionOf(seconds) === blocked
+              ? BLOCKED_HELP[blocked]
+              : undefined
+          }
           onClick={() => onNudge(seconds)}
         >
           {seconds > 0 ? `+${seconds}` : `−${Math.abs(seconds)}`}
