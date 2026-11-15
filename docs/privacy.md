@@ -14,6 +14,9 @@ On your device, in the browser's extension storage (never synced to other device
   where you were in it;
 - only if you set up the optional yt-dlp-z alignment: your server's address and API token.
 
+If you pick light or dark with the theme button, that choice is kept in the add-on's own page
+storage (`localStorage`) on your device. If you never pick one, it follows your system.
+
 Removing the add-on deletes all of it.
 
 ## What it reads
