@@ -54,7 +54,10 @@ export function StreamCard({ player, detail, actions, children }: StreamCardProp
             <p className="truncate text-xs text-muted-foreground">{player.channel}</p>
             {player.kind === "live" && player.pinned === true && <LowLatencyBadge />}
           </div>
-          <p className="truncate text-xs text-muted-foreground">{detail}</p>
+          {/* Wraps instead of truncating: the end says how far off the stream is. */}
+          <p className="line-clamp-2 text-xs text-muted-foreground" title={detail}>
+            {detail}
+          </p>
         </div>
         {actions && <div className="shrink-0">{actions}</div>}
       </div>

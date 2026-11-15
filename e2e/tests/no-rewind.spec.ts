@@ -15,6 +15,18 @@ async function rowOf(popup: Page, title: string): Promise<string | undefined> {
   return (await groupRows(popup)).find((row) => row.startsWith(title));
 }
 
+/** Whether the status line containing `text` shows in full (not cut off or clamped). */
+function statusFits(popup: Page, text: string): Promise<boolean> {
+  return popup.evaluate((wanted) => {
+    const lines = [...document.querySelectorAll<HTMLElement>("p[title]")];
+    const line = lines.find((element) => element.title.includes(wanted));
+    if (!line) {
+      return false;
+    }
+    return line.scrollWidth <= line.clientWidth && line.scrollHeight <= line.clientHeight;
+  }, text);
+}
+
 function nudgeState(popup: Page, label: string): Promise<NudgeState | null> {
   return popup.evaluate((wanted) => {
     const button = document.querySelector<HTMLButtonElement>(`[aria-label='${wanted}']`);
@@ -94,4 +106,6 @@ test("keeps a stream YouTube won't move closer as an outlier, and greys out its 
   expect(await nudgeState(popup, "Move far back 1 second")).toMatchObject({ disabled: false });
   expect(await nudgeState(popup, "Move near ahead 1 second")).toMatchObject({ disabled: false });
   expect((await readStream(near)).pauses).toBe(0);
+  // The status line used to be cut off before "behind", hiding how far off it is.
+  expect(await statusFits(popup, "Can't get closer")).toBe(true);
 });
