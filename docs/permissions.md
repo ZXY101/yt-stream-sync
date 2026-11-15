@@ -24,8 +24,8 @@ streams, plus loudness levels for the popup's waveform. Audio never leaves the b
 is never stored.
 
 **Debug log:** the background script keeps its last 300 decisions in memory (commands,
-detected user actions, audio matching results, stream states and loudness levels; no audio,
-no URLs). It leaves the browser only if the user clicks "Copy debug log" and pastes it
+detected user actions, audio matching results and scores, stream states and loudness levels,
+and the YouTube link of each stream that joins the sync group; no audio, no other URLs). It leaves the browser only if the user clicks "Copy debug log" and pastes it
 somewhere.
 
 The add-on collects no data (`data_collection_permissions: none`). Its only network
