@@ -17,6 +17,9 @@ to the background script. Messages from the page are validated before use, and t
 script only ever receives commands, never data from other tabs. Nothing is changed on any
 player until the user adds it in the popup; only the popup can change the sync group.
 
+**Theme:** the light or dark choice from the theme button is kept in the extension pages' own
+`localStorage`, which needs no permission. It is only set once the user picks a theme.
+
 **Audio:** for streams in the sync group (and only while matching by audio is on), the page
 script listens to the player's audio (`captureStream()`), keeps the last 30 s at low quality
 in memory, and sends short clips to the background script to measure the delay between
