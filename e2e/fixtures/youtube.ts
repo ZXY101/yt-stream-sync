@@ -11,13 +11,37 @@ const FAKE_ARCHIVE = readPage("fake-archive.html");
 const EMBED = "https://www.youtube.com/embed/";
 
 /** A fake live stream, or with `position` a fake archive (`start`: ISO broadcast start). */
-export type FakeStream =
-  { id: string; latency: number } | { id: string; position: number; start?: string; load?: number };
+export type FakeStream = FakeLive | { id: string; position: number; start?: string; load?: number };
+
+/**
+ * A fake live stream. `rewind: false` acts like a stream with rewind (DVR) off, whose newest
+ * video is `edge` seconds behind live; `latencyClass` is YouTube's (e.g. "LOW").
+ */
+interface FakeLive {
+  id: string;
+  latency: number;
+  rewind?: false;
+  edge?: number;
+  latencyClass?: "NORMAL" | "LOW" | "ULTRA_LOW";
+}
+
+function setLive(query: URLSearchParams, stream: FakeLive) {
+  query.set("latency", String(stream.latency));
+  if (stream.rewind === false) {
+    query.set("rewind", "off");
+  }
+  if (stream.edge !== undefined) {
+    query.set("edge", String(stream.edge));
+  }
+  if (stream.latencyClass) {
+    query.set("latencyClass", stream.latencyClass);
+  }
+}
 
 function embedUrl(stream: FakeStream): string {
   const query = new URLSearchParams({ title: stream.id });
   if ("latency" in stream) {
-    query.set("latency", String(stream.latency));
+    setLive(query, stream);
   } else {
     query.set("kind", "archive");
     query.set("position", String(stream.position));
@@ -71,13 +95,24 @@ export interface StreamReading {
   latency: number;
   rate: number;
   state: number;
+  /** How often the add-on paused it. */
+  pauses: number;
 }
 
 export function readStream(frame: Frame): Promise<StreamReading> {
   return frame.evaluate(() => {
-    const fake = window as unknown as { fakeLatency: () => number; fakeState: () => number };
+    const fake = window as unknown as {
+      fakeLatency: () => number;
+      fakeState: () => number;
+      fakePauses: () => number;
+    };
     const rate = document.querySelector("video")?.playbackRate ?? Number.NaN;
-    return { latency: fake.fakeLatency(), rate, state: fake.fakeState() };
+    return {
+      latency: fake.fakeLatency(),
+      rate,
+      state: fake.fakeState(),
+      pauses: fake.fakePauses(),
+    };
   });
 }
 
