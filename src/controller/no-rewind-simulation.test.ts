@@ -12,6 +12,8 @@ interface NoRewindOptions {
   maxLatency?: number;
   /** Closer to live than this, it drifts back slowly instead of snapping (seen on Riona). */
   driftBelow?: number;
+  /** Ultra-low latency: the sync only holds it back a little by seeking. */
+  pinned?: boolean;
 }
 
 const INGEST = 1;
@@ -61,6 +63,7 @@ class NoRewindPlayer {
       state,
       playbackRate,
       noRewind: true,
+      pinned: this.options.pinned,
     };
   }
 
@@ -204,5 +207,35 @@ describe("no-rewind streams against simulated YouTube players", () => {
     // A couple of tries to learn it, then at most a retry when the floor eases (every 5 min).
     expect(allJumps.length).toBeLessThanOrEqual(6);
     expect(lateJumps.length).toBeLessThanOrEqual(2);
+  });
+
+  it("doesn't yank a stream back and forth between an ultra-low-latency one and a slower one", () => {
+    // Real (2026-11-15, three streams of one collab): one ultra-low latency near 3 s that holds
+    // at most 4.5 s, one that YouTube won't keep closer than about 6 s, and one in between
+    // that can sit with either. The real in-between one was skipped ahead and slowed back for
+    // 2.5 minutes. These simple players don't make the limits move the way YouTube did (that
+    // case is in aim.test.ts); this checks the group settles and where it ends up.
+    const ultra = new NoRewindPlayer({
+      id: "ultra",
+      home: 3.1,
+      segmentLength: 1,
+      maxLatency: 5.2,
+      pinned: true,
+    });
+    const between = new NoRewindPlayer({ id: "between", home: 6, segmentLength: 1, maxLatency: 9 });
+    const slower = new NoRewindPlayer({
+      id: "slower",
+      home: 7.4,
+      segmentLength: 1,
+      minLatency: 6,
+      maxLatency: 10,
+    });
+
+    const { actions, spreads } = run([ultra, between, slower], 360);
+
+    const moves = actions.filter((action) => action.id === "between" && action.type === "skip");
+    expect(moves.length).toBeLessThanOrEqual(3);
+    // Two together, the third as close as it goes: near enough for audio matching (5 s).
+    expect(Math.max(...spreads.slice(60))).toBeLessThan(2.5);
   });
 });
