@@ -21,9 +21,14 @@ How the harness works:
   `readArchive()` reads an archive's position, and `userAction()` seeks, pauses or plays it
   the way a user would (popup helpers are in `e2e/fixtures/popup.ts`).
   The real manifest's content scripts run on it; everything else is blocked (no network).
-  `streamFrame()` and `readStream()` read a fake player's latency, rate and state.
+  `streamFrame()` and `readStream()` read a fake player's latency, rate, state and how often
+  the add-on paused it (`pauses`).
 - The fake player mimics YouTube: latency grows by `1 - playbackRate` per second while
-  playing and by 1 per second while paused, and stats report 0 while paused. When the page
+  playing and by 1 per second while paused, and stats report 0 while paused. A live stream
+  with `rewind: false` acts like one with rewind (DVR) off, as most streams are: playing after
+  a pause jumps back to where YouTube keeps it, a skip (`video.currentTime +=`) moves within
+  the buffer, and the buffer reaches up to `edge` seconds behind live (default 1).
+  `latencyClass` (`NORMAL`, `LOW`, `ULTRA_LOW`) sets YouTube's latency class. When the page
   script starts using more of YouTube's player, add it to the fake (and to
   `src/test/fake-youtube.ts`).
 - **The popup** opens with the `openPopup` fixture, in its own window. A real popup acts on

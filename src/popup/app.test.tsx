@@ -536,6 +536,8 @@ describe("App", () => {
       "title",
       expect.stringMatching(/any closer to live/),
     );
+    // Keyboard and screen-reader users get the reason too.
+    expect(blocked).toHaveAccessibleDescription(/any closer to live/);
     expect(screen.getByRole("button", { name: "Move Riona live back 1 second" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Move Su live ahead 1 second" })).toBeEnabled();
   });
