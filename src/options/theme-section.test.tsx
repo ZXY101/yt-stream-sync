@@ -1,46 +1,48 @@
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
+import { useColorScheme } from "@/components/use-color-scheme.ts";
+
 import { colorScheme } from "../test/setup.ts";
-import { ThemeToggle } from "./theme-toggle.tsx";
-import { useColorScheme } from "./use-color-scheme.ts";
+import { ThemeSection } from "./theme-section.tsx";
 
 const STORAGE_KEY = "yt-stream-sync-theme";
 
 function Page() {
   useColorScheme();
-  return <ThemeToggle />;
+  return <ThemeSection />;
 }
 
 afterEach(() => {
   window.localStorage.clear();
 });
 
-describe("ThemeToggle", () => {
-  it("switches to dark and back, and remembers the choice", async () => {
+describe("ThemeSection", () => {
+  it("follows the system until a theme is picked, and remembers the pick", async () => {
     const user = userEvent.setup();
     render(<Page />);
+    expect(screen.getByRole("radio", { name: "System" })).toBeChecked();
     expect(document.documentElement).not.toHaveClass("dark");
 
-    await user.click(screen.getByRole("button", { name: "Switch to dark theme" }));
+    await user.click(screen.getByRole("radio", { name: "Dark" }));
     expect(document.documentElement).toHaveClass("dark");
     expect(window.localStorage.getItem(STORAGE_KEY)).toBe("dark");
 
-    // Back to what the system shows: that means following the system again.
-    await user.click(screen.getByRole("button", { name: "Switch to light theme" }));
+    await user.click(screen.getByRole("radio", { name: "System" }));
     expect(document.documentElement).not.toHaveClass("dark");
     expect(window.localStorage.getItem(STORAGE_KEY)).toBeNull();
   });
 
-  it("starts with the choice saved earlier, over the system's setting", () => {
-    window.localStorage.setItem(STORAGE_KEY, "dark");
+  it("starts with the theme picked earlier, over the system's setting", () => {
+    window.localStorage.setItem(STORAGE_KEY, "light");
+    colorScheme.change(true);
     render(<Page />);
 
-    expect(document.documentElement).toHaveClass("dark");
-    expect(screen.getByRole("button", { name: "Switch to light theme" })).toBeVisible();
+    expect(screen.getByRole("radio", { name: "Light" })).toBeChecked();
+    expect(document.documentElement).not.toHaveClass("dark");
   });
 
-  it("follows a choice made in another page (the settings page or another popup)", () => {
+  it("follows a theme picked in another settings page", () => {
     render(<Page />);
 
     act(() => {
@@ -48,6 +50,7 @@ describe("ThemeToggle", () => {
       window.dispatchEvent(new StorageEvent("storage", { key: STORAGE_KEY }));
     });
 
+    expect(screen.getByRole("radio", { name: "Dark" })).toBeChecked();
     expect(document.documentElement).toHaveClass("dark");
   });
 
@@ -58,18 +61,17 @@ describe("ThemeToggle", () => {
     });
     render(<Page />);
 
-    await user.click(screen.getByRole("button", { name: "Switch to dark theme" }));
+    await user.click(screen.getByRole("radio", { name: "Dark" }));
 
     expect(document.documentElement).toHaveClass("dark");
     vi.restoreAllMocks();
   });
 
-  it("keeps following the system while nothing was chosen", () => {
+  it("keeps following system changes while System is picked", () => {
     render(<Page />);
 
     act(() => colorScheme.change(true));
 
     expect(document.documentElement).toHaveClass("dark");
-    expect(screen.getByRole("button", { name: "Switch to light theme" })).toBeVisible();
   });
 });

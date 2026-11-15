@@ -72,9 +72,8 @@ Saved groups stay in your browser.
 
 ## Theme
 
-The sun or moon button at the top of the popup and the settings page switches between light
-and dark. Both pages follow the choice. Picking the look your system already has goes back to
-following the system.
+Pick **System**, **Light** or **Dark** under **Theme** in the settings (the gear in the popup).
+The popup and the settings page both follow it. System, the default, follows your computer.
 
 ## Troubleshooting
 
