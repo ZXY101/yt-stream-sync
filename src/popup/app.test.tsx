@@ -529,7 +529,13 @@ describe("App", () => {
     expect(screen.queryByText(/The others have jumped/)).not.toBeInTheDocument();
     expect(screen.queryByText("Low latency")).not.toBeInTheDocument();
     // Riona can't get any closer to live, so nudging her ahead is off; back still works.
-    expect(screen.getByRole("button", { name: "Move Riona live ahead 1 second" })).toBeDisabled();
+    const blocked = screen.getByRole("button", { name: "Move Riona live ahead 1 second" });
+    expect(blocked).toBeDisabled();
+    // The tooltip sits on a wrapper: a disabled button gets no hover.
+    expect(blocked.parentElement).toHaveAttribute(
+      "title",
+      expect.stringMatching(/any closer to live/),
+    );
     expect(screen.getByRole("button", { name: "Move Riona live back 1 second" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Move Su live ahead 1 second" })).toBeEnabled();
   });

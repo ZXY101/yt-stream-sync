@@ -2,15 +2,39 @@ import { defineConfig, mergeConfig } from "vitest/config";
 
 import viteConfig from "./vite.config.ts";
 
+const DOM_TESTS = ["src/**/*.test.tsx", "src/page/**/*.test.ts"];
+
 export default mergeConfig(
   viteConfig,
   defineConfig({
     root: ".",
     test: {
-      include: ["src/**/*.test.{ts,tsx}"],
-      environment: "jsdom",
       globals: true,
-      setupFiles: ["src/test/setup.ts"],
+      // Half the cores: the dev box also runs the home server, which a full-width run starved
+      // (audio tests timed out in the pre-push hook at load 12 on 8 cores).
+      maxWorkers: "50%",
+      // Only UI and page-script tests need a DOM. Starting jsdom for every file cost about a
+      // third of the run, so the rest run in plain Node.
+      projects: [
+        {
+          extends: true,
+          test: {
+            name: "dom",
+            include: DOM_TESTS,
+            environment: "jsdom",
+            setupFiles: ["src/test/setup.ts"],
+          },
+        },
+        {
+          extends: true,
+          test: {
+            name: "node",
+            include: ["src/**/*.test.ts"],
+            exclude: DOM_TESTS,
+            environment: "node",
+          },
+        },
+      ],
       coverage: {
         provider: "v8",
         include: ["src/**/*.{ts,tsx}"],
