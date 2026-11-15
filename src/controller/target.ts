@@ -51,10 +51,12 @@ function pinnedTarget(
       : sample.latency;
     return lowest + (settings.offsets[sample.id] ?? 0);
   });
-  const lowestLags = others.map(
-    (sample) =>
-      effectiveLag(sample, settings) - (sample.bufferLow ?? sample.bufferAhead) + minBuffer,
-  );
+  const lowestLags = others.map((sample) => {
+    const lag = effectiveLag(sample, settings);
+    const reachable = lag - (sample.bufferLow ?? sample.bufferAhead) + minBuffer;
+    // A stream without rewind can't be held back to grow its buffer: it only moves ahead.
+    return sample.noRewind === true ? Math.min(lag, reachable) : reachable;
+  });
   return Math.max(...pinnedLags, ...lowestLags);
 }
 
@@ -79,10 +81,12 @@ export function computeErrors(
   const { minBuffer } = options;
   const pinned = samples.filter((sample) => sample.pinned === true);
   const others = samples.filter((sample) => sample.pinned !== true);
-  const target =
-    pinned.length > 0
-      ? pinnedTarget(pinned, others, settings, options)
-      : holdBackTarget(samples, settings, minBuffer);
+  // Streams that can't be held back (pinned, or without rewind) set the pace: the others jump
+  // ahead to meet them instead of everyone waiting for the one furthest behind.
+  const anchored = pinned.length > 0 || samples.some((sample) => sample.noRewind === true);
+  const target = anchored
+    ? pinnedTarget(pinned, others, settings, options)
+    : holdBackTarget(samples, settings, minBuffer);
   const errors: Record<string, number> = {};
   for (const sample of samples) {
     errors[sample.id] = target - effectiveLag(sample, settings);

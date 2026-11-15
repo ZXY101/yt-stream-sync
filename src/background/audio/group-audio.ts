@@ -34,7 +34,8 @@ function isSettled(member: MemberView): boolean {
     return false;
   }
   const steady = member.stuck === true && report.playbackRate === 1;
-  const pinned = report.kind === "live" && report.pinned === true;
+  // Streams that can't be held back jitter like pinned ones and are left alone below holdError.
+  const pinned = report.kind === "live" && (report.pinned === true || report.noRewind === true);
   const tolerance = pinned ? PINNED_SETTLED_ERROR : SETTLED_ERROR;
   return Math.abs(error) < tolerance || steady;
 }

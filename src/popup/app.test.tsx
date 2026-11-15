@@ -484,8 +484,42 @@ describe("App", () => {
     const badges = screen.getAllByText("Low latency");
     expect(badges).toHaveLength(2);
     expect(badges[0]).toHaveAttribute("title", expect.stringMatching(/can't be slowed/));
-    expect(screen.getByText(/Still 5\.0 s apart: the Gigi stream is ultra-low/)).toBeVisible();
+    expect(screen.getByText(/Still 5\.0 s apart\. The Gigi stream is ultra-low/)).toBeVisible();
     expect(screen.getByText(/The others have jumped as far ahead/)).toBeVisible();
+  });
+
+  it("explains a gap from streams with rewind turned off", async () => {
+    sendMessage.mockResolvedValue(
+      answer([
+        player({
+          id: "1:0",
+          channel: "Su",
+          inGroup: true,
+          noRewind: true,
+          stuck: true,
+          error: 5.4,
+        }),
+        player({
+          id: "2:0",
+          tabId: 2,
+          channel: "Pekora",
+          inGroup: true,
+          noRewind: true,
+          stuck: true,
+          error: 2.6,
+        }),
+        player({ id: "3:0", tabId: 3, channel: "Riona", inGroup: true, noRewind: true, error: 0 }),
+      ]),
+    );
+    render(<App />);
+
+    expect(await screen.findByText(/behind live · 5\.4 s ahead/)).toBeVisible();
+    expect(screen.getByText(/Can't get closer/)).toBeVisible();
+    expect(
+      screen.getByText(/Still 5\.4 s apart\. The Su and Pekora streams have rewind turned off/),
+    ).toBeVisible();
+    expect(screen.getByText(/The others have jumped as far ahead/)).toBeVisible();
+    expect(screen.queryByText("Low latency")).not.toBeInTheDocument();
   });
 
   it("names every low-latency stream in the gap note", async () => {
@@ -498,7 +532,7 @@ describe("App", () => {
     );
     render(<App />);
 
-    expect(await screen.findByText(/the A and B streams are ultra-low latency/)).toBeVisible();
+    expect(await screen.findByText(/The A and B streams are ultra-low latency/)).toBeVisible();
     expect(screen.queryByText(/The others have jumped/)).not.toBeInTheDocument();
     expect(screen.getAllByText(/In sync/)).toHaveLength(1);
   });

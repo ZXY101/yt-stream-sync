@@ -37,6 +37,11 @@ function describePinnedAhead(player: PlayerStatus, error: number): string {
   return `Holding back, ${error.toFixed(1)} s ahead`;
 }
 
+/** A live stream the sync can't hold back any further: pinned, or stuck without rewind. */
+function cantHoldBack(player: PlayerStatus): boolean {
+  return player.pinned === true || (player.noRewind === true && player.stuck === true);
+}
+
 function describeLive(player: PlayerStatus, error: number, gap: number): string {
   if (player.state === "paused") {
     return `Paused, ${error.toFixed(1)} s ahead`;
@@ -44,7 +49,7 @@ function describeLive(player: PlayerStatus, error: number, gap: number): string 
   if (player.playbackRate < 1) {
     return `Slowed to ${player.playbackRate.toFixed(2)}×, ${error.toFixed(1)} s ahead`;
   }
-  if (player.pinned === true && error >= HOLDING) {
+  if (cantHoldBack(player) && error >= HOLDING) {
     return describePinnedAhead(player, error);
   }
   if (error <= -LIVE_SETTLED) {
@@ -54,12 +59,12 @@ function describeLive(player: PlayerStatus, error: number, gap: number): string 
 }
 
 /**
- * How far an ultra-low-latency stream stays ahead of the rest: the gap the sync can't close.
+ * How far a stream that can't be held back (ultra-low latency, or no rewind) stays ahead of the rest: the gap the sync can't close.
  * 0 when there's none or it's under a second.
  */
 export function lowLatencyGap(members: readonly PlayerStatus[]): number {
   const gaps = members
-    .filter((member) => member.kind === "live" && member.pinned === true && member.stuck === true)
+    .filter((member) => member.kind === "live" && cantHoldBack(member) && member.stuck === true)
     .map((member) => member.error ?? 0);
   const gap = Math.max(0, ...gaps);
   return gap >= LIVE_SETTLED ? gap : 0;

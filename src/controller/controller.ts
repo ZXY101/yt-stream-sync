@@ -58,6 +58,9 @@ function stepPlayer(
   if (sample.pinned === true) {
     return { mode: "normal", ...stepPinned(pinnedInput(sample, state, error, tuning)) };
   }
+  if (sample.noRewind === true) {
+    return stepNoRewind(sample, cooldown, error, tuning);
+  }
   if (error < -tuning.jumpError && cooldown === 0 && sample.state === "playing") {
     const actions = actionsFor(sample, "normal", tuning);
     actions.push({ type: "skip", id: sample.id, seconds: -error });
@@ -65,6 +68,28 @@ function stepPlayer(
   }
   const mode = nextMode(previous, error, tuning);
   return { mode, cooldown, actions: actionsFor(sample, mode, tuning) };
+}
+
+/**
+ * A stream without rewind: YouTube sends it back to the live edge after a pause (seen on real
+ * streams: the sync paused it, it played again 15–35 s closer to live, and looped). So it is
+ * never paused or slowed; one ahead of the target is `stuck`, one behind jumps ahead.
+ */
+function stepNoRewind(
+  sample: PlayerSample,
+  cooldown: number,
+  error: number,
+  tuning: Tuning,
+): PlayerStep {
+  // Normal mode's actions: play again if the sync paused it, back to 1x (which also undoes
+  // YouTube's own catch-up speed, as for any normal player).
+  const actions = actionsFor(sample, "normal", tuning);
+  const stuck = error > tuning.holdError;
+  if (error < -tuning.jumpError && cooldown === 0 && sample.state === "playing") {
+    actions.push({ type: "skip", id: sample.id, seconds: -error });
+    return { mode: "normal", cooldown: tuning.jumpCooldown, actions, stuck };
+  }
+  return { mode: "normal", cooldown, actions, stuck };
 }
 
 /**

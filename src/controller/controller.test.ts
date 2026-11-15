@@ -132,6 +132,52 @@ describe("step", () => {
     expect(result.actions).toEqual([{ type: "setRate", id: "a", rate: 0.92 }]);
   });
 
+  describe("with streams that have rewind turned off", () => {
+    // The three streams of a real hand test (2026-11-15): all without rewind, two of them low latency.
+    const realGroup = [
+      sample("a", { latency: 5.8, bufferAhead: 2, noRewind: true }),
+      sample("b", { latency: 8.6, bufferAhead: 2, noRewind: true }),
+      sample("c", { latency: 15.7, bufferAhead: 6, noRewind: true }),
+    ];
+
+    it("never pauses or slows them: the one behind jumps ahead, the ones ahead are stuck", () => {
+      const result = step(initialState(), realGroup, settings);
+
+      expect(result.actions).toEqual([{ type: "skip", id: "c", seconds: expect.closeTo(4.5, 5) }]);
+      expect(result.errors.a).toBeCloseTo(5.4, 5);
+      expect(result.errors.b).toBeCloseTo(2.6, 5);
+      expect(result.stuck).toEqual(["a", "b"]);
+    });
+
+    it("plays one the sync paused before, at normal speed", () => {
+      const state: ControllerState = { modes: { a: "paused" } };
+      const samples = [
+        sample("a", { latency: 9, state: "paused", playbackRate: 0.92, noRewind: true }),
+        sample("b", { latency: 9.1, bufferAhead: 1.5, noRewind: true }),
+      ];
+
+      const result = step(state, samples, settings);
+
+      expect(result.actions).toEqual([
+        { type: "play", id: "a" },
+        { type: "setRate", id: "a", rate: 1 },
+      ]);
+    });
+
+    it("jumps a rewindable stream behind ahead to meet one without rewind", () => {
+      const samples = [
+        sample("a", { latency: 6, bufferAhead: 2, noRewind: true }),
+        sample("b", { latency: 12, bufferAhead: 8 }),
+      ];
+
+      const result = step(initialState(), samples, settings);
+
+      // Both jump as far ahead as their buffer allows (keeping 1.5 s): the target is 5.5 s.
+      expect(result.actions).toEqual([{ type: "skip", id: "b", seconds: expect.closeTo(6.5, 5) }]);
+      expect(result.stuck).toEqual([]);
+    });
+  });
+
   describe("with a pinned (ultra-low-latency) player", () => {
     it("jumps the player behind ahead instead of holding back the pinned one", () => {
       const samples = [

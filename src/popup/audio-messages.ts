@@ -17,7 +17,14 @@ export function audioMessage(status: AudioStatus): AudioMessage | undefined {
         retry: false,
       };
     case "listening":
-      return { text: "Listening to line up the audio…", retry: false, progress: status.progress };
+      // Matching needs two streams playing steadily in sync for 30 s; until then nothing moves.
+      return status.progress > 0
+        ? { text: "Listening to line up the audio…", retry: false, progress: status.progress }
+        : {
+            text: "Waiting for two streams to play steadily in sync before listening…",
+            retry: false,
+            progress: 0,
+          };
     case "matching":
       return { text: "Comparing the audio…", retry: false };
     case "matched":

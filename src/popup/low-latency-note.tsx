@@ -10,9 +10,27 @@ function names(players: readonly PlayerStatus[]): string {
   return [...new Set(channels)].join(" and ");
 }
 
+function pinnedReason(players: readonly PlayerStatus[]): string {
+  const one = players.length === 1;
+  const object = one ? "it" : "them";
+  return (
+    `The ${names(players)} ${one ? "stream is" : "streams are"} ultra-low latency: YouTube ` +
+    `keeps ${object} near the live edge, and the sync has held ${object} back as far as YouTube allows.`
+  );
+}
+
+function noRewindReason(players: readonly PlayerStatus[]): string {
+  const one = players.length === 1;
+  return (
+    `The ${names(players)} ${one ? "stream has" : "streams have"} rewind turned off: YouTube ` +
+    `sends ${one ? "it" : "them"} back to the live edge after a pause, so the sync can't hold ` +
+    `${one ? "it" : "them"} back.`
+  );
+}
+
 /**
  * Explains a gap the sync can't close: an ultra-low-latency stream can only be held back a
- * few seconds, and the others can only jump ahead as far as their buffer allows. Without this, a group that
+ * few seconds, one without rewind not at all, and the others can only jump ahead as far as their buffer allows. Without this, a group that
  * stays seconds apart looks broken.
  */
 export function LowLatencyNote({ members }: { members: readonly PlayerStatus[] }) {
@@ -20,18 +38,17 @@ export function LowLatencyNote({ members }: { members: readonly PlayerStatus[] }
   if (gap === 0) {
     return null;
   }
-  const pinned = members.filter((member) => member.pinned === true && member.stuck === true);
-  const othersJumped = members.some((member) => member.pinned !== true);
-  const one = pinned.length === 1;
-  const subject = one ? "stream is" : "streams are";
-  const object = one ? "it" : "them";
+  const ahead = members.filter((member) => member.stuck === true);
+  const pinned = ahead.filter((member) => member.pinned === true);
+  const noRewind = ahead.filter((member) => member.pinned !== true && member.noRewind === true);
+  const othersJumped = members.some((member) => member.stuck !== true && member.pinned !== true);
   return (
     <Alert>
       <Zap />
       <AlertDescription>
-        Still {gap.toFixed(1)} s apart: the {names(pinned)} {subject} ultra-low latency. YouTube
-        keeps {object} near the live edge, and the sync has held {object} back as far as YouTube
-        allows.
+        Still {gap.toFixed(1)} s apart.
+        {pinned.length > 0 && ` ${pinnedReason(pinned)}`}
+        {noRewind.length > 0 && ` ${noRewindReason(noRewind)}`}
         {othersJumped && " The others have jumped as far ahead as their buffer allows."}
       </AlertDescription>
     </Alert>

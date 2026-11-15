@@ -16,6 +16,11 @@ export interface PlayerSample {
    * only held back a little by seeking (see `pinned-step.ts`).
    */
   pinned?: boolean;
+  /**
+   * Rewind (DVR) is off: YouTube sends it back to the live edge after a pause or a seek back
+   * (seen on real streams), so it is never paused or slowed. It may still jump ahead.
+   */
+  noRewind?: boolean;
 }
 
 export interface SyncSettings {
