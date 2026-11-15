@@ -203,9 +203,10 @@ export type AudioStatus =
   | { state: "matching" }
   /**
    * Lag measured per player (seconds, positive: was behind) and applied. `unmatched`: players
-   * that couldn't be matched even after retrying.
+   * that couldn't be matched even after retrying. `waiting`: players still to be matched,
+   * once they play steadily.
    */
-  | { state: "matched"; lags: Record<string, number>; unmatched?: string[] }
+  | { state: "matched"; lags: Record<string, number>; unmatched?: string[]; waiting?: string[] }
   | { state: "failed"; reason: "too-short" | "no-shared-sound" }
   /** The browser won't let a page play audio until the user clicks in it. */
   | { state: "blocked" }

@@ -1,6 +1,7 @@
 /** How long each player has been playing in sync, so clips hold only settled audio. */
 export function createReadiness(now: () => number) {
   const settledSince = new Map<string, number>();
+  let latest = new Map<string, number>();
 
   /** Updates from this step's members; returns each one's settled seconds (0: not settled). */
   function update(members: readonly { id: string; settled: boolean }[]): Map<string, number> {
@@ -14,8 +15,9 @@ export function createReadiness(now: () => number) {
       }
       seconds.set(member.id, time - (settledSince.get(member.id) ?? time));
     }
+    latest = seconds;
     return seconds;
   }
 
-  return { update, reset: () => settledSince.clear() };
+  return { update, reset: () => settledSince.clear(), seconds: () => latest };
 }

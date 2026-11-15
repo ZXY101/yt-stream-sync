@@ -195,7 +195,8 @@ export function createCoordinator(options: CoordinatorOptions) {
     sendAll(result.actions, send, reports);
     audio.afterTick(memberViews(groupIds, reports, outcome));
     align.tick();
-    diagnostics.afterTick(audio.status(), reports.all(), group.ids());
+    const notes = { ...outcome, steady: audio.steady() };
+    diagnostics.afterTick(audio.status(), reports.all(), group.ids(), notes);
   }
 
   function status(): CoordinatorStatus {

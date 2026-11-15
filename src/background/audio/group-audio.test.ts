@@ -46,4 +46,10 @@ describe("isSettled", () => {
     expect(isSettled({ id: "a", report: rewindable, error: 0.1 })).toBe(true);
     expect(isSettled({ id: "a", report: rewindable, error: -1.4 })).toBe(false);
   });
+
+  it("counts an ultra-low-latency stream held as far back as it goes, 2 s ahead of the rest", () => {
+    // Real: it sat 2.0 s ahead, right on the old limit, and audio never matched it.
+    const pinned = live({ pinned: true, latency: 4.5 });
+    expect(isSettled({ id: "a", report: pinned, error: 2.1, stuck: true })).toBe(true);
+  });
 });

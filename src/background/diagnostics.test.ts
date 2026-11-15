@@ -56,4 +56,34 @@ describe("diagnostics", () => {
 
     expect(log.text().match(/joined group/g)).toHaveLength(1);
   });
+
+  it("logs how far each grouped stream is from the group's spot, and how long it's been steady", () => {
+    // The players line is written every 5 s, so this clock is past the first one.
+    const log = createDebugLog(() => 0);
+    const diagnostics = createDiagnostics(() => 10, log);
+    const reports: [string, LiveReport][] = [
+      ["1:0", live()],
+      ["2:0", live({ latency: 4.5 })],
+      ["3:0", live()],
+    ];
+
+    diagnostics.afterTick({ state: "waiting" }, reports, ["1:0", "2:0"], {
+      errors: { "1:0": -0.04, "2:0": 2.04 },
+      stuck: ["2:0"],
+      steady: { "1:0": 31, "2:0": 0 },
+    });
+
+    const line = log
+      .text()
+      .split("\n")
+      .find((text) => text.includes("players:"));
+    expect(line).toContain(
+      "1:0 playing latency 8.6 buffer 2.0 x1.00 loudest 0.000 in sync steady 31 s",
+    );
+    expect(line).toContain(
+      "2:0 playing latency 4.5 buffer 2.0 x1.00 loudest 0.000 2.0 s ahead stuck steady 0 s",
+    );
+    // A stream outside the group has no place in it.
+    expect(line).toMatch(/3:0 playing latency 8\.6 buffer 2\.0 x1\.00 loudest 0\.000$/);
+  });
 });
