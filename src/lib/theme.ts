@@ -1,7 +1,7 @@
 /**
- * Light or dark: the user's choice, or the system's when they haven't picked one. Kept in the
- * extension pages' localStorage, so the popup and the settings page share it (same as
- * yt-dlp-z's theme toggle).
+ * Light or dark: the user's choice on the settings page, or the system's when they haven't
+ * picked one. Kept in the extension pages' localStorage, so the popup and the settings page
+ * share it.
  */
 export type Theme = "light" | "dark";
 
@@ -36,7 +36,7 @@ function writePreference(theme: Theme | null) {
   }
 }
 
-export function getTheme(): Theme {
+function getTheme(): Theme {
   return preference ?? systemTheme();
 }
 
@@ -54,10 +54,15 @@ export function reloadTheme() {
   applyTheme();
 }
 
-export function toggleTheme() {
-  const next: Theme = getTheme() === "dark" ? "light" : "dark";
-  // Picking the look the system already has means following the system again.
-  preference = next === systemTheme() ? null : next;
+/** What the user picked in the settings; "system" follows the system's light or dark. */
+export type ThemeChoice = Theme | "system";
+
+export function getThemeChoice(): ThemeChoice {
+  return preference ?? "system";
+}
+
+export function setThemeChoice(choice: ThemeChoice) {
+  preference = choice === "system" ? null : choice;
   writePreference(preference);
   applyTheme();
 }

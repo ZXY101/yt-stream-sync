@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs.tsx";
-import { ThemeToggle } from "@/components/theme-toggle.tsx";
 import { useColorScheme } from "@/components/use-color-scheme.ts";
 
 import type { PlayerStatus } from "../lib/messages.ts";
 import { useSyncStatus } from "../popup/use-sync-status.ts";
 import type { OpenArchive } from "./add-stream.tsx";
 import { SavedGroupsPage } from "./saved-groups-page.tsx";
+import { ThemeSection } from "./theme-section.tsx";
 import { YtdlpzSection } from "./ytdlpz-section.tsx";
 
 type Tab = "groups" | "settings";
@@ -74,10 +74,7 @@ export function OptionsApp() {
   const [tab, setTab] = useHashTab();
   return (
     <main className="mx-auto flex max-w-2xl flex-col gap-6 p-4 sm:p-8">
-      <header className="flex items-center gap-2">
-        <h1 className="flex-1 text-xl font-semibold">yt-stream-sync</h1>
-        <ThemeToggle />
-      </header>
+      <h1 className="text-xl font-semibold">yt-stream-sync</h1>
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value="groups">Saved groups</TabsTrigger>
@@ -86,7 +83,8 @@ export function OptionsApp() {
         <TabsContent value="groups">
           <GroupsTab />
         </TabsContent>
-        <TabsContent value="settings">
+        <TabsContent value="settings" className="flex flex-col gap-6">
+          <ThemeSection />
           <YtdlpzSection />
         </TabsContent>
       </Tabs>

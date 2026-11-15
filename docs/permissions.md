@@ -17,7 +17,7 @@ to the background script. Messages from the page are validated before use, and t
 script only ever receives commands, never data from other tabs. Nothing is changed on any
 player until the user adds it in the popup; only the popup can change the sync group.
 
-**Theme:** the light or dark choice from the theme button is kept in the extension pages' own
+**Theme:** the Light or Dark choice from the settings page is kept in the extension pages' own
 `localStorage`, which needs no permission. It is only set once the user picks a theme.
 
 **Audio:** for streams in the sync group (and only while matching by audio is on), the page
@@ -28,8 +28,8 @@ is never stored.
 
 **Debug log:** the background script keeps its last 300 decisions in memory (commands,
 detected user actions, audio matching results and scores, stream states and loudness levels,
-and the YouTube link of each stream that joins the sync group; no audio, no other URLs). It leaves the browser only if the user clicks "Copy debug log" and pastes it
-somewhere.
+and the YouTube link of each stream that joins the sync group; no audio, no other URLs). It
+leaves the browser only if the user clicks "Copy debug log" and pastes it somewhere.
 
 The add-on collects no data (`data_collection_permissions: none`). Its only network
 requests of its own are the popup's thumbnails from `i.ytimg.com` (YouTube's image server),

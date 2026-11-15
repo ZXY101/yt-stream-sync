@@ -50,8 +50,8 @@ further from, live) are greyed out; hover them to see why.
 With **Auto-sync by audio** on (the default), the add-on listens to the added streams for
 30 seconds once they play steadily in sync (a stream with rewind off may be up to 2 seconds
 off), and moves each one so the shared sound (voices, game audio) lines up. If a try finds no
-match, the popup says so and it listens again. It finds offsets of up to 15 seconds. **Match again** listens afresh; the waveforms
-show what it hears.
+match, the popup says so and it listens again. It finds offsets of up to 15 seconds.
+**Match again** listens afresh; the waveforms show what it hears.
 
 If a stream says "Click once inside this stream's video so the add-on can hear it", the browser
 needs a click in that page before it lets the add-on listen.
@@ -82,9 +82,8 @@ Saved groups stay in your browser.
 
 ## Theme
 
-The sun or moon button at the top of the popup and the settings page switches between light
-and dark. Both pages follow the choice. Picking the look your system already has goes back to
-following the system.
+Pick **System**, **Light** or **Dark** under **Theme** in the settings (the gear in the popup).
+The popup and the settings page both follow it. System, the default, follows your computer.
 
 ## Troubleshooting
 

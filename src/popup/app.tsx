@@ -12,7 +12,6 @@ import { DebugLogButton } from "./debug-log-button.tsx";
 import { SavedGroups } from "./saved-groups.tsx";
 import { SyncGroup } from "./sync-group.tsx";
 import { ThisTab } from "./this-tab.tsx";
-import { ThemeToggle } from "@/components/theme-toggle.tsx";
 import { useColorScheme } from "@/components/use-color-scheme.ts";
 import { useCurrentTab } from "./use-current-tab.ts";
 import { useSyncStatus } from "./use-sync-status.ts";
@@ -37,7 +36,6 @@ function Header({ syncing }: { syncing: boolean }) {
     <header className="flex items-center gap-2">
       <h1 className="flex-1 text-base font-semibold">yt-stream-sync</h1>
       {syncing && <Badge>Syncing</Badge>}
-      <ThemeToggle />
       <Button
         variant="ghost"
         size="icon-sm"
