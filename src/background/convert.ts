@@ -24,8 +24,8 @@ export function toCommand(action: Action): PlayerCommand {
 }
 
 export function toLiveSample(id: string, report: LiveReport): LiveSample {
-  const { latency, bufferAhead, bufferLow, pinned, state, playbackRate } = report;
-  return { id, latency, bufferAhead, bufferLow, pinned, state, playbackRate };
+  const { latency, bufferAhead, bufferLow, pinned, noRewind, state, playbackRate } = report;
+  return { id, latency, bufferAhead, bufferLow, pinned, noRewind, state, playbackRate };
 }
 
 /**

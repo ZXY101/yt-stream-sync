@@ -59,7 +59,7 @@ export class SimulatedPlayer {
 
   sample(): LiveSample {
     const { id, latency, bufferAhead, state, playbackRate } = this;
-    return { id, latency, bufferAhead, state, playbackRate };
+    return { id, latency, bufferAhead, state, playbackRate, noRewind: !this.rewind };
   }
 
   apply(action: Action): void {

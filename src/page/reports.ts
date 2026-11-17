@@ -2,6 +2,7 @@ import type { ArchiveReport, LiveReport } from "../lib/messages.ts";
 import type { createBufferLowTracker } from "./buffer-low.ts";
 import type { createLatencyTracker } from "./latency.ts";
 import {
+  isNoRewindLive,
   isPinnedLive,
   readBuffer,
   readLatency,
@@ -39,7 +40,9 @@ export function liveReport(
   }
   const bufferAhead = readBuffer(stats);
   const bufferLow = trackers.bufferLow.update(bufferAhead, now);
-  return { kind: "live", latency, bufferAhead, bufferLow, pinned: isPinnedLive(player), ...base };
+  const pinned = isPinnedLive(player);
+  const noRewind = isNoRewindLive(player);
+  return { kind: "live", latency, bufferAhead, bufferLow, pinned, noRewind, ...base };
 }
 
 /** Seconds buffered ahead of the playhead, from the video element's buffered ranges. */

@@ -53,6 +53,31 @@ describe("step", () => {
     ]);
   });
 
+  it("slows a stream with rewind off however far ahead it is, never pauses it", () => {
+    const samples = [sample("a", { latency: 4, noRewind: true }), sample("b", { latency: 16 })];
+
+    const result = stepLive(initialLiveState(), samples, settings);
+
+    expect(result.state.modes.a).toBe("slowing");
+    expect(result.actions).toEqual([{ type: "setRate", id: "a", rate: 0.92 }]);
+  });
+
+  it("plays and slows a stream with rewind off that it had paused", () => {
+    const state: LiveState = { modes: { a: "paused", b: "normal" } };
+    const samples = [
+      sample("a", { latency: 4, state: "paused", noRewind: true }),
+      sample("b", { latency: 16 }),
+    ];
+
+    const result = stepLive(state, samples, settings);
+
+    expect(result.state.modes.a).toBe("slowing");
+    expect(result.actions).toEqual([
+      { type: "play", id: "a" },
+      { type: "setRate", id: "a", rate: 0.92 },
+    ]);
+  });
+
   it("does nothing when no player can be synced", () => {
     const result = stepLive(initialLiveState(), [sample("a", { state: "ended" })], settings);
 

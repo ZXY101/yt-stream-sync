@@ -16,6 +16,11 @@ export interface LiveSample {
    * only held back a little by seeking (see `pinned-step.ts`).
    */
   pinned?: boolean;
+  /**
+   * Rewind (DVR) is off, the most common kind: YouTube sends it back to the live edge after a
+   * pause (seen on real streams), so it is slowed down instead, however far ahead it is.
+   */
+  noRewind?: boolean;
 }
 
 /** Controller constants. Defaults in `tuning.ts`; tests may override them. */

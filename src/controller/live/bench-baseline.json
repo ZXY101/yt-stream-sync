@@ -14,17 +14,17 @@
     "stalls": 0
   },
   "rewind-off: leader 12 s ahead": {
-    "spread": 7.92,
-    "worstSpread": 11.92,
-    "settleTime": 300,
-    "moves": 26,
+    "spread": 0.08,
+    "worstSpread": 5.36,
+    "settleTime": 144,
+    "moves": 2,
     "stalls": 0
   },
   "rewind-off: three streams 12 s spread": {
-    "spread": 7.92,
-    "worstSpread": 11.92,
-    "settleTime": 300,
-    "moves": 28,
+    "spread": 0.08,
+    "worstSpread": 5.36,
+    "settleTime": 144,
+    "moves": 4,
     "stalls": 0
   },
   "rewind-off: one shaky stream of three": {
@@ -42,17 +42,17 @@
     "stalls": 1
   },
   "rewind-off: ad on one stream": {
-    "spread": 8.88,
-    "worstSpread": 14.88,
-    "settleTime": 300,
-    "moves": 18,
+    "spread": 1.92,
+    "worstSpread": 13.28,
+    "settleTime": 257,
+    "moves": 4,
     "stalls": 0
   },
   "mixed: rewind-off leader 12 s ahead": {
-    "spread": 7.92,
-    "worstSpread": 11.92,
-    "settleTime": 300,
-    "moves": 26,
+    "spread": 0.08,
+    "worstSpread": 5.36,
+    "settleTime": 144,
+    "moves": 2,
     "stalls": 0
   },
   "mixed: rewind-off pair, rewindable far ahead": {

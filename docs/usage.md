@@ -19,6 +19,10 @@ The add-on reads how far each player is behind live and **slows down the stream 
 ahead** until they match, or pauses it briefly for a big gap. It never speeds a live stream
 up: that drains the small live buffer and makes it stall.
 
+Most live streams have rewind turned off. YouTube sends those back to the live edge after a
+pause, so they're only ever slowed down: a big gap (after an ad, say) takes a few minutes to
+close, about 8 seconds every 100 seconds.
+
 Streams marked **Low latency** sit near the live edge and can only be held back a few
 seconds, so the others jump ahead to meet them. If a gap remains, the popup says
 "Can't get closer".

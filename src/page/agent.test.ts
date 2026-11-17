@@ -40,6 +40,7 @@ describe("page agent", () => {
         bufferAhead: 3,
         bufferLow: 3,
         pinned: false,
+        noRewind: false,
         state: "playing",
         playbackRate: 0.92,
         title: "Collab stream",
@@ -47,6 +48,19 @@ describe("page agent", () => {
         videoId: "abc123",
       },
     ]);
+  });
+
+  it("marks streams with rewind turned off, and only when YouTube says so", () => {
+    const off = createFakePlayer({ isLiveDvrEnabled: false });
+    const on = createFakePlayer({ isLiveDvrEnabled: true });
+    const offRun = setup(off.element);
+    const onRun = setup(on.element);
+
+    offRun.agent.tick();
+    onRun.agent.tick();
+
+    expect(offRun.posted[0]).toMatchObject({ kind: "live", noRewind: true });
+    expect(onRun.posted[0]).toMatchObject({ kind: "live", noRewind: false });
   });
 
   it("marks ultra-low-latency streams as pinned", () => {

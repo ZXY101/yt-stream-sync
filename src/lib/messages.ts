@@ -47,6 +47,8 @@ export interface LiveReport extends ReportBase {
   bufferLow?: number;
   /** An ultra-low-latency stream: YouTube keeps it at the live edge, so it can't be held back. */
   pinned?: boolean;
+  /** Rewind (DVR) is off: a pause or a seek back sends it to the live edge, so it's never paused. */
+  noRewind?: boolean;
 }
 
 /** What the page script reads from an archived stream's player. */

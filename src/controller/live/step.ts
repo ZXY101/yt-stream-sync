@@ -56,8 +56,21 @@ function stepPlayer(
     actions.push({ type: "skip", id: sample.id, seconds: -error });
     return { mode: "normal", cooldown: tuning.jumpCooldown, actions };
   }
-  const mode = nextMode(previous, error, tuning);
+  const mode = modeFor(sample, previous, error, tuning);
   return { mode, cooldown, actions: actionsFor(sample, mode, tuning) };
+}
+
+/**
+ * A stream with rewind off is never paused: YouTube would send it back to the live edge and
+ * the sync would pause it again, forever (seen on real streams). It is slowed instead, which
+ * closes any gap, only slower: 8 s per 100 s.
+ */
+function modeFor(sample: LiveSample, previous: Mode, error: number, tuning: LiveTuning): Mode {
+  if (sample.noRewind !== true) {
+    return nextMode(previous, error, tuning);
+  }
+  const unpaused = previous === "paused" ? "normal" : previous;
+  return nextMode(unpaused, error, { ...tuning, pauseError: Infinity });
 }
 
 /**
