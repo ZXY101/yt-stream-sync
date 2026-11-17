@@ -9,34 +9,27 @@ export interface Match {
   uniqueness: number;
 }
 
-/**
- * Cross-correlation of a and b, whitened (PHAT) so every frequency counts the same. Both are
- * real, so one complex FFT of a + i·b gives both spectra (A and B are its even and odd parts
- * under k ↔ n − k): two transforms per window instead of three.
- */
+function spectrum(signal: Float32Array, size: number) {
+  const re = new Float64Array(size);
+  const im = new Float64Array(size);
+  re.set(signal);
+  fft(re, im);
+  return { re, im };
+}
+
+/** Cross-correlation of a and b, whitened (PHAT) so every frequency counts the same. */
 function whitenedCorrelation(a: Float32Array, b: Float32Array): Float64Array {
   const size = nextPowerOfTwo(a.length + b.length);
-  const zr = new Float64Array(size);
-  const zi = new Float64Array(size);
-  zr.set(a);
-  zi.set(b);
-  fft(zr, zi);
+  const fa = spectrum(a, size);
+  const fb = spectrum(b, size);
   const re = new Float64Array(size);
   const im = new Float64Array(size);
   for (let k = 0; k < size; k += 1) {
-    const mirror = (size - k) % size;
-    const zrk = zr[k] as number;
-    const zik = zi[k] as number;
-    const zrm = zr[mirror] as number;
-    const zim = zi[mirror] as number;
-    const ar = (zrk + zrm) / 2;
-    const ai = (zik - zim) / 2;
-    const br = (zik + zim) / 2;
-    const bi = (zrm - zrk) / 2;
+    const [ar, ai, br, bi] = [fa.re[k], fa.im[k], fb.re[k], fb.im[k]] as number[];
     // conj(A) · B: peaks at the lag by which b trails a.
-    const r = ar * br + ai * bi;
-    const i = ar * bi - ai * br;
-    const magnitude = Math.sqrt(r * r + i * i) || 1;
+    const r = (ar as number) * (br as number) + (ai as number) * (bi as number);
+    const i = (ar as number) * (bi as number) - (ai as number) * (br as number);
+    const magnitude = Math.hypot(r, i) || 1;
     re[k] = r / magnitude;
     im[k] = i / magnitude;
   }
@@ -129,7 +122,7 @@ export function gccPhat(
   const starts = windowStarts(a.length, sampleRate, options.windows);
   const windowLength = a.length - (starts.at(-1) ?? 0);
   const maxLag = Math.min(Math.round(maxLagSeconds * sampleRate), b.length - 1);
-  const sum = new Float64Array(2 * maxLag + 1);
+  let sum = new Float64Array(2 * maxLag + 1);
   for (const start of starts) {
     // Each window of `a` is compared with `b` from maxLag earlier to maxLag later, so even a
     // lag longer than the window has the whole window to match on.
@@ -137,9 +130,7 @@ export function gccPhat(
     const to = Math.min(b.length, start + windowLength + maxLag);
     const window = a.subarray(start, start + windowLength);
     const curve = standardCurve(window, b.subarray(from, to), maxLag, from - start);
-    for (let index = 0; index < sum.length; index += 1) {
-      sum[index] = (sum[index] as number) + (curve[index] as number);
-    }
+    sum = sum.map((value, index) => value + (curve[index] as number));
   }
   const combined = sum.map((value) => value / Math.sqrt(starts.length));
   const index = peakIndex(combined);

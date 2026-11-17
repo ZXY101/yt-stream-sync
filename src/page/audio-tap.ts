@@ -8,54 +8,6 @@ type CapturableVideo = HTMLVideoElement & {
 
 export type TapState = "listening" | "blocked";
 
-const GESTURES = ["pointerdown", "keydown"] as const;
-
-/**
- * Without a click on the page first, the browser keeps the audio engine suspended, and it
- * stays that way until it is asked again. So ask again on the user's next click or key.
- */
-function resumeOnGesture(context: AudioContext) {
-  function retry() {
-    if (context.state === "suspended") {
-      void context.resume();
-    }
-  }
-  for (const gesture of GESTURES) {
-    window.addEventListener(gesture, retry, { capture: true, passive: true });
-  }
-  return {
-    stop: () =>
-      GESTURES.forEach((gesture) => window.removeEventListener(gesture, retry, { capture: true })),
-  };
-}
-
-const RELOAD_EVENTS = ["emptied", "loadstart"] as const;
-
-/**
- * When YouTube reloads the media in the same element (it does after some stalls), the
- * captured track ends or a new one replaces it, and a tap on it would hear silence for good.
- */
-function watchReload(video: HTMLVideoElement, captured: MediaStream) {
-  const track = captured.getAudioTracks()[0];
-  let reloaded = false;
-  function onReload() {
-    reloaded = true;
-  }
-  for (const name of RELOAD_EVENTS) {
-    video.addEventListener(name, onReload);
-  }
-  function trackGone(): boolean {
-    if (track === undefined) {
-      return false;
-    }
-    return track.readyState !== "live" || !captured.getAudioTracks().includes(track);
-  }
-  return {
-    happened: () => reloaded || trackGone(),
-    stop: () => RELOAD_EVENTS.forEach((name) => video.removeEventListener(name, onReload)),
-  };
-}
-
 /**
  * Listens to a video element's audio (its captured stream, which carries sound even when the
  * player is muted) into a ring buffer at `AUDIO_RATE`. Not unit-tested: it is only browser wiring;
@@ -65,9 +17,7 @@ export function createAudioTap(video: CapturableVideo) {
   const ring = createAudioRing();
   const capture = video.captureStream ?? video.mozCaptureStream;
   const context = new AudioContext();
-  const captured = (capture as () => MediaStream).call(video);
-  const source = context.createMediaStreamSource(captured);
-  const reload = watchReload(video, captured);
+  const source = context.createMediaStreamSource((capture as () => MediaStream).call(video));
   // ScriptProcessorNode is deprecated but needs no module file, which YouTube's CSP would block.
   const processor = context.createScriptProcessor(4096, 1, 1);
   const factor = Math.round(context.sampleRate / AUDIO_RATE);
@@ -91,7 +41,18 @@ export function createAudioTap(video: CapturableVideo) {
   processor.connect(context.destination);
   void context.resume();
 
-  const gestures = resumeOnGesture(context);
+  // Without a click on the page first, the browser keeps the audio engine suspended, and it
+  // stays that way until it is asked again. So ask again on the user's next click or key.
+  const gestures = ["pointerdown", "keydown"] as const;
+  function retry() {
+    if (context.state === "suspended") {
+      void context.resume();
+    }
+  }
+  for (const gesture of gestures) {
+    window.addEventListener(gesture, retry, { capture: true, passive: true });
+  }
+
   const stream = source.mediaStream;
   const method = video.captureStream ? "captureStream" : "mozCaptureStream";
   const note = `${method} tracks=${stream.getAudioTracks().length} engine=${context.state} rate=${context.sampleRate} muted=${video.muted} volume=${video.volume}`;
@@ -101,19 +62,15 @@ export function createAudioTap(video: CapturableVideo) {
   }
 
   function stop() {
-    gestures.stop();
-    reload.stop();
+    for (const gesture of gestures) {
+      window.removeEventListener(gesture, retry, { capture: true });
+    }
     processor.disconnect();
     source.disconnect();
     void context.close();
   }
 
-  /** False once the tap can't hear the player any more: listen again from scratch. */
-  function alive(): boolean {
-    return context.state !== "closed" && !reload.happened();
-  }
-
-  return { ring, state, alive, stop, video, note };
+  return { ring, state, stop, video, note };
 }
 
 export function canTap(video: HTMLVideoElement): boolean {

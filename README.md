@@ -49,8 +49,7 @@ follow.
 ## Features
 
 - **Live streams:** the stream that's ahead is slowed (or briefly paused) until they match.
-  Live streams are never sped up, so they don't stall. Streams with rewind turned off (most of
-  them) are never paused: the add-on finds the delay YouTube lets most of them keep.
+  Live streams are never sped up, so they don't stall.
 - **Archives:** lined up by when each broadcast started. Seek, pause, play or change speed on
   one and the others follow.
 - **Audio matching:** listens to the streams and lines up the sound they share.

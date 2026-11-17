@@ -14,9 +14,6 @@ On your device, in the browser's extension storage (never synced to other device
   where you were in it;
 - only if you set up the optional yt-dlp-z alignment: your server's address and API token.
 
-If you pick Light or Dark under Theme in the settings, that choice is kept in the add-on's own
-page storage (`localStorage`) on your device. If you never pick one, it follows your system.
-
 Removing the add-on deletes all of it.
 
 ## What it reads
@@ -40,9 +37,7 @@ Nothing is sent to the add-on's authors or to any third party.
 
 ## Debug log
 
-The add-on keeps a short log of its recent decisions in memory. It holds no audio; the only
-addresses in it are the YouTube links of the streams you add to the sync group, so a log you
-share shows which streams it was about.
+The add-on keeps a short log of its recent decisions in memory (no audio, no page addresses).
 It leaves the browser only if you click "Copy debug log" and paste it somewhere yourself.
 
 ## Contact

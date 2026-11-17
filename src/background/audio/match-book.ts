@@ -49,12 +49,5 @@ export function createMatchBook() {
     lags = {};
   }
 
-  /** The popup's view while some members are matched and others still wait their turn. */
-  function partial(members: readonly string[]): AudioStatus {
-    const waiting = members.filter((id) => !isDone(id));
-    const unmatched = members.filter((id) => isDone(id) && !matched.has(id));
-    return { state: "matched", lags, waiting, ...(unmatched.length > 0 ? { unmatched } : {}) };
-  }
-
-  return { isDone, isMatched: (id: string) => matched.has(id), record, status, partial, clear };
+  return { isDone, isMatched: (id: string) => matched.has(id), record, status, clear };
 }

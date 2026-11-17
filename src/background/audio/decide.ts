@@ -11,11 +11,6 @@ export interface Situation {
   ready: boolean;
   /** Every member is matched (or was given up on). */
   allMatched: boolean;
-  /**
-   * Some members are matched and the rest aren't playing steadily yet: what to show meanwhile
-   * (not "listening", which would sit at a full bar for as long as that lasts).
-   */
-  partial?: AudioStatus;
   /** 0–1 towards `ready`, for the popup. */
   progress: number;
   clipTimeout: number;
@@ -46,9 +41,6 @@ export function decide(situation: Situation): Decision {
   }
   if (situation.allMatched) {
     return { do: "wait" };
-  }
-  if (situation.partial) {
-    return { do: "show", status: situation.partial };
   }
   return { do: "show", status: { state: "listening", progress: situation.progress } };
 }

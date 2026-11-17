@@ -14,7 +14,7 @@ export interface YouTubePlayer extends HTMLElement {
 
 /** The parts of the player response we read. Embeds have no `microformat`. */
 export interface PlayerResponse {
-  videoDetails?: { isLiveContent?: boolean; latencyClass?: string; isLiveDvrEnabled?: boolean };
+  videoDetails?: { isLiveContent?: boolean; latencyClass?: string };
   microformat?: {
     playerMicroformatRenderer?: { liveBroadcastDetails?: { startTimestamp?: string } };
   };
@@ -82,26 +82,9 @@ export function readStartTime(player: YouTubePlayer): number | undefined {
  * back is undone within seconds (seen on real streams), so they can't be held back.
  */
 export function isPinnedLive(player: YouTubePlayer): boolean {
-  return readLatencyClass(player).endsWith("_ULTRA_LOW");
-}
-
-function videoDetails(player: YouTubePlayer): PlayerResponse["videoDetails"] {
-  // Optional call: a player without the method (seen in test pages) has no details.
+  // Optional call: a player without the method (seen in test pages) counts as not pinned.
   const response =
     typeof player.getPlayerResponse === "function" ? player.getPlayerResponse() : undefined;
-  return response?.videoDetails;
-}
-
-/** YouTube's latency class (NORMAL, LOW or ULTRA_LOW, prefixed); empty when unknown. */
-export function readLatencyClass(player: YouTubePlayer): string {
-  return videoDetails(player)?.latencyClass ?? "";
-}
-
-/**
- * A live stream with rewind (DVR) turned off. YouTube sends it back to the live edge after a
- * pause (seen on three real streams, 2026-11-15), so it can't be held back. Unknown counts as
- * rewindable, as before.
- */
-export function isNoRewindLive(player: YouTubePlayer): boolean {
-  return videoDetails(player)?.isLiveDvrEnabled === false;
+  const latencyClass = response?.videoDetails?.latencyClass ?? "";
+  return latencyClass.endsWith("_ULTRA_LOW");
 }

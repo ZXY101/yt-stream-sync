@@ -103,8 +103,7 @@ describe("audio sync", () => {
       sync.receiveClip("c", unrelatedClip(first));
 
       expect(adjust).toHaveBeenCalledOnce();
-      // c was compared and didn't match: the popup says this is another try.
-      expect(sync.status()).toEqual({ state: "listening", progress: 0, tries: 1 });
+      expect(sync.status()).toEqual({ state: "listening", progress: 0 });
       run(31, three);
       const second = lastRequest();
       expect(second.ids).toEqual(["a", "b", "c"]);
@@ -165,18 +164,7 @@ describe("audio sync", () => {
     sync.receiveClip("b", clipFor(first, 1, 3));
     expect(sync.status()).toEqual({ state: "listening", progress: 0 });
 
-    // While c still isn't playing steadily, say what is lined up and what it's waiting for
-    // (it used to show "Listening…" with a full bar for good).
-    run(40, waiting);
-    expect(sync.status()).toEqual({
-      state: "matched",
-      lags: { b: expect.closeTo(1, 1) as number },
-      waiting: ["c"],
-    });
-
-    run(10, [member("a"), member("b"), member("c")]);
-    expect(sync.status()).toEqual({ state: "listening", progress: 9 / 30 });
-    run(21, [member("a"), member("b"), member("c")]);
+    run(31, [member("a"), member("b"), member("c")]);
 
     expect(lastRequest().ids).toEqual(["a", "b", "c"]);
   });

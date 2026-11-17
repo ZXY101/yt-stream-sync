@@ -23,13 +23,6 @@ Streams marked **Low latency** sit near the live edge and can only be held back 
 seconds, so the others jump ahead to meet them. If a gap remains, the popup says
 "Can't get closer".
 
-Most streams have **rewind turned off**. YouTube sends such a stream back to the live edge
-after a pause, and may undo a jump ahead, so these are never paused: they are only slowed a
-little or moved ahead within their buffer. The add-on learns how far each one will stay
-ahead or behind, then lines the group up at the delay that suits the most streams. A stream
-YouTube won't keep there sits as close as it can, shows "Can't get closer", and is tried again
-every few minutes.
-
 ## Archives
 
 Finished live streams are lined up by when each broadcast started. Seek, pause, play or
@@ -42,18 +35,13 @@ they keep the alignment they had when you added them.
 
 Each stream has nudge buttons (±0.1, ±1 and ±10 s) and an **Offset** field where you can type
 an offset in seconds or `m:ss` (for example `-2:05.3`). The sync keeps whatever you set.
-Buttons for a direction a stream can't move any further (YouTube won't keep it closer to, or
-further from, live) are greyed out; hover them to see why.
 
 ## Matching by audio
 
 With **Auto-sync by audio** on (the default), the add-on listens to the added streams for
-30 seconds once they play steadily in sync (a stream that can't get closer may be up to 5
-seconds off), and moves each one so the shared sound (voices, game audio) lines up. If a try
-finds no match, the popup says so and it listens again. While some streams are lined up and
-another isn't playing steadily yet, it says how many it is waiting for. It finds offsets of up
-to 15 seconds.
-**Match again** listens afresh; the waveforms show what it hears.
+30 seconds once they play in sync, and moves each one so the shared sound (voices, game audio)
+lines up. It finds offsets of up to 15 seconds. **Match again** listens afresh; the waveforms
+show what it hears.
 
 If a stream says "Click once inside this stream's video so the add-on can hear it", the browser
 needs a click in that page before it lets the add-on listen.
@@ -81,11 +69,6 @@ pick an archive open in a tab), remove one (a group keeps at least two), rename 
 group.
 
 Saved groups stay in your browser.
-
-## Theme
-
-Pick **System**, **Light** or **Dark** under **Theme** in the settings (the gear in the popup).
-The popup and the settings page both follow it. System, the default, follows your computer.
 
 ## Troubleshooting
 

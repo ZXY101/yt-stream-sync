@@ -4,7 +4,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
 
 import type { PlayerStatus } from "../lib/messages.ts";
-import { blockedNudge, describePlace, describeSync, lowLatencyGap } from "./format.ts";
+import { describePlace, describeSync, lowLatencyGap } from "./format.ts";
 import { LowLatencyNote } from "./low-latency-note.tsx";
 import { NudgeButtons } from "./nudge-buttons.tsx";
 import { StreamCard } from "./stream-card.tsx";
@@ -89,12 +89,7 @@ function MemberCard({ player, gap, waveformsAt, onRemove, onNudge }: MemberCardP
       )}
       <HearingNote hearing={player.hearing} />
       {waveformsAt !== undefined && <Waveform waveform={player.waveform} now={waveformsAt} />}
-      <NudgeButtons
-        title={title}
-        offset={player.offset}
-        onNudge={onNudge}
-        blocked={blockedNudge(player)}
-      />
+      <NudgeButtons title={title} offset={player.offset} onNudge={onNudge} />
     </StreamCard>
   );
 }

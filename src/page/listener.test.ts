@@ -13,8 +13,7 @@ function capturable(): HTMLVideoElement {
 
 function setup() {
   const clips: AudioClip[] = [];
-  const taps: { video: HTMLVideoElement; stop: () => void; alive: () => boolean }[] = [];
-  const health = { alive: true };
+  const taps: { video: HTMLVideoElement; stop: () => void }[] = [];
   const listener = createListener({
     post: (clip) => clips.push(clip),
     createTap: (video) => {
@@ -22,7 +21,6 @@ function setup() {
         ring: createAudioRing(),
         state: () => "listening" as const,
         stop: vi.fn<() => void>(),
-        alive: () => health.alive,
         video,
       };
       tap.ring.push(new Float32Array(400).fill(0.25), 5000);
@@ -30,7 +28,7 @@ function setup() {
       return tap;
     },
   });
-  return { listener, clips, taps, health };
+  return { listener, clips, taps };
 }
 
 describe("listener", () => {
@@ -57,27 +55,6 @@ describe("listener", () => {
 
     expect(taps).toHaveLength(2);
     expect(taps[0]?.stop).toHaveBeenCalledOnce();
-  });
-
-  it("listens again when YouTube reloads the media in the same element", () => {
-    const { listener, taps, health } = setup();
-    const video = capturable();
-    listener.setWanted(true, video);
-
-    health.alive = false;
-    listener.follow(video);
-
-    expect(taps).toHaveLength(2);
-    expect(taps[0]?.stop).toHaveBeenCalledOnce();
-    expect(taps[1]?.video).toBe(video);
-
-    // One that dies again at once waits before the next try.
-    listener.follow(video);
-    expect(taps).toHaveLength(2);
-    for (let steps = 0; steps < 5; steps++) {
-      listener.follow(video);
-    }
-    expect(taps).toHaveLength(3);
   });
 
   it("can't listen to a video without captureStream", () => {

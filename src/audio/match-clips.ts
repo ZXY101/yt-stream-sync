@@ -3,8 +3,8 @@ import { AUDIO_RATE, type Clip } from "./ring.ts";
 
 // Tuned on real collab audio (two POVs of one stream): the true lag scored 18–31 with the
 // next-best peak well below, while single windows managed only 7–10.
-export const MATCH_THRESHOLDS = { confidence: 12, uniqueness: 1.3 };
-
+const MIN_CONFIDENCE = 12;
+const MIN_UNIQUENESS = 1.3;
 const WINDOWS = { window: 15, hop: 2.5 };
 
 export interface MatchResult {
@@ -14,20 +14,6 @@ export interface MatchResult {
   unmatched: string[];
   /** Set when nothing could be compared at all. */
   tooShort?: boolean;
-  /** Every comparison made, for the debug log. */
-  attempts?: MatchAttempt[];
-}
-
-/** One comparison of a player's audio with an already matched one. */
-interface MatchAttempt {
-  id: string;
-  anchor: string;
-  /** Seconds `id` lags behind `anchor`, at the best peak. */
-  lag: number;
-  confidence: number;
-  uniqueness: number;
-  /** Strong and unique enough to count. */
-  ok: boolean;
 }
 
 /** Cuts every clip to the stretch of wall-clock time they all cover. */
@@ -61,43 +47,34 @@ export function matchClips(
     return { lags: {}, unmatched: others, tooShort: true };
   }
   const lags: Record<string, number> = { [referenceId]: 0 };
-  const attempts: MatchAttempt[] = [];
   // Each pass matches what it can against everyone matched so far, so a player that shares
   // sound with a matched player but not with the reference still gets in (lags add up).
   let waiting = others;
   while (waiting.length > 0) {
-    const stillWaiting = waiting.filter(
-      (id) => !matchToAny({ id, cut, lags, attempts }, options.maxLag),
-    );
+    const stillWaiting = waiting.filter((id) => !matchToAny(id, cut, lags, options.maxLag));
     if (stillWaiting.length === waiting.length) {
       break;
     }
     waiting = stillWaiting;
   }
   delete lags[referenceId];
-  return { lags, unmatched: waiting, attempts };
+  return { lags, unmatched: waiting };
 }
 
 /** Tries `id` against each matched player; on a match, records its lag to the reference. */
-interface Matching {
-  id: string;
-  cut: Record<string, Float32Array>;
-  /** Lags of the players matched so far; `id`'s is added on a match. */
-  lags: Record<string, number>;
-  attempts: MatchAttempt[];
-}
-
-function matchToAny({ id, cut, lags, attempts }: Matching, maxLag: number): boolean {
+function matchToAny(
+  id: string,
+  cut: Record<string, Float32Array>,
+  lags: Record<string, number>,
+  maxLag: number,
+): boolean {
   for (const [anchor, anchorLag] of Object.entries(lags)) {
     const match = gccPhat(cut[anchor] as Float32Array, cut[id] as Float32Array, {
       sampleRate: AUDIO_RATE,
       maxLagSeconds: maxLag,
       windows: WINDOWS,
     });
-    const { confidence, uniqueness } = MATCH_THRESHOLDS;
-    const ok = match.confidence >= confidence && match.uniqueness >= uniqueness;
-    attempts.push({ id, anchor, ...match, ok });
-    if (ok) {
+    if (match.confidence >= MIN_CONFIDENCE && match.uniqueness >= MIN_UNIQUENESS) {
       lags[id] = anchorLag + match.lag;
       return true;
     }

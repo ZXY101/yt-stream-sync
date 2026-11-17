@@ -66,12 +66,9 @@ function isStartTime(value: unknown): boolean {
 
 function hasLiveFields(value: Fields): boolean {
   const lowOk = value.bufferLow === undefined || inRange(value.bufferLow, MAX_SECONDS);
-  const flagsOk = [value.pinned, value.noRewind].every(
-    (flag) => flag === undefined || typeof flag === "boolean",
-  );
-  const classOk = value.latencyClass === undefined || isText(value.latencyClass);
+  const pinnedOk = value.pinned === undefined || typeof value.pinned === "boolean";
   const timesOk = inRange(value.latency, MAX_SECONDS) && inRange(value.bufferAhead, MAX_SECONDS);
-  return timesOk && lowOk && flagsOk && classOk;
+  return timesOk && lowOk && pinnedOk;
 }
 
 function hasKindFields(value: Fields): boolean {

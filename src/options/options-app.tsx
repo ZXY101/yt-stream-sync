@@ -7,7 +7,6 @@ import type { PlayerStatus } from "../lib/messages.ts";
 import { useSyncStatus } from "../popup/use-sync-status.ts";
 import type { OpenArchive } from "./add-stream.tsx";
 import { SavedGroupsPage } from "./saved-groups-page.tsx";
-import { ThemeSection } from "./theme-section.tsx";
 import { YtdlpzSection } from "./ytdlpz-section.tsx";
 
 type Tab = "groups" | "settings";
@@ -83,8 +82,7 @@ export function OptionsApp() {
         <TabsContent value="groups">
           <GroupsTab />
         </TabsContent>
-        <TabsContent value="settings" className="flex flex-col gap-6">
-          <ThemeSection />
+        <TabsContent value="settings">
           <YtdlpzSection />
         </TabsContent>
       </Tabs>
