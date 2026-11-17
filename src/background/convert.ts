@@ -1,5 +1,6 @@
 import type { ArchiveSample } from "../controller/archive/types.ts";
-import type { Action, PlayerSample } from "../controller/types.ts";
+import type { LiveSample } from "../controller/live/types.ts";
+import type { Action } from "../controller/types.ts";
 import {
   tabOf,
   type ArchiveReport,
@@ -22,7 +23,7 @@ export function toCommand(action: Action): PlayerCommand {
   return { type: action.type };
 }
 
-export function toLiveSample(id: string, report: LiveReport): PlayerSample {
+export function toLiveSample(id: string, report: LiveReport): LiveSample {
   const { latency, bufferAhead, bufferLow, pinned, state, playbackRate } = report;
   return { id, latency, bufferAhead, bufferLow, pinned, state, playbackRate };
 }

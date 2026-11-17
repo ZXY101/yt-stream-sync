@@ -1,18 +1,19 @@
 import { releaseActions } from "./player-step.ts";
-import type { Action, Mode, PlayerSample, Tuning } from "./types.ts";
+import type { Action } from "../types.ts";
+import type { LiveSample, LiveTuning, Mode } from "./types.ts";
 
 // The latency reading takes about a second to follow a seek (seen on a real stream), so a
 // snap-back is only looked for a few steps after one.
 const SETTLE_STEPS = 3;
 
 export interface PinnedInput {
-  sample: PlayerSample;
+  sample: LiveSample;
   previousMode: Mode;
   /** Steps left before this player may be moved again. */
   cooldown: number;
   /** Seconds ahead of the target (negative: behind). */
   error: number;
-  tuning: Tuning;
+  tuning: LiveTuning;
   /** Latency the last hold-back should have left it at, if it was held back. */
   held: number | undefined;
   /** Highest latency this player has held at, learned from snap-backs. */

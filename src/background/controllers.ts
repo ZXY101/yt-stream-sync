@@ -1,12 +1,12 @@
 import { initialArchiveState, stepArchive } from "../controller/archive/step.ts";
-import { initialState, step } from "../controller/controller.ts";
+import { initialLiveState, stepLive } from "../controller/live/step.ts";
 import type { Action, SyncSettings } from "../controller/types.ts";
 import type { PlayerReport } from "../lib/messages.ts";
 import { toArchiveSample, toLiveSample } from "./convert.ts";
 
 /** Both controllers and their state: live streams and archives each go to their own. */
 export function createControllers() {
-  let liveState = initialState();
+  let liveState = initialLiveState();
   let archiveState = initialArchiveState();
 
   /** `reports` are [player id, report, seconds since it came in]. */
@@ -15,7 +15,7 @@ export function createControllers() {
     const archives = reports.flatMap(([id, r, age]) =>
       r.kind === "archive" ? [toArchiveSample(id, r, age)] : [],
     );
-    const liveResult = step(liveState, live, settings);
+    const liveResult = stepLive(liveState, live, settings);
     const archiveResult = stepArchive(archiveState, archives, settings);
     liveState = liveResult.state;
     archiveState = archiveResult.state;

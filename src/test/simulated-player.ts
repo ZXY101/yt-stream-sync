@@ -1,4 +1,5 @@
-import type { Action, PlayerSample, PlayerState } from "../controller/types.ts";
+import type { LiveSample } from "../controller/live/types.ts";
+import type { Action, PlayerState } from "../controller/types.ts";
 
 export interface SimulatedPlayerOptions {
   id: string;
@@ -47,7 +48,7 @@ export class SimulatedPlayer {
     return this.downloaded - this.position;
   }
 
-  sample(): PlayerSample {
+  sample(): LiveSample {
     const { id, latency, bufferAhead, state, playbackRate } = this;
     return { id, latency, bufferAhead, state, playbackRate };
   }

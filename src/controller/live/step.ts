@@ -1,18 +1,11 @@
 import { type PinnedInput, stepPinned } from "./pinned-step.ts";
 import { actionsFor, nextMode, releaseActions } from "./player-step.ts";
 import { computeErrors } from "./target.ts";
-import { DEFAULT_TUNING } from "./tuning.ts";
-import type {
-  Action,
-  ControllerState,
-  Mode,
-  PlayerSample,
-  StepResult,
-  SyncSettings,
-  Tuning,
-} from "./types.ts";
+import { LIVE_TUNING } from "./tuning.ts";
+import type { Action, SyncSettings } from "../types.ts";
+import type { LiveSample, LiveState, LiveStepResult, LiveTuning, Mode } from "./types.ts";
 
-export function initialState(): ControllerState {
+export function initialLiveState(): LiveState {
   return { modes: {}, cooldowns: {}, held: {}, ceilings: {}, floors: {} };
 }
 
@@ -26,10 +19,10 @@ interface PlayerStep {
 }
 
 function pinnedInput(
-  sample: PlayerSample,
-  state: ControllerState,
+  sample: LiveSample,
+  state: LiveState,
   error: number,
-  tuning: Tuning,
+  tuning: LiveTuning,
 ): PinnedInput {
   return {
     sample,
@@ -48,10 +41,10 @@ function pinnedInput(
  * else goes through the normal modes.
  */
 function stepPlayer(
-  sample: PlayerSample,
-  state: ControllerState,
+  sample: LiveSample,
+  state: LiveState,
   error: number,
-  tuning: Tuning,
+  tuning: LiveTuning,
 ): PlayerStep {
   const previous = state.modes[sample.id] ?? "normal";
   const cooldown = Math.max(0, (state.cooldowns?.[sample.id] ?? 0) - 1);
@@ -71,7 +64,7 @@ function stepPlayer(
  * Players the controller syncs. A player the user paused, or one that ended, is left alone;
  * one the controller paused itself stays in the group.
  */
-function isSynced(sample: PlayerSample, mode: Mode): boolean {
+function isSynced(sample: LiveSample, mode: Mode): boolean {
   if (sample.state === "ended") {
     return false;
   }
@@ -79,13 +72,17 @@ function isSynced(sample: PlayerSample, mode: Mode): boolean {
 }
 
 /** Hands players back unchanged. Used for players outside the group, or for all of them. */
-function release(state: ControllerState, samples: readonly PlayerSample[]): Action[] {
+function release(state: LiveState, samples: readonly LiveSample[]): Action[] {
   return samples.flatMap((sample) => releaseActions(sample, state.modes[sample.id] ?? "normal"));
 }
 
-function idle(state: ControllerState, samples: readonly PlayerSample[]): StepResult {
+function idle(state: LiveState, samples: readonly LiveSample[]): LiveStepResult {
   // Ceilings and floors are learned per stream, so they outlive a pause in syncing.
-  const next = { ...initialState(), ceilings: state.ceilings ?? {}, floors: state.floors ?? {} };
+  const next = {
+    ...initialLiveState(),
+    ceilings: state.ceilings ?? {},
+    floors: state.floors ?? {},
+  };
   return { state: next, actions: release(state, samples), errors: {}, stuck: [] };
 }
 
@@ -95,12 +92,12 @@ function idle(state: ControllerState, samples: readonly PlayerSample[]): StepRes
  * there are two of them.
  * Pure: no clock, no browser APIs. The caller applies the actions and keeps the new state.
  */
-export function step(
-  state: ControllerState,
-  samples: readonly PlayerSample[],
+export function stepLive(
+  state: LiveState,
+  samples: readonly LiveSample[],
   settings: SyncSettings,
-  tuning: Tuning = DEFAULT_TUNING,
-): StepResult {
+  tuning: LiveTuning = LIVE_TUNING,
+): LiveStepResult {
   const members = samples.filter((sample) => settings.group.includes(sample.id));
   // During an ad the gap can't be measured; it is fixed once the ad ends.
   const onHold = members.some((sample) => sample.state === "ad");
@@ -134,7 +131,7 @@ export function step(
 /** The lowest latency each pinned player has shown: where its live edge is. */
 function updateFloors(
   floors: Readonly<Record<string, number>>,
-  samples: readonly PlayerSample[],
+  samples: readonly LiveSample[],
 ): Record<string, number> {
   const next = { ...floors };
   for (const sample of samples) {
@@ -146,7 +143,7 @@ function updateFloors(
 }
 
 type MutableState = {
-  [K in keyof ControllerState]-?: Record<string, NonNullable<ControllerState[K]>[string]>;
+  [K in keyof LiveState]-?: Record<string, NonNullable<LiveState[K]>[string]>;
 };
 
 function record(next: MutableState, id: string, result: PlayerStep) {

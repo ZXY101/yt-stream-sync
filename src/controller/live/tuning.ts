@@ -1,6 +1,6 @@
-import type { Tuning } from "./types.ts";
+import type { LiveTuning } from "./types.ts";
 
-export const DEFAULT_TUNING: Tuning = {
+export const LIVE_TUNING: LiveTuning = {
   // Browsers keep the pitch at this rate, and the buffer grows by 8% of real time.
   slowRate: 0.92,
   // The gap between start and stop is the deadband that keeps rates from flapping.

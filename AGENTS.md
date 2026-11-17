@@ -94,7 +94,8 @@ without a debugger. Clear names and simple control flow beat clever or terse cod
 
 ```
 src/
-  controller/   the sync logic: pure TypeScript, state in → actions out (see Project rules)
+  controller/   the sync logic: pure TypeScript, state in → actions out (see Project rules);
+                live/ and archive/ each have their own, types.ts holds what both share
   background/   coordinator: the sync group, runs the controller, sends commands to players
   content/      content script (isolated world): relays between the page script and background
   page/         page script (page world, `"world": "MAIN"`): reads YouTube's player, runs commands
@@ -193,7 +194,7 @@ docs/           user and developer docs
   user's seek, pause, play and speed changes on any added archive are mirrored to the
   others; media events caused by our own commands must never count as user actions.
   Live streams and archives are never synced together.
-- **The controllers are pure** (`src/controller/` live, `src/controller/archive/`): no DOM,
+- **The controllers are pure** (`src/controller/live/`, `src/controller/archive/`): no DOM,
   no browser APIs, no timers, no `Date.now()`.
   Time and player state come in as arguments, actions come out. That's what makes
   every sync behaviour unit-testable against the simulated player.

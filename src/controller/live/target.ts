@@ -1,11 +1,12 @@
-import type { PlayerSample, SyncSettings } from "./types.ts";
+import type { SyncSettings } from "../types.ts";
+import type { LiveSample } from "./types.ts";
 
 /** How far behind live a player shows the broadcast, after its manual offset. */
-function effectiveLag(sample: PlayerSample, settings: SyncSettings): number {
+function effectiveLag(sample: LiveSample, settings: SyncSettings): number {
   return sample.latency + (settings.offsets[sample.id] ?? 0);
 }
 
-function bufferShortfall(sample: PlayerSample, minBuffer: number): number {
+function bufferShortfall(sample: LiveSample, minBuffer: number): number {
   return Math.max(0, minBuffer - sample.bufferAhead);
 }
 
@@ -15,7 +16,7 @@ function bufferShortfall(sample: PlayerSample, minBuffer: number): number {
  * everyone, itself included, until it has enough buffer, without breaking the sync.
  */
 function holdBackTarget(
-  samples: readonly PlayerSample[],
+  samples: readonly LiveSample[],
   settings: SyncSettings,
   minBuffer: number,
 ): number {
@@ -32,8 +33,8 @@ function holdBackTarget(
  * buffer of late, keeping `minBuffer`); if that's not enough, the target waits for it.
  */
 function pinnedTarget(
-  pinned: readonly PlayerSample[],
-  others: readonly PlayerSample[],
+  pinned: readonly LiveSample[],
+  others: readonly LiveSample[],
   settings: SyncSettings,
   options: TargetOptions,
 ): number {
@@ -72,7 +73,7 @@ export interface TargetOptions {
 }
 
 export function computeErrors(
-  samples: readonly PlayerSample[],
+  samples: readonly LiveSample[],
   settings: SyncSettings,
   options: TargetOptions,
 ): Record<string, number> {

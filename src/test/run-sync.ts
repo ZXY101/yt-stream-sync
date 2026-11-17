@@ -1,5 +1,6 @@
-import { initialState, step } from "../controller/controller.ts";
-import type { Action, StepResult, SyncSettings, Tuning } from "../controller/types.ts";
+import { initialLiveState, stepLive } from "../controller/live/step.ts";
+import type { LiveStepResult, LiveTuning } from "../controller/live/types.ts";
+import type { Action, SyncSettings } from "../controller/types.ts";
 import type { SimulatedPlayer } from "./simulated-player.ts";
 
 export interface Tick {
@@ -8,7 +9,7 @@ export interface Tick {
   buffers: Record<string, number>;
   rates: Record<string, number>;
   states: Record<string, string>;
-  errors: StepResult["errors"];
+  errors: LiveStepResult["errors"];
   actions: Action[];
 }
 
@@ -16,7 +17,7 @@ export interface RunOptions {
   players: SimulatedPlayer[];
   seconds: number;
   settings?: Partial<SyncSettings>;
-  tuning?: Tuning;
+  tuning?: LiveTuning;
   /** Things that happen at a given second, before that second's control step. */
   events?: Record<number, () => void>;
 }
@@ -34,7 +35,7 @@ function snapshot<T>(
 export function runSync(options: RunOptions): Tick[] {
   const { players, seconds, tuning } = options;
   const byId = new Map(players.map((player) => [player.id, player]));
-  let state = initialState();
+  let state = initialLiveState();
   const ticks: Tick[] = [];
   for (let second = 0; second < seconds; second += 1) {
     options.events?.[second]?.();
@@ -48,7 +49,7 @@ export function runSync(options: RunOptions): Tick[] {
       ...options.settings,
     };
     const samples = players.map((player) => player.sample());
-    const result = step(state, samples, settings, tuning);
+    const result = stepLive(state, samples, settings, tuning);
     state = result.state;
     for (const action of result.actions) {
       byId.get(action.id)?.apply(action);

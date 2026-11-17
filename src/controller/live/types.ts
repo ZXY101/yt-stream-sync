@@ -1,0 +1,73 @@
+import type { Action, PlayerState } from "../types.ts";
+
+/** One reading of a player, taken about once a second. */
+export interface LiveSample {
+  id: string;
+  /** Seconds behind the live edge, from the player's stats for nerds. */
+  latency: number;
+  /** Seconds of video buffered ahead of the playhead. */
+  bufferAhead: number;
+  state: PlayerState;
+  playbackRate: number;
+  /** Lowest buffer over the last 15 s; how far the player can jump ahead. */
+  bufferLow?: number;
+  /**
+   * Ultra-low latency: YouTube keeps it near the live edge, so it is never paused or slowed,
+   * only held back a little by seeking (see `pinned-step.ts`).
+   */
+  pinned?: boolean;
+}
+
+/** Controller constants. Defaults in `tuning.ts`; tests may override them. */
+export interface LiveTuning {
+  /** Playback rate for the stream that's ahead. Never above 1. */
+  slowRate: number;
+  /** Start slowing a player once it's this many seconds ahead. */
+  startError: number;
+  /** Stop slowing once it's less than this many seconds ahead. */
+  stopError: number;
+  /** Pause instead of slowing when a player is more than this many seconds ahead. */
+  pauseError: number;
+  /** Resume a paused player once it's at most this many seconds ahead. */
+  resumeError: number;
+  /** Every player should keep at least this many seconds buffered. */
+  minBuffer: number;
+  /** With a pinned player in the group: jump a player ahead once it's this far behind. */
+  jumpError: number;
+  /** Steps to wait after a jump before the next one (the latency reading catches up). */
+  jumpCooldown: number;
+  /** Pinned players: hold back or jump ahead once this many seconds off the target. */
+  holdError: number;
+  /** Pinned players: the most latency to hold one back to (YouTube snaps it back past it). */
+  pinnedMaxLatency: number;
+  /** Pinned players: the most seconds to seek back in one go. */
+  maxHoldStep: number;
+  /** Pinned players: a latency this far below where a hold-back left it means a snap-back. */
+  snapDrop: number;
+  /** After a snap-back, the player's ceiling goes this far below where it snapped. */
+  snapMargin: number;
+}
+
+/** What the controller is doing to a player. */
+export type Mode = "normal" | "slowing" | "paused";
+
+export interface LiveState {
+  modes: Readonly<Record<string, Mode>>;
+  /** Steps left before each player may jump ahead again. */
+  cooldowns?: Readonly<Record<string, number>>;
+  /** Pinned players held back: the latency the hold-back should have left them at. */
+  held?: Readonly<Record<string, number>>;
+  /** Pinned players that snapped back: the most latency each holds at. */
+  ceilings?: Readonly<Record<string, number>>;
+  /** Pinned players: the lowest latency each has shown, i.e. its live edge. */
+  floors?: Readonly<Record<string, number>>;
+}
+
+export interface LiveStepResult {
+  state: LiveState;
+  actions: Action[];
+  /** Seconds each synced player is ahead of the target. Empty while syncing is on hold. */
+  errors: Record<string, number>;
+  /** Synced players the controller can't move any closer to the target. */
+  stuck: string[];
+}

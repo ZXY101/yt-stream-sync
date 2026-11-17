@@ -1,6 +1,6 @@
-import { runSync, type Tick } from "../test/run-sync.ts";
-import { SimulatedPlayer } from "../test/simulated-player.ts";
-import { DEFAULT_TUNING } from "./tuning.ts";
+import { runSync, type Tick } from "../../test/run-sync.ts";
+import { SimulatedPlayer } from "../../test/simulated-player.ts";
+import { LIVE_TUNING } from "./tuning.ts";
 
 function players(...latencies: number[]): SimulatedPlayer[] {
   return latencies.map((latency, index) => new SimulatedPlayer({ id: `p${index}`, latency }));
@@ -29,7 +29,7 @@ describe("sync against simulated live players", () => {
     const ticks = runSync({ players: players(3.6, 6.5), seconds: 90 });
 
     for (const tick of settled(ticks, 60)) {
-      expect(spread(tick)).toBeLessThan(DEFAULT_TUNING.startError);
+      expect(spread(tick)).toBeLessThan(LIVE_TUNING.startError);
       expect(Object.values(tick.rates)).toEqual([1, 1]);
     }
     expect(Math.max(...allRates(ticks))).toBeLessThanOrEqual(1);
@@ -48,7 +48,7 @@ describe("sync against simulated live players", () => {
     expect(ticks[0]?.actions).toContainEqual({ type: "pause", id: "p0" });
     expect(ticks.some((tick) => tick.actions.some((action) => action.type === "play"))).toBe(true);
     for (const tick of settled(ticks, 40)) {
-      expect(spread(tick)).toBeLessThan(DEFAULT_TUNING.startError);
+      expect(spread(tick)).toBeLessThan(LIVE_TUNING.startError);
       expect(tick.states).toEqual({ p0: "playing", p1: "playing" });
     }
   });
@@ -62,10 +62,10 @@ describe("sync against simulated live players", () => {
     });
 
     expect(stalls(ticks, "p0")).toBeGreaterThan(0);
-    expect(ticks.some((tick) => tick.rates.p1 === DEFAULT_TUNING.slowRate)).toBe(true);
+    expect(ticks.some((tick) => tick.rates.p1 === LIVE_TUNING.slowRate)).toBe(true);
     expect(Math.max(...allRates(ticks))).toBeLessThanOrEqual(1);
     for (const tick of settled(ticks, 100)) {
-      expect(spread(tick)).toBeLessThan(DEFAULT_TUNING.startError);
+      expect(spread(tick)).toBeLessThan(LIVE_TUNING.startError);
     }
   });
 
@@ -82,7 +82,7 @@ describe("sync against simulated live players", () => {
       expect(tick.rates.p1).toBe(1);
     }
     for (const tick of settled(ticks, 100)) {
-      expect(spread(tick)).toBeLessThan(DEFAULT_TUNING.startError);
+      expect(spread(tick)).toBeLessThan(LIVE_TUNING.startError);
     }
   });
 
@@ -103,7 +103,7 @@ describe("sync against simulated live players", () => {
     const ticks = runSync({ players: players(6, 6), seconds: 60, settings: { offsets } });
 
     const last = ticks.at(-1) as Tick;
-    expect(spread(last, offsets)).toBeLessThan(DEFAULT_TUNING.startError);
+    expect(spread(last, offsets)).toBeLessThan(LIVE_TUNING.startError);
     expect((last.latencies.p0 ?? 0) - (last.latencies.p1 ?? 0)).toBeCloseTo(0.8, 0);
   });
 
@@ -111,15 +111,15 @@ describe("sync against simulated live players", () => {
     const ticks = runSync({ players: players(5, 5), seconds: 150, settings: { safetyMargin: 2 } });
 
     const lowest = Math.min(...settled(ticks, 120).flatMap((tick) => Object.values(tick.buffers)));
-    expect(lowest).toBeGreaterThan(DEFAULT_TUNING.minBuffer + 2 - DEFAULT_TUNING.startError);
-    expect(spread(ticks.at(-1) as Tick)).toBeLessThan(DEFAULT_TUNING.startError);
+    expect(lowest).toBeGreaterThan(LIVE_TUNING.minBuffer + 2 - LIVE_TUNING.startError);
+    expect(spread(ticks.at(-1) as Tick)).toBeLessThan(LIVE_TUNING.startError);
   });
 
   it("syncs three players at once", () => {
     const ticks = runSync({ players: players(3.5, 7, 5), seconds: 120 });
 
     for (const tick of settled(ticks, 90)) {
-      expect(spread(tick)).toBeLessThan(DEFAULT_TUNING.startError);
+      expect(spread(tick)).toBeLessThan(LIVE_TUNING.startError);
     }
   });
 
@@ -133,7 +133,7 @@ describe("sync against simulated live players", () => {
       events: { 5: () => (settings.enabled = false) },
     });
 
-    expect(ticks[4]?.rates.p0).toBe(DEFAULT_TUNING.slowRate);
+    expect(ticks[4]?.rates.p0).toBe(LIVE_TUNING.slowRate);
     expect(ticks[5]?.actions).toEqual([{ type: "setRate", id: "p0", rate: 1 }]);
     expect(ticks.slice(6).flatMap((tick) => tick.actions)).toEqual([]);
   });

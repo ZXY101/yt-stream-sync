@@ -1,8 +1,8 @@
-import type { PlayerSample } from "./types.ts";
+import type { LiveSample } from "./types.ts";
 import { actionsFor, nextMode } from "./player-step.ts";
-import { DEFAULT_TUNING as tuning } from "./tuning.ts";
+import { LIVE_TUNING as tuning } from "./tuning.ts";
 
-function sample(overrides: Partial<PlayerSample> = {}): PlayerSample {
+function sample(overrides: Partial<LiveSample> = {}): LiveSample {
   return { id: "a", latency: 5, bufferAhead: 3, state: "playing", playbackRate: 1, ...overrides };
 }
 
