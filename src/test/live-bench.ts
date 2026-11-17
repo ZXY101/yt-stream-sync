@@ -40,40 +40,67 @@ function dropsEvery(player: SimulatedPlayer, every: number, seconds: number) {
   return events;
 }
 
-export const SCENARIOS: Scenario[] = [
+/** A player with rewind (DVR) off, the most common kind of live stream. */
+function off(latency: number): Omit<SimulatedPlayerOptions, "id"> {
+  return { latency, rewind: false };
+}
+
+function shakyOne(players: SimulatedPlayer[]) {
+  return dropsEvery(players[1] as SimulatedPlayer, 45, 4);
+}
+
+function shakyTwo(players: SimulatedPlayer[]) {
+  return {
+    ...dropsEvery(players[0] as SimulatedPlayer, 50, 3),
+    ...dropsEvery(players[2] as SimulatedPlayer, 35, 5),
+  };
+}
+
+function adOnFirst(players: SimulatedPlayer[]) {
+  return { 60: () => (players[0] as SimulatedPlayer).showAd(15) };
+}
+
+const REWIND_OFF: Scenario[] = [
+  { name: "rewind-off: two streams 3 s apart", players: [off(4), off(7)] },
+  { name: "rewind-off: three streams spread out", players: [off(4), off(7), off(11)] },
+  { name: "rewind-off: leader 12 s ahead", players: [off(4), off(16)] },
+  { name: "rewind-off: three streams 12 s spread", players: [off(4), off(10), off(16)] },
+  {
+    name: "rewind-off: one shaky stream of three",
+    players: [off(5), off(6), off(7)],
+    events: shakyOne,
+  },
+  {
+    name: "rewind-off: two shaky streams of three",
+    players: [off(5), off(6), off(7)],
+    events: shakyTwo,
+  },
+  { name: "rewind-off: ad on one stream", players: [off(5), off(6)], events: adOnFirst },
+  { name: "mixed: rewind-off leader 12 s ahead", players: [off(4), { latency: 16 }] },
+  {
+    name: "mixed: rewind-off pair, rewindable far ahead",
+    players: [off(8), off(9), { latency: 3 }],
+  },
+];
+
+const REWINDABLE: Scenario[] = [
   { name: "two streams 3 s apart", players: [{ latency: 3.6 }, { latency: 6.5 }] },
   { name: "three streams spread out", players: [{ latency: 4 }, { latency: 7 }, { latency: 11 }] },
   { name: "leader 12 s ahead", players: [{ latency: 4 }, { latency: 16 }] },
   {
-    name: "rewind-off leader 12 s ahead",
-    players: [{ latency: 4, rewind: false }, { latency: 16 }],
-  },
-  {
-    name: "rewind-off streams 3 s apart",
-    players: [
-      { latency: 4, rewind: false },
-      { latency: 7, rewind: false },
-    ],
-  },
-  {
     name: "one shaky stream of three",
     players: [{ latency: 5 }, { latency: 6 }, { latency: 7 }],
-    events: (players) => dropsEvery(players[1] as SimulatedPlayer, 45, 4),
+    events: shakyOne,
   },
   {
     name: "two shaky streams of three",
     players: [{ latency: 5 }, { latency: 6 }, { latency: 7 }],
-    events: (players) => ({
-      ...dropsEvery(players[0] as SimulatedPlayer, 50, 3),
-      ...dropsEvery(players[2] as SimulatedPlayer, 35, 5),
-    }),
+    events: shakyTwo,
   },
-  {
-    name: "ad on one stream",
-    players: [{ latency: 5 }, { latency: 6 }],
-    events: (players) => ({ 60: () => (players[0] as SimulatedPlayer).showAd(15) }),
-  },
+  { name: "ad on one stream", players: [{ latency: 5 }, { latency: 6 }], events: adOnFirst },
 ];
+
+export const SCENARIOS: Scenario[] = [...REWIND_OFF, ...REWINDABLE];
 
 function spreadAt(tick: Tick): number {
   const lags = Object.values(tick.latencies);

@@ -1,4 +1,67 @@
 {
+  "rewind-off: two streams 3 s apart": {
+    "spread": 0.04,
+    "worstSpread": 0.04,
+    "settleTime": 32,
+    "moves": 2,
+    "stalls": 0
+  },
+  "rewind-off: three streams spread out": {
+    "spread": 0.08,
+    "worstSpread": 0.36,
+    "settleTime": 82,
+    "moves": 4,
+    "stalls": 0
+  },
+  "rewind-off: leader 12 s ahead": {
+    "spread": 7.92,
+    "worstSpread": 11.92,
+    "settleTime": 300,
+    "moves": 26,
+    "stalls": 0
+  },
+  "rewind-off: three streams 12 s spread": {
+    "spread": 7.92,
+    "worstSpread": 11.92,
+    "settleTime": 300,
+    "moves": 28,
+    "stalls": 0
+  },
+  "rewind-off: one shaky stream of three": {
+    "spread": 0.04,
+    "worstSpread": 0.08,
+    "settleTime": 19,
+    "moves": 24,
+    "stalls": 0
+  },
+  "rewind-off: two shaky streams of three": {
+    "spread": 0.05,
+    "worstSpread": 0.09,
+    "settleTime": 116,
+    "moves": 34,
+    "stalls": 1
+  },
+  "rewind-off: ad on one stream": {
+    "spread": 8.88,
+    "worstSpread": 14.88,
+    "settleTime": 300,
+    "moves": 18,
+    "stalls": 0
+  },
+  "mixed: rewind-off leader 12 s ahead": {
+    "spread": 7.92,
+    "worstSpread": 11.92,
+    "settleTime": 300,
+    "moves": 26,
+    "stalls": 0
+  },
+  "mixed: rewind-off pair, rewindable far ahead": {
+    "spread": 0.08,
+    "worstSpread": 0.08,
+    "settleTime": 69,
+    "moves": 4,
+    "stalls": 0
+  },
   "two streams 3 s apart": {
     "spread": 0.1,
     "worstSpread": 0.1,
@@ -18,20 +81,6 @@
     "worstSpread": 0,
     "settleTime": 12,
     "moves": 1,
-    "stalls": 0
-  },
-  "rewind-off leader 12 s ahead": {
-    "spread": 7.92,
-    "worstSpread": 11.92,
-    "settleTime": 300,
-    "moves": 26,
-    "stalls": 0
-  },
-  "rewind-off streams 3 s apart": {
-    "spread": 0.04,
-    "worstSpread": 0.04,
-    "settleTime": 32,
-    "moves": 2,
     "stalls": 0
   },
   "one shaky stream of three": {
