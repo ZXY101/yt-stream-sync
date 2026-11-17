@@ -42,9 +42,10 @@ an offset in seconds or `m:ss` (for example `-2:05.3`). The sync keeps whatever 
 
 ## Matching by audio
 
-With **Auto-sync by audio** on (the default), the add-on listens to the added streams for
-30 seconds once they play in sync, and moves each one so the shared sound (voices, game audio)
-lines up. It finds offsets of up to 15 seconds. **Match again** listens afresh; the waveforms
+Archives only: live streams sync by how far behind live each one is, because buffering threw
+audio matches off too often. With **Auto-sync by audio** on (the default), the add-on listens to
+the added archives for 30 seconds once they play in sync, and moves each one so the shared sound
+(voices, game audio) lines up. It finds offsets of up to 15 seconds. **Match again** listens afresh; the waveforms
 show what it hears.
 
 If a stream says "Click once inside this stream's video so the add-on can hear it", the browser

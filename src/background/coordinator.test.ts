@@ -242,9 +242,9 @@ describe("coordinator", () => {
     expect(coordinator.status().players[1]).toMatchObject({ position: 30, state: "paused" });
   });
 
-  it("listens to the group's players and reports how audio matching is going", () => {
-    const { coordinator, send, join } = setup({ audio: true });
-    join({ "1:0": { latency: 5 }, "2:0": { latency: 5 } });
+  it("listens to an archive group's players and reports how audio matching is going", () => {
+    const { coordinator, send } = setup({ audio: true });
+    joinArchives(coordinator, ["1:0", "2:0"]);
 
     coordinator.tick();
 
@@ -254,11 +254,35 @@ describe("coordinator", () => {
   });
 
   it("stops listening when audio sync is turned off", () => {
-    const { coordinator, send, join } = setup({ audio: true });
-    join({ "1:0": { latency: 5 }, "2:0": { latency: 5 } });
+    const { coordinator, send } = setup({ audio: true });
+    joinArchives(coordinator, ["1:0", "2:0"]);
     coordinator.tick();
 
     coordinator.setAudioSync(false);
+    coordinator.tick();
+
+    expect(send.mock.calls).toContainEqual(["1:0", { type: "listen", on: false }]);
+    expect(coordinator.status().audio).toEqual({ state: "off" });
+  });
+
+  it("never matches a live group by audio, even with audio sync on", () => {
+    const { coordinator, send, join } = setup({ audio: true });
+    join({ "1:0": { latency: 5 }, "2:0": { latency: 5 } });
+
+    coordinator.tick();
+
+    const listens = send.mock.calls.filter(([, command]) => command.type === "listen");
+    expect(listens).toEqual([]);
+    expect(coordinator.status().audio).toEqual({ state: "off" });
+  });
+
+  it("stops listening when an archive group becomes a live one", () => {
+    const { coordinator, send, join } = setup({ audio: true });
+    joinArchives(coordinator, ["1:0", "2:0"]);
+    coordinator.tick();
+    coordinator.clearGroup();
+
+    join({ "3:0": {}, "4:0": {} });
     coordinator.tick();
 
     expect(send.mock.calls).toContainEqual(["1:0", { type: "listen", on: false }]);
@@ -305,4 +329,11 @@ function archive(overrides: Partial<ArchiveReport>): ArchiveReport {
     videoId: "v1",
     ...overrides,
   };
+}
+
+function joinArchives(coordinator: ReturnType<typeof createCoordinator>, ids: string[]) {
+  for (const id of ids) {
+    coordinator.report(id, archive({ position: 100 }));
+    coordinator.setInGroup(id, true);
+  }
 }

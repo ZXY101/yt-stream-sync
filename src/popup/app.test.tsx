@@ -57,6 +57,17 @@ const pair = [
   player({ id: "2:0", tabId: 2, title: "Stream B", inGroup: true, error: 0 }),
 ];
 
+/** Two archives in the group, like `pair`; audio matching is for archives only. */
+function archivesWith(extra: Partial<PlayerStatus> = {}): PlayerStatus[] {
+  const shared = { inGroup: true, error: 0, kind: "archive" as const, position: 100, ...extra };
+  return [
+    player({ id: "1:0", tabId: 1, title: "Stream A", ...shared }),
+    player({ id: "2:0", tabId: 2, title: "Stream B", ...shared }),
+  ];
+}
+
+const archivePair = archivesWith();
+
 /** Answers like the background: keeps group membership and nudges between requests. */
 function fakeBackground(initial: PlayerStatus[]) {
   let players = initial;
@@ -349,8 +360,16 @@ describe("App", () => {
   });
 
   describe("audio panel", () => {
+    it("is hidden for live groups, which sync by latency only", async () => {
+      sendMessage.mockResolvedValue(answer(pair, false, { state: "off" }));
+      render(<App />);
+
+      await screen.findByText("Stream A");
+      expect(screen.queryByText("Auto-sync by audio")).not.toBeInTheDocument();
+    });
+
     it("only shows once two streams are in the group", async () => {
-      sendMessage.mockResolvedValue(answer([player({ inGroup: true })]));
+      sendMessage.mockResolvedValue(answer([player({ inGroup: true, kind: "archive" })]));
       render(<App />);
 
       await screen.findByText("Collab stream");
@@ -358,7 +377,9 @@ describe("App", () => {
     });
 
     it("shows how long it still listens", async () => {
-      sendMessage.mockResolvedValue(answer(pair, false, { state: "listening", progress: 0.4 }));
+      sendMessage.mockResolvedValue(
+        answer(archivePair, false, { state: "listening", progress: 0.4 }),
+      );
       render(<App />);
 
       expect(await screen.findByText("Listening to line up the audio…")).toBeVisible();
@@ -369,7 +390,7 @@ describe("App", () => {
     it("offers to match again once matched, and turns matching off", async () => {
       const user = userEvent.setup();
       sendMessage.mockResolvedValue(
-        answer(pair, false, { state: "matched", lags: { "2:0": 0.4 } }),
+        answer(archivePair, false, { state: "matched", lags: { "2:0": 0.4 } }),
       );
       render(<App />);
 
@@ -388,7 +409,7 @@ describe("App", () => {
       [{ state: "off" }, /Matching by audio is off/],
       [{ state: "matching" }, /Comparing the audio/],
     ] as [SyncStatus["audio"], RegExp][])("explains %j", async (audio, text) => {
-      sendMessage.mockResolvedValue(answer(pair, false, audio));
+      sendMessage.mockResolvedValue(answer(archivePair, false, audio));
       render(<App />);
 
       expect(await screen.findByText(text)).toBeVisible();
@@ -397,7 +418,7 @@ describe("App", () => {
     it("shows each stream's waveform by default and hides them on request", async () => {
       const user = userEvent.setup();
       const waveform = { end: 10_000, values: [0.1, 0.3, 0.05] };
-      const withAudio = pair.map((item) => ({ ...item, waveform }));
+      const withAudio = archivesWith({ waveform });
       sendMessage.mockResolvedValue(answer(withAudio, false, { state: "matched", lags: {} }));
       render(<App />);
       expect(await screen.findAllByTestId("waveform")).toHaveLength(2);
@@ -412,7 +433,7 @@ describe("App", () => {
     });
 
     it("says which stream can't be heard", async () => {
-      const [first, second] = pair as [PlayerStatus, PlayerStatus];
+      const [first, second] = archivePair as [PlayerStatus, PlayerStatus];
       sendMessage.mockResolvedValue(
         answer(
           [
@@ -433,7 +454,7 @@ describe("App", () => {
 
     it("hides waveforms and their button while matching by audio is off", async () => {
       const waveform = { end: 10_000, values: [0.1] };
-      const withAudio = pair.map((item) => ({ ...item, waveform }));
+      const withAudio = archivesWith({ waveform });
       sendMessage.mockResolvedValue(answer(withAudio, false, { state: "off" }));
       render(<App />);
 

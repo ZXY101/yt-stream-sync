@@ -52,7 +52,7 @@ follow.
   Live streams are never sped up, so they don't stall.
 - **Archives:** lined up by when each broadcast started. Seek, pause, play or change speed on
   one and the others follow.
-- **Audio matching:** listens to the streams and lines up the sound they share.
+- **Audio matching (archives):** listens to the archives and lines up the sound they share.
 - **Nudges and offsets:** move any stream ahead or back by 0.1, 1 or 10 s, or type an offset.
 - **Saved groups:** save a group of archives and pick up later where you stopped, at the same
   offsets. Manage them on their own page.

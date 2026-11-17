@@ -60,6 +60,9 @@ function StreamPanels({ status, sync, tabId }: { status: SyncStatus; sync: Sync;
   // from the popup; otherwise Add only adds to the sync group.
   const savedId = status.saved.inSync >= 2 ? status.saved.activeId : undefined;
   const members = status.players.filter((player) => player.inGroup);
+  // Live groups sync by latency only, so matching by audio is for archives.
+  const archives = members.every((player) => player.kind === "archive");
+  const showAudio = members.length >= 2 && !status.mixed && archives;
   return (
     <>
       <ThisTab
@@ -71,7 +74,7 @@ function StreamPanels({ status, sync, tabId }: { status: SyncStatus; sync: Sync;
           savedId === undefined ? undefined : (id) => void sync.addToSavedGroup(savedId, id)
         }
       />
-      {members.length >= 2 && !status.mixed && (
+      {showAudio && (
         <AudioPanel
           status={status.audio}
           showWaveforms={showWaveforms}

@@ -69,10 +69,10 @@ interface StepOutcome {
   stuck: string[];
 }
 
-function memberViews(ids: string[], reports: Reports, { errors, stuck }: StepOutcome) {
+function memberViews(ids: string[], reports: Reports, { errors }: StepOutcome) {
   return ids.flatMap((id): MemberView[] => {
     const report = reports.get(id);
-    return report ? [{ id, report, error: errors[id], stuck: stuck.includes(id) }] : [];
+    return report ? [{ id, report, error: errors[id] }] : [];
   });
 }
 
