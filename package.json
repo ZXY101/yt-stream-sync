@@ -13,6 +13,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "bench": "node scripts/live-bench.mjs",
     "test:e2e": "playwright test --project firefox",
     "test:e2e:live": "playwright test --project live",
     "lint": "oxlint --deny-warnings",

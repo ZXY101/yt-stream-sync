@@ -21,6 +21,7 @@ Run from the repo root. Node comes from nvm (version in `.nvmrc`).
 | Format, lint, dead code                | `npm run check`                          |
 | Types                                  | `npm run typecheck`                      |
 | Unit tests (+ coverage gate)           | `npm run test:coverage`                  |
+| Live sync bench vs v0.1.2's scores     | `npm run bench`                          |
 | Build into `dist/`                     | `npm run build`                          |
 | Hand test: Firefox with the add-on     | `npm run firefox -- [url ...]`           |
 | Hand test: the add-on's status and log | `npm run debug -- status\|log`           |
@@ -138,6 +139,9 @@ docs/           user and developer docs
 - Coverage must stay ≥ 80% (lines, branches, functions and statements); the
   Vitest config and CI enforce it. The controller should stay near 100%. New
   code comes with tests in the same commit.
+- **Live sync changes must not lose to the bench** (`src/test/live-bench.ts`): a unit test
+  fails when a scenario scores worse than `src/controller/live/bench-baseline.json` (v0.1.2's
+  scores). `npm run bench` shows both; update the baseline only for a deliberate improvement.
 - No real network in tests: E2E uses local fake player pages. Only an opt-in
   `live` Playwright project may touch YouTube.
 
