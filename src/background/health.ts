@@ -6,6 +6,10 @@ const WINDOW = 120;
 const WARM_UP = 30;
 /** A report this soon after one of our commands may still be carrying it out. */
 const QUIET_AFTER_COMMAND = 3;
+/** A skip refills the buffer: buffering this soon after one of our commands is ours. */
+const SEEK_SETTLE = 5;
+/** After a stream joins, the sync lines everyone up; those first corrections aren't anyone's fault. */
+const LINEUP = 30;
 /** Latency that changes this much more than playback explains was moved by YouTube. */
 const MOVE_THRESHOLD = 2;
 const RATE_EPSILON = 0.001;
@@ -19,6 +23,8 @@ interface Track {
   since: number;
   last?: { report: LiveReport; at: number };
   commandAt: number;
+  /** Corrections before this are the group lining up after a stream joined. */
+  lineupUntil: number;
   /** The speed we last set; anything else the player reports was YouTube's doing. */
   rate: number;
   events: { kind: EventKind; at: number }[];
@@ -84,11 +90,32 @@ function summarize(track: Track): StreamHealth {
 
 function recordCommand(track: Track, command: PlayerCommand, at: number) {
   track.commandAt = at;
-  if (isCorrection(track, command)) {
+  if (at >= track.lineupUntil && isCorrection(track, command)) {
     track.events.push({ kind: "corrections", at });
   }
   if (command.type === "setRate") {
     track.rate = command.rate;
+  }
+}
+
+function startedBuffering(track: Track, report: LiveReport, at: number): boolean {
+  if (report.state !== "buffering" || track.last?.report.state === "buffering") {
+    return false;
+  }
+  return at - track.commandAt > SEEK_SETTLE;
+}
+
+/** Starts tracking streams that just joined; everyone gets a lineup grace if any did. */
+function addJoined(tracks: Map<string, Track>, ids: readonly string[], since: number) {
+  const joined = ids.filter((id) => !tracks.has(id));
+  if (joined.length === 0) {
+    return;
+  }
+  for (const id of joined) {
+    tracks.set(id, { since, commandAt: -Infinity, lineupUntil: 0, rate: 1, events: [] });
+  }
+  for (const track of tracks.values()) {
+    track.lineupUntil = since + LINEUP;
   }
 }
 
@@ -107,18 +134,17 @@ function describeChange(id: string, health: StreamHealth): string {
 export function createHealth(now: () => number, note: (text: string) => void) {
   const tracks = new Map<string, Track>();
 
-  /** Tracks exactly these players; one that (re)joins starts with a clean history. */
+  /**
+   * Tracks exactly these players; one that (re)joins starts with a clean history, and every
+   * stream gets a lineup grace while the sync fits the newcomer in.
+   */
   function follow(ids: readonly string[]) {
     for (const id of tracks.keys()) {
       if (!ids.includes(id)) {
         tracks.delete(id);
       }
     }
-    for (const id of ids) {
-      if (!tracks.has(id)) {
-        tracks.set(id, { since: now(), commandAt: -Infinity, rate: 1, events: [] });
-      }
-    }
+    addJoined(tracks, ids, now());
   }
 
   function onReport(id: string, report: PlayerReport) {
@@ -127,7 +153,7 @@ export function createHealth(now: () => number, note: (text: string) => void) {
       return;
     }
     const at = now();
-    if (report.state === "buffering" && track.last?.report.state !== "buffering") {
+    if (startedBuffering(track, report, at)) {
       track.events.push({ kind: "buffering", at });
     }
     if (wasMoved(track, report, at)) {

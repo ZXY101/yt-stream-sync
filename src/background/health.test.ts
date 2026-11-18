@@ -92,10 +92,10 @@ describe("stream health", () => {
   it("doesn't count a jump right after a command as YouTube's", () => {
     const { health, play, setLatency } = setup();
     health.follow(["1:0"]);
-    play(15);
+    play(30);
     health.onCommand("1:0", { type: "skip", seconds: 4 });
     setLatency(1);
-    play(20);
+    play(5);
     expect(health.get("1:0")).toMatchObject({ moved: 0, corrections: 1 });
   });
 
@@ -111,14 +111,44 @@ describe("stream health", () => {
   it("counts skips, pauses and slow-downs as corrections, not their undoing", () => {
     const { health, play } = setup();
     health.follow(["1:0"]);
+    play(30);
     health.onCommand("1:0", { type: "setRate", rate: 0.92 });
     health.onCommand("1:0", { type: "setRate", rate: 0.92 });
     health.onCommand("1:0", { type: "setRate", rate: 1 });
     health.onCommand("1:0", { type: "pause" });
     health.onCommand("1:0", { type: "play" });
     health.onCommand("1:0", { type: "skip", seconds: 2 });
-    play(31);
+    play(1);
     expect(health.get("1:0")).toMatchObject({ corrections: 3, label: "shaky" });
+  });
+
+  it("doesn't count buffering right after one of our skips", () => {
+    const { health, play } = setup();
+    health.follow(["1:0"]);
+    play(40);
+    health.onCommand("1:0", { type: "skip", seconds: 2 });
+    play(2, { state: "buffering" });
+    play(10);
+    health.onCommand("1:0", { type: "skip", seconds: -1 });
+    play(4);
+    play(2, { state: "buffering" });
+    play(10);
+    expect(health.get("1:0")).toMatchObject({ buffering: 0, corrections: 2, label: "steady" });
+  });
+
+  it("doesn't count lining the streams up after one joins as corrections", () => {
+    const { health, play } = setup();
+    health.follow(["1:0"]);
+    play(40);
+    health.follow(["1:0", "2:0"]);
+    health.onCommand("1:0", { type: "skip", seconds: 2.4 });
+    play(10);
+    health.onCommand("1:0", { type: "skip", seconds: 2.8 });
+    play(25);
+    expect(health.get("1:0")).toMatchObject({ corrections: 0 });
+    health.onCommand("1:0", { type: "setRate", rate: 0.92 });
+    play(1);
+    expect(health.get("1:0")).toMatchObject({ corrections: 1, label: "steady" });
   });
 
   it("calls a stream that keeps buffering and moving unstable", () => {
