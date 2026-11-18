@@ -1,0 +1,5 @@
+{
+  "version": {
+    "approval_notes": "Source code is attached (a git archive of this version's release tag in https://github.com/ZXY101/yt-stream-sync). The add-on is TypeScript + React, bundled with Vite (not minified).\n\nBuild (Linux, macOS or Windows; Node.js and npm versions as in .nvmrc):\n\n    npm ci --ignore-scripts\n    npm run build\n\nThe add-on is in dist/; it matches the uploaded zip file for file. (--ignore-scripts only skips installing the developers' git hooks, which needs a git checkout.)\n\nHow to test: open two YouTube live streams or two archived streams (finished live streams) in two tabs. On each, click the toolbar button and Add. The popup shows both in the sync group and keeps them in sync. Saved groups: with two archives added, click \"Save this group\"; the add-on's page (gear icon) lists saved groups.\n\nPermissions are explained in docs/permissions.md. The optional host permission and the optional browsingActivity consent are asked only when the user turns on the optional yt-dlp-z alignment in the settings page, for the one server address they enter. No other network requests except thumbnails from i.ytimg.com."
+  }
+}
