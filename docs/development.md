@@ -55,6 +55,12 @@ uploaded alongside it (`git archive` of the release tag), with these build steps
 the `prepare` script (`lefthook install`); `--ignore-scripts` skips it. The result matches the
 release zip file for file.
 
+Releases publish themselves: when release-please makes a release, its workflow attaches the zip
+and submits it to AMO with `web-ext sign --channel=listed`, together with the source archive and
+the reviewer notes in `.github/amo-metadata.json`. It uses the `AMO_JWT_ISSUER` and
+`AMO_JWT_SECRET` repository secrets (the API keys from the AMO Developer Hub). Mozilla's review
+can take a few days.
+
 ## Tests
 
 - **Unit:** Vitest with jsdom, next to the code (`*.test.ts(x)`). The coverage gate is 80%

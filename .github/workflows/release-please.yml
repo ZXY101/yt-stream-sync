@@ -48,3 +48,16 @@ jobs:
         run: |
           (cd dist && zip -r "../yt-stream-sync-$VERSION.zip" .)
           gh release upload "$TAG" "yt-stream-sync-$VERSION.zip"
+      # Submits the version for Mozilla's review and returns without waiting (review can take
+      # days). AMO needs the source of bundled add-ons: a git archive of the release tag, with
+      # build steps for the reviewer in .github/amo-metadata.json.
+      - name: Publish to addons.mozilla.org
+        env:
+          WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
+          WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+        run: |
+          SOURCE_ZIP="$RUNNER_TEMP/yt-stream-sync-source.zip"
+          git archive --format=zip --output="$SOURCE_ZIP" HEAD
+          npx web-ext sign --channel=listed --approval-timeout=0 \
+            --source-dir=dist --artifacts-dir="$RUNNER_TEMP/web-ext" \
+            --upload-source-code="$SOURCE_ZIP" --amo-metadata=.github/amo-metadata.json
