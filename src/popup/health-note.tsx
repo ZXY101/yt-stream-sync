@@ -1,4 +1,5 @@
-import { CircleCheck, TriangleAlert } from "lucide-react";
+import { ChevronDown, ChevronUp, CircleCheck, TriangleAlert } from "lucide-react";
+import { useState } from "react";
 
 import { Badge } from "@/components/ui/badge.tsx";
 
@@ -24,19 +25,33 @@ function describeHealth({ buffering, moved, corrections }: StreamHealth): string
   return `Last 2 min: ${parts.join(", ") || "nothing to fix"}`;
 }
 
-/** A live stream's health: a label, and what happened to it lately. */
+/** A live stream's health on one line; a click shows the whole line. */
 export function HealthNote({ health }: { health: StreamHealth | undefined }) {
+  const [open, setOpen] = useState(false);
   if (!health) {
     return null;
   }
   const { text, variant, Icon } = LABELS[health.label];
+  const detail = describeHealth(health);
+  const Chevron = open ? ChevronUp : ChevronDown;
   return (
-    <div className="mt-1 flex min-w-0 items-start gap-1.5" title={HELP}>
+    <button
+      type="button"
+      aria-expanded={open}
+      title={`${detail}\n\n${HELP}`}
+      onClick={() => setOpen(!open)}
+      className="mt-1 -mx-1 flex min-h-8 w-[calc(100%+0.5rem)] min-w-0 items-start gap-1.5 rounded-md px-1 py-1.5 text-left hover:bg-muted focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+    >
       <Badge variant={variant}>
         <Icon data-icon="inline-start" />
         {text}
       </Badge>
-      <p className="min-w-0 text-xs leading-5 text-muted-foreground">{describeHealth(health)}</p>
-    </div>
+      <span
+        className={`min-w-0 flex-1 text-xs leading-5 text-muted-foreground ${open ? "" : "truncate"}`}
+      >
+        {detail}
+      </span>
+      <Chevron aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+    </button>
   );
 }

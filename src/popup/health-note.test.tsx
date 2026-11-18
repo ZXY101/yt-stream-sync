@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 
 import type { StreamHealth } from "../lib/messages.ts";
 import { HealthNote } from "./health-note.tsx";
@@ -33,5 +34,17 @@ describe("HealthNote", () => {
     render(<HealthNote health={health({ label: "shaky", corrections: 3 })} />);
     expect(screen.getByText("Shaky")).toBeInTheDocument();
     expect(screen.getByText("Last 2 min: corrected 3×")).toBeInTheDocument();
+  });
+
+  it("keeps the details on one line until clicked", async () => {
+    render(<HealthNote health={health({ label: "unstable", buffering: 3, moved: 2 })} />);
+    const row = screen.getByRole("button", { name: /Unstable/ });
+    expect(row).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByText(/^Last 2 min/)).toHaveClass("truncate");
+
+    await userEvent.click(row);
+
+    expect(row).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText(/^Last 2 min/)).not.toHaveClass("truncate");
   });
 });
