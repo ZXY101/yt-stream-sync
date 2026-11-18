@@ -23,13 +23,17 @@ Most live streams have rewind turned off. YouTube sends those back to the live e
 pause, so they're only ever slowed down: a big gap (after an ad, say) takes a few minutes to
 close, about 8 seconds every 100 seconds.
 
+As soon as the second stream is added, a line above the streams shows what the sync is doing:
+"Lining the streams up" with how many seconds apart they still are, then "Streams in sync".
+
 Streams marked **Low latency** sit near the live edge and can only be held back a few
 seconds, so the others jump ahead to meet them. If a gap remains, the popup says
 "Can't get closer".
 
 After 30 seconds in the group, each live stream shows how calm it has been over the last 2
 minutes: how often it buffered, how often YouTube moved it by itself (a jump or a speed change
-nobody asked for) and how often the sync had to correct it. **Steady** means little happened,
+nobody asked for) and how often the sync had to correct it. The skips that first line the
+group up, and the buffering a skip itself causes, don't count against a stream. **Steady** means little happened,
 **Shaky** some, **Unstable** a lot. It's only for you: the sync doesn't act on it. A stream
 that stays Unstable is the one most likely to drift out of sync.
 

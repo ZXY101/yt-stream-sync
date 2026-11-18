@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button.tsx";
 
 import type { PlayerStatus } from "../lib/messages.ts";
 import { describePlace, describeSync, lowLatencyGap } from "./format.ts";
+import { GroupProgress } from "./group-progress.tsx";
 import { HealthNote } from "./health-note.tsx";
 import { LowLatencyNote } from "./low-latency-note.tsx";
 import { NudgeButtons } from "./nudge-buttons.tsx";
@@ -115,6 +116,7 @@ export function SyncGroup(props: SyncGroupProps) {
           </Button>
         )}
       </div>
+      {!mixed && <GroupProgress members={members} />}
       {members.length > 0 && (
         <ul className="flex flex-col gap-2" aria-label="Streams in sync">
           {members.map((player) => (

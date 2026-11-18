@@ -547,6 +547,6 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByText(/Holding back, 1\.2 s ahead/)).toBeVisible();
-    expect(screen.queryByText(/apart/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Still .* apart/)).not.toBeInTheDocument();
   });
 });
