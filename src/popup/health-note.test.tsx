@@ -9,6 +9,10 @@ function health(overrides: Partial<StreamHealth> = {}): StreamHealth {
 }
 
 describe("HealthNote", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("shows nothing until the stream has a health", () => {
     const { container } = render(<HealthNote health={undefined} />);
     expect(container).toBeEmptyDOMElement();
@@ -36,7 +40,21 @@ describe("HealthNote", () => {
     expect(screen.getByText("Last 2 min: corrected 3×")).toBeInTheDocument();
   });
 
-  it("keeps the details on one line until clicked", async () => {
+  it("offers no chevron when the details fit on the line", () => {
+    render(<HealthNote health={health({ label: "shaky", buffering: 2, corrections: 2 })} />);
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    expect(screen.getByText("Shaky")).toBeInTheDocument();
+    expect(screen.getByText("Last 2 min: buffered 2×, corrected 2×")).toBeInTheDocument();
+  });
+
+  it("keeps details too long for the line on one line until clicked", async () => {
+    // Open, the line wraps and fits; closed, it's twice as wide as the room it has.
+    vi.spyOn(HTMLElement.prototype, "scrollWidth", "get").mockImplementation(function width(
+      this: HTMLElement,
+    ) {
+      return this.classList.contains("truncate") ? 400 : 200;
+    });
+    vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(200);
     render(<HealthNote health={health({ label: "unstable", buffering: 3, moved: 2 })} />);
     const row = screen.getByRole("button", { name: /Unstable/ });
     expect(row).toHaveAttribute("aria-expanded", "false");
@@ -46,5 +64,12 @@ describe("HealthNote", () => {
 
     expect(row).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByText(/^Last 2 min/)).not.toHaveClass("truncate");
+
+    await userEvent.click(row);
+
+    expect(screen.getByRole("button", { name: /Unstable/ })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
   });
 });
