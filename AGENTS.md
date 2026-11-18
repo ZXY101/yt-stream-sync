@@ -21,6 +21,7 @@ Run from the repo root. Node comes from nvm (version in `.nvmrc`).
 | Format, lint, dead code                | `npm run check`                          |
 | Types                                  | `npm run typecheck`                      |
 | Unit tests (+ coverage gate)           | `npm run test:coverage`                  |
+| Live sync bench vs v0.1.2's scores     | `npm run bench`                          |
 | Build into `dist/`                     | `npm run build`                          |
 | Hand test: Firefox with the add-on     | `npm run firefox -- [url ...]`           |
 | Hand test: the add-on's status and log | `npm run debug -- status\|log`           |
@@ -94,7 +95,8 @@ without a debugger. Clear names and simple control flow beat clever or terse cod
 
 ```
 src/
-  controller/   the sync logic: pure TypeScript, state in → actions out (see Project rules)
+  controller/   the sync logic: pure TypeScript, state in → actions out (see Project rules);
+                live/ and archive/ each have their own, types.ts holds what both share
   background/   coordinator: the sync group, runs the controller, sends commands to players
   content/      content script (isolated world): relays between the page script and background
   page/         page script (page world, `"world": "MAIN"`): reads YouTube's player, runs commands
@@ -137,6 +139,9 @@ docs/           user and developer docs
 - Coverage must stay ≥ 80% (lines, branches, functions and statements); the
   Vitest config and CI enforce it. The controller should stay near 100%. New
   code comes with tests in the same commit.
+- **Live sync changes must not lose to the bench** (`src/test/live-bench.ts`): a unit test
+  fails when a scenario scores worse than `src/controller/live/bench-baseline.json` (v0.1.2's
+  scores). `npm run bench` shows both; update the baseline only for a deliberate improvement.
 - No real network in tests: E2E uses local fake player pages. Only an opt-in
   `live` Playwright project may touch YouTube.
 
@@ -193,7 +198,7 @@ docs/           user and developer docs
   user's seek, pause, play and speed changes on any added archive are mirrored to the
   others; media events caused by our own commands must never count as user actions.
   Live streams and archives are never synced together.
-- **The controllers are pure** (`src/controller/` live, `src/controller/archive/`): no DOM,
+- **The controllers are pure** (`src/controller/live/`, `src/controller/archive/`): no DOM,
   no browser APIs, no timers, no `Date.now()`.
   Time and player state come in as arguments, actions come out. That's what makes
   every sync behaviour unit-testable against the simulated player.

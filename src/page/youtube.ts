@@ -82,7 +82,17 @@ export function readStartTime(player: YouTubePlayer): number | undefined {
  * back is undone within seconds (seen on real streams), so they can't be held back.
  */
 export function isPinnedLive(player: YouTubePlayer): boolean {
-  return readLatencyClass(player).endsWith("_ULTRA_LOW");
+  const latencyClass = videoDetails(player)?.latencyClass ?? "";
+  return latencyClass.endsWith("_ULTRA_LOW");
+}
+
+/**
+ * A live stream with rewind (DVR) turned off, the most common kind. YouTube sends it back to
+ * the live edge after a pause or a seek back (seen on real streams), so it is never paused.
+ * Unknown counts as rewindable.
+ */
+export function isNoRewindLive(player: YouTubePlayer): boolean {
+  return videoDetails(player)?.isLiveDvrEnabled === false;
 }
 
 function videoDetails(player: YouTubePlayer): PlayerResponse["videoDetails"] {
@@ -90,18 +100,4 @@ function videoDetails(player: YouTubePlayer): PlayerResponse["videoDetails"] {
   const response =
     typeof player.getPlayerResponse === "function" ? player.getPlayerResponse() : undefined;
   return response?.videoDetails;
-}
-
-/** YouTube's latency class (NORMAL, LOW or ULTRA_LOW, prefixed); empty when unknown. */
-export function readLatencyClass(player: YouTubePlayer): string {
-  return videoDetails(player)?.latencyClass ?? "";
-}
-
-/**
- * A live stream with rewind (DVR) turned off. YouTube sends it back to the live edge after a
- * pause (seen on three real streams, 2026-11-15), so it can't be held back. Unknown counts as
- * rewindable, as before.
- */
-export function isNoRewindLive(player: YouTubePlayer): boolean {
-  return videoDetails(player)?.isLiveDvrEnabled === false;
 }

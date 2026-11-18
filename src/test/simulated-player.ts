@@ -1,4 +1,5 @@
-import type { Action, PlayerSample, PlayerState } from "../controller/types.ts";
+import type { LiveSample } from "../controller/live/types.ts";
+import type { Action, PlayerState } from "../controller/types.ts";
 
 export interface SimulatedPlayerOptions {
   id: string;
@@ -10,6 +11,11 @@ export interface SimulatedPlayerOptions {
   ingestDelay?: number;
   /** Seconds of buffer a stalled player waits for before it plays again. */
   rebuffer?: number;
+  /**
+   * Rewind (DVR) turned off: like YouTube, a pause or a skip back sends the player back to
+   * its starting latency (seen on real streams).
+   */
+  rewind?: boolean;
 }
 
 /**
@@ -29,12 +35,16 @@ export class SimulatedPlayer {
   private readonly segmentLength: number;
   private readonly ingestDelay: number;
   private readonly rebuffer: number;
+  private readonly rewind: boolean;
+  private readonly home: number;
 
   constructor(options: SimulatedPlayerOptions) {
     this.id = options.id;
     this.segmentLength = options.segmentLength ?? 2;
     this.ingestDelay = options.ingestDelay ?? 1;
     this.rebuffer = options.rebuffer ?? 1;
+    this.rewind = options.rewind ?? true;
+    this.home = options.latency;
     this.position = -options.latency;
     this.downloaded = this.availableUntil();
   }
@@ -47,9 +57,9 @@ export class SimulatedPlayer {
     return this.downloaded - this.position;
   }
 
-  sample(): PlayerSample {
+  sample(): LiveSample {
     const { id, latency, bufferAhead, state, playbackRate } = this;
-    return { id, latency, bufferAhead, state, playbackRate };
+    return { id, latency, bufferAhead, state, playbackRate, noRewind: !this.rewind };
   }
 
   apply(action: Action): void {
@@ -57,8 +67,28 @@ export class SimulatedPlayer {
       this.playbackRate = action.rate;
     } else if (action.type === "pause") {
       this.state = "paused";
+    } else if (action.type === "skip") {
+      this.skip(action.seconds);
     } else if (this.state === "paused") {
       this.state = "playing";
+      this.snapIfNoRewind();
+    }
+  }
+
+  private skip(seconds: number): void {
+    if (seconds < 0 && !this.rewind) {
+      this.snapIfNoRewind();
+      return;
+    }
+    this.position = Math.min(this.position + seconds, this.downloaded);
+    if (this.position >= this.downloaded && this.state === "playing") {
+      this.state = "buffering";
+    }
+  }
+
+  private snapIfNoRewind(): void {
+    if (!this.rewind) {
+      this.position = Math.min(this.clock - this.home, this.downloaded);
     }
   }
 

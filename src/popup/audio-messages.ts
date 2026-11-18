@@ -8,32 +8,6 @@ export interface AudioMessage {
   progress?: number;
 }
 
-/**
- * Matching needs two streams playing steadily in sync for 30 s; until then nothing moves.
- * After a try that didn't match, say so rather than "waiting" again.
- */
-function listeningMessage(status: Extract<AudioStatus, { state: "listening" }>): AudioMessage {
-  const { progress } = status;
-  if (status.tries !== undefined && status.tries > 0) {
-    const text = "Couldn't match the audio yet. Listening again for another try…";
-    return { text, retry: false, progress };
-  }
-  if (progress > 0) {
-    return { text: "Listening to line up the audio…", retry: false, progress };
-  }
-  const text = "Waiting for two streams to play steadily in sync before listening…";
-  return { text, retry: false, progress: 0 };
-}
-
-function matchedMessage(status: Extract<AudioStatus, { state: "matched" }>): AudioMessage {
-  const waiting = status.waiting?.length ?? 0;
-  if (waiting === 0) {
-    return { text: "Lined up by audio.", retry: true };
-  }
-  const streams = waiting === 1 ? "1 more stream" : `${waiting} more streams`;
-  return { text: `Lined up by audio. Waiting for ${streams} to play steadily.`, retry: true };
-}
-
 /** What to tell the user about audio matching. `undefined`: nothing worth saying. */
 export function audioMessage(status: AudioStatus): AudioMessage | undefined {
   switch (status.state) {
@@ -43,11 +17,11 @@ export function audioMessage(status: AudioStatus): AudioMessage | undefined {
         retry: false,
       };
     case "listening":
-      return listeningMessage(status);
+      return { text: "Listening to line up the audio…", retry: false, progress: status.progress };
     case "matching":
       return { text: "Comparing the audio…", retry: false };
     case "matched":
-      return matchedMessage(status);
+      return { text: "Lined up by audio.", retry: true };
     case "failed":
       return status.reason === "no-shared-sound"
         ? { text: "Couldn't match the audio: these streams may not share any sound.", retry: true }

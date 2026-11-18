@@ -6,6 +6,7 @@ import { createControllers } from "./controllers.ts";
 import { toCommand, toStatus, type SyncInfo } from "./convert.ts";
 import { createGroup } from "./group.ts";
 import { createDiagnostics } from "./diagnostics.ts";
+import { createHealth } from "./health.ts";
 import { createReportStore } from "./reports.ts";
 
 export interface CoordinatorOptions {
@@ -69,15 +70,16 @@ interface StepOutcome {
   stuck: string[];
 }
 
-function memberViews(ids: string[], reports: Reports, { errors, stuck }: StepOutcome) {
+function memberViews(ids: string[], reports: Reports, { errors }: StepOutcome) {
   return ids.flatMap((id): MemberView[] => {
     const report = reports.get(id);
-    return report ? [{ id, report, error: errors[id], stuck: stuck.includes(id) }] : [];
+    return report ? [{ id, report, error: errors[id] }] : [];
   });
 }
 
 interface StatusParts {
   reports: Reports;
+  health: ReturnType<typeof createHealth>;
   group: ReturnType<typeof createGroup>;
   audio: ReturnType<typeof createGroupAudio>;
   align: { status: () => SyncStatus["align"] };
@@ -88,13 +90,15 @@ interface StatusParts {
 export type CoordinatorStatus = Omit<SyncStatus, "saved">;
 
 function buildStatus(parts: StatusParts): CoordinatorStatus {
-  const { reports, group, audio, outcome } = parts;
+  const { reports, group, audio, outcome, health } = parts;
   const players = reports.all().map(([id, report]) => {
     const inGroup = group.has(id);
     const waveform = inGroup ? audio.waveform(id) : undefined;
     const error = outcome.errors[id];
     const stuck = outcome.stuck.includes(id) || undefined;
-    const sync: SyncInfo = { inGroup, offset: group.offset(id), error, stuck, waveform };
+    const streamHealth = inGroup ? health.get(id) : undefined;
+    const offset = group.offset(id);
+    const sync: SyncInfo = { inGroup, offset, error, stuck, waveform, health: streamHealth };
     return toStatus(id, report, sync);
   });
   const mixed = isMixed(group.ids(), reports);
@@ -154,13 +158,9 @@ export function createCoordinator(options: CoordinatorOptions) {
   const group = createGroup((id) => reports.get(id)?.videoId);
   const controllers = createControllers();
   const diagnostics = createDiagnostics(options.now);
-  const send = diagnostics.logged(options.send);
-  const audio = createGroupAudio({
-    send,
-    adjust: group.nudge,
-    now: options.now,
-    log: diagnostics.note,
-  });
+  const health = createHealth(options.now, diagnostics.note);
+  const send = diagnostics.logged(options.send, health.onCommand);
+  const audio = createGroupAudio({ send, adjust: group.nudge, now: options.now });
   let outcome: StepOutcome = { errors: {}, stuck: [] };
   // After yt-dlp-z lined archives up, audio matching fine-tunes them.
   const align = alignment({ group, reports, options }, () => {
@@ -181,6 +181,7 @@ export function createCoordinator(options: CoordinatorOptions) {
     }
     const previous = reports.set(id, playerReport);
     audio.onReport(id, playerReport);
+    health.onReport(id, playerReport);
     diagnostics.onReport(id, playerReport, previous);
     // The others follow what the user just did now, not on the next second.
     if (wasTouched(playerReport, previous) && group.has(id)) {
@@ -190,17 +191,17 @@ export function createCoordinator(options: CoordinatorOptions) {
 
   function tick() {
     const { groupIds, settings } = stepSettings(group, reports, options.settings());
+    health.follow(groupIds);
     const result = controllers.run(reports.fresh(), settings);
     outcome = { errors: result.errors, stuck: result.stuck };
     sendAll(result.actions, send, reports);
     audio.afterTick(memberViews(groupIds, reports, outcome));
     align.tick();
-    const notes = { ...outcome, steady: audio.steady() };
-    diagnostics.afterTick(audio.status(), reports.all(), group.ids(), notes);
+    diagnostics.afterTick(audio.status(), reports.all());
   }
 
   function status(): CoordinatorStatus {
-    return buildStatus({ reports, group, audio, align, outcome });
+    return buildStatus({ reports, group, audio, align, outcome, health });
   }
 
   const groupApi = { ...offsetApi(group, tick, align), debugLog: diagnostics.text };

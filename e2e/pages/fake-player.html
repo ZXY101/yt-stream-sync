@@ -6,10 +6,7 @@
   </head>
   <body>
     <!-- Mimics the parts of YouTube's live player the add-on reads: stats for nerds latency
-         that responds to the video's playback rate, the player state and pause/play.
-         With rewind=off it acts like a stream with rewind (DVR) turned off: playing after a
-         pause jumps back to where YouTube keeps it, a skip moves within the buffer, and the
-         buffer reaches up to `edge` seconds behind live. -->
+         that responds to the video's playback rate, the player state and pause/play. -->
     <div id="movie_player"><video></video></div>
     <script>
       const params = new URLSearchParams(location.search);
@@ -18,27 +15,6 @@
       const STEP = 0.1;
       let latency = Number(params.get("latency") ?? "5");
       let stateCode = 1;
-      let pauses = 0;
-      const noRewind = params.get("rewind") === "off";
-      const home = latency;
-      // How far behind live the newest downloaded video is (segments still being made).
-      const edge = Number(params.get("edge") ?? "1");
-      const latencyClass = params.get("latencyClass");
-
-      function buffer() {
-        return noRewind ? Math.max(0, latency - edge) : 5;
-      }
-
-      // The page script skips with video.currentTime += seconds: move within the buffer.
-      let position = 0;
-      Object.defineProperty(video, "currentTime", {
-        get: () => position,
-        set: (value) => {
-          const ahead = Math.min(value - position, buffer());
-          latency -= ahead;
-          position += ahead;
-        },
-      });
 
       // Playing at rate r adds (1 - r) s of latency per second; paused adds 1 s per second.
       setInterval(() => {
@@ -50,39 +26,20 @@
           live_latency_style: "",
           // Like YouTube, report 0 while paused.
           live_latency_secs: stateCode === 2 ? "0.00s" : `${latency.toFixed(2)}s`,
-          buffer_health_seconds: `${buffer().toFixed(2)} s`,
+          buffer_health_seconds: "5.00 s",
         }),
         getPlayerState: () => stateCode,
-        getPlayerResponse: () => ({
-          videoDetails: {
-            isLiveContent: true,
-            latencyClass: latencyClass
-              ? `MDE_STREAM_OPTIMIZATIONS_RENDERER_LATENCY_${latencyClass}`
-              : undefined,
-            isLiveDvrEnabled: noRewind ? false : undefined,
-          },
-        }),
         getVideoData: () => ({
           isLive: true,
           title: params.get("title") ?? "Fake stream",
           video_id: location.pathname.split("/").pop(),
           author: "Fake channel",
         }),
-        playVideo: () => {
-          // YouTube sends a paused stream without rewind back to the live edge.
-          if (noRewind && stateCode === 2) {
-            latency = home;
-          }
-          stateCode = 1;
-        },
-        pauseVideo: () => {
-          pauses += 1;
-          stateCode = 2;
-        },
+        playVideo: () => (stateCode = 1),
+        pauseVideo: () => (stateCode = 2),
       });
       window.fakeLatency = () => latency;
       window.fakeState = () => stateCode;
-      window.fakePauses = () => pauses;
     </script>
   </body>
 </html>

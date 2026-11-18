@@ -1,6 +1,7 @@
 import {
   addAllStreams,
   addButtons,
+  groupProgress,
   groupRows,
   removeStream,
   showPopupForStreams,
@@ -71,9 +72,11 @@ test("pauses the leader for a big gap and resumes it in sync", async ({
   ]);
   const ahead = await streamFrame(firefoxPage, "far-ahead");
   const behind = await streamFrame(firefoxPage, "far-behind");
-  await addAllStreams(await openPopup(), 2);
+  const popup = await openPopup();
+  await addAllStreams(popup, 2);
 
   await expect.poll(async () => (await readStream(ahead)).state, { timeout: 5_000 }).toBe(2);
+  await expect.poll(() => groupProgress(popup)).toMatch(/^Lining the streams up, \d+\.\d s apart$/);
   await expect
     .poll(
       async () => {
@@ -83,6 +86,7 @@ test("pauses the leader for a big gap and resumes it in sync", async ({
       { timeout: 40_000, intervals: [1_000] },
     )
     .toEqual({ playing: true, inSync: true });
+  await expect.poll(() => groupProgress(popup)).toBe("Streams in sync");
 });
 
 test("hands a stream back at normal speed when it's removed", async ({
@@ -103,4 +107,26 @@ test("hands a stream back at normal speed when it's removed", async ({
   await expect.poll(async () => (await readStream(lead)).rate, { timeout: 5_000 }).toBe(1);
   await expect.poll(() => groupRows(popup)).toEqual([expect.stringMatching(/^trail/)]);
   expect(await addButtons(popup)).toEqual(["Add lead to sync"]);
+});
+
+test("shows each stream's health once it has been in sync for 30 s", async ({
+  firefoxPage,
+  openPopup,
+}) => {
+  test.setTimeout(90_000);
+  await openMultiview(firefoxPage, [
+    { id: "calm-a", latency: 5 },
+    { id: "calm-b", latency: 5 },
+  ]);
+  const popup = await openPopup();
+  await addAllStreams(popup, 2);
+
+  await expect.poll(() => groupRows(popup)).toHaveLength(2);
+  expect((await groupRows(popup)).join()).not.toContain("Last 2 min");
+  await expect
+    .poll(async () => (await groupRows(popup)).toSorted(), { timeout: 45_000, intervals: [2_000] })
+    .toEqual([
+      expect.stringMatching(/^calm-a.*Steady.*Last 2 min: /),
+      expect.stringMatching(/^calm-b.*Steady.*Last 2 min: /),
+    ]);
 });

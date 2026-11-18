@@ -41,7 +41,6 @@ describe("page agent", () => {
         bufferLow: 3,
         pinned: false,
         noRewind: false,
-        latencyClass: "",
         state: "playing",
         playbackRate: 0.92,
         title: "Collab stream",
@@ -49,6 +48,19 @@ describe("page agent", () => {
         videoId: "abc123",
       },
     ]);
+  });
+
+  it("marks streams with rewind turned off, and only when YouTube says so", () => {
+    const off = createFakePlayer({ isLiveDvrEnabled: false });
+    const on = createFakePlayer({ isLiveDvrEnabled: true });
+    const offRun = setup(off.element);
+    const onRun = setup(on.element);
+
+    offRun.agent.tick();
+    onRun.agent.tick();
+
+    expect(offRun.posted[0]).toMatchObject({ kind: "live", noRewind: true });
+    expect(onRun.posted[0]).toMatchObject({ kind: "live", noRewind: false });
   });
 
   it("marks ultra-low-latency streams as pinned", () => {
@@ -60,26 +72,6 @@ describe("page agent", () => {
     agent.tick();
 
     expect(posted[0]).toMatchObject({ kind: "live", pinned: true });
-  });
-
-  it("marks streams with rewind turned off, and reports the latency class", () => {
-    const off = createFakePlayer({
-      isLiveDvrEnabled: false,
-      latencyClass: "MDE_STREAM_OPTIMIZATIONS_RENDERER_LATENCY_LOW",
-    });
-    const on = createFakePlayer({ isLiveDvrEnabled: true });
-    const first = setup(off.element);
-    const second = setup(on.element);
-
-    first.agent.tick();
-    second.agent.tick();
-
-    expect(first.posted[0]).toMatchObject({
-      noRewind: true,
-      pinned: false,
-      latencyClass: "MDE_STREAM_OPTIMIZATIONS_RENDERER_LATENCY_LOW",
-    });
-    expect(second.posted[0]).toMatchObject({ noRewind: false });
   });
 
   it("reports the lowest buffer of late, and forgets it after a jump ahead", () => {

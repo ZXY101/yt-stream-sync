@@ -19,16 +19,23 @@ The add-on reads how far each player is behind live and **slows down the stream 
 ahead** until they match, or pauses it briefly for a big gap. It never speeds a live stream
 up: that drains the small live buffer and makes it stall.
 
+Most live streams have rewind turned off. YouTube sends those back to the live edge after a
+pause, so they're only ever slowed down: a big gap (after an ad, say) takes a few minutes to
+close, about 8 seconds every 100 seconds.
+
+As soon as the second stream is added, a line above the streams shows what the sync is doing:
+"Lining the streams up" with how many seconds apart they still are, then "Streams in sync".
+
 Streams marked **Low latency** sit near the live edge and can only be held back a few
 seconds, so the others jump ahead to meet them. If a gap remains, the popup says
 "Can't get closer".
 
-Most streams have **rewind turned off**. YouTube sends such a stream back to the live edge
-after a pause, and may undo a jump ahead, so these are never paused: they are only slowed a
-little or moved ahead within their buffer. The add-on learns how far each one will stay
-ahead or behind, then lines the group up at the delay that suits the most streams. A stream
-YouTube won't keep there sits as close as it can, shows "Can't get closer", and is tried again
-every few minutes.
+After 30 seconds in the group, each live stream shows how calm it has been over the last 2
+minutes: how often it buffered, how often YouTube moved it by itself (a jump or a speed change
+nobody asked for) and how often the sync had to correct it. The skips that first line the
+group up, and the buffering a skip itself causes, don't count against a stream. **Steady** means little happened,
+**Shaky** some, **Unstable** a lot. It's only for you: the sync doesn't act on it. A stream
+that stays Unstable is the one most likely to drift out of sync.
 
 ## Archives
 
@@ -42,18 +49,14 @@ they keep the alignment they had when you added them.
 
 Each stream has nudge buttons (±0.1, ±1 and ±10 s) and an **Offset** field where you can type
 an offset in seconds or `m:ss` (for example `-2:05.3`). The sync keeps whatever you set.
-Buttons for a direction a stream can't move any further (YouTube won't keep it closer to, or
-further from, live) are greyed out; hover them to see why.
 
 ## Matching by audio
 
-With **Auto-sync by audio** on (the default), the add-on listens to the added streams for
-30 seconds once they play steadily in sync (a stream that can't get closer may be up to 5
-seconds off), and moves each one so the shared sound (voices, game audio) lines up. If a try
-finds no match, the popup says so and it listens again. While some streams are lined up and
-another isn't playing steadily yet, it says how many it is waiting for. It finds offsets of up
-to 15 seconds.
-**Match again** listens afresh; the waveforms show what it hears.
+Archives only: live streams sync by how far behind live each one is, because buffering threw
+audio matches off too often. With **Auto-sync by audio** on (the default), the add-on listens to
+the added archives for 30 seconds once they play in sync, and moves each one so the shared sound
+(voices, game audio) lines up. It finds offsets of up to 15 seconds. **Match again** listens afresh; the waveforms
+show what it hears.
 
 If a stream says "Click once inside this stream's video so the add-on can hear it", the browser
 needs a click in that page before it lets the add-on listen.

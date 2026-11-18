@@ -47,13 +47,8 @@ export interface LiveReport extends ReportBase {
   bufferLow?: number;
   /** An ultra-low-latency stream: YouTube keeps it at the live edge, so it can't be held back. */
   pinned?: boolean;
-  /**
-   * Rewind (DVR) is off: a pause or a seek back is undone by a jump to the live edge, so it
-   * can't be held back, only moved ahead.
-   */
+  /** Rewind (DVR) is off: a pause or a seek back sends it to the live edge, so it's never paused. */
   noRewind?: boolean;
-  /** YouTube's latency class, e.g. `MDE_STREAM_OPTIMIZATIONS_RENDERER_LATENCY_LOW`, for the debug log. */
-  latencyClass?: string;
 }
 
 /** What the page script reads from an archived stream's player. */
@@ -170,8 +165,6 @@ export interface PlayerStatus {
   latency?: number;
   /** Live: an ultra-low-latency stream, which YouTube keeps near the live edge. */
   pinned?: boolean;
-  /** Live: rewind is off, so the stream can't be held back. */
-  noRewind?: boolean;
   /** Archive: seconds into the video. */
   position?: number;
   /** Archive: whether the broadcast start time is known (watch pages) or not (embeds). */
@@ -188,6 +181,19 @@ export interface PlayerStatus {
   waveform?: Waveform;
   /** Whether the add-on can hear this player, while it listens. */
   hearing?: AudioReport["state"];
+  /** Live, in the group for 30 s or more: how calm the stream has been lately. */
+  health?: StreamHealth;
+}
+
+/** What a live stream went through in the last 2 minutes (display only; the sync ignores it). */
+export interface StreamHealth {
+  label: "steady" | "shaky" | "unstable";
+  /** Times it started buffering. */
+  buffering: number;
+  /** Times YouTube moved it by itself (a latency jump or speed change nobody asked for). */
+  moved: number;
+  /** Times the sync skipped, paused or slowed it. */
+  corrections: number;
 }
 
 /** Where audio matching is at, for the popup. */
@@ -195,18 +201,14 @@ export type AudioStatus =
   | { state: "off" }
   /** Fewer than two streams in the group. */
   | { state: "waiting" }
-  /**
-   * Hearing the streams play in sync; `progress` 0–1 until there's enough audio. `tries`:
-   * earlier tries that didn't match everyone, so this is another go.
-   */
-  | { state: "listening"; progress: number; tries?: number }
+  /** Hearing the streams play in sync; `progress` 0–1 until there's enough audio. */
+  | { state: "listening"; progress: number }
   | { state: "matching" }
   /**
    * Lag measured per player (seconds, positive: was behind) and applied. `unmatched`: players
-   * that couldn't be matched even after retrying. `waiting`: players still to be matched,
-   * once they play steadily.
+   * that couldn't be matched even after retrying.
    */
-  | { state: "matched"; lags: Record<string, number>; unmatched?: string[]; waiting?: string[] }
+  | { state: "matched"; lags: Record<string, number>; unmatched?: string[] }
   | { state: "failed"; reason: "too-short" | "no-shared-sound" }
   /** The browser won't let a page play audio until the user clicks in it. */
   | { state: "blocked" }

@@ -1,6 +1,6 @@
-import type { Tuning } from "./types.ts";
+import type { LiveTuning } from "./types.ts";
 
-export const DEFAULT_TUNING: Tuning = {
+export const LIVE_TUNING: LiveTuning = {
   // Browsers keep the pitch at this rate, and the buffer grows by 8% of real time.
   slowRate: 0.92,
   // The gap between start and stop is the deadband that keeps rates from flapping.
@@ -21,15 +21,4 @@ export const DEFAULT_TUNING: Tuning = {
   maxHoldStep: 2,
   snapDrop: 1,
   snapMargin: 0.5,
-  // No-rewind streams (2026-11-15, three real ones): a normal-latency one held 6.5–7 s with
-  // ~1–5 s of buffer and stalled when it ran out; low-latency ones sit near 8 s on their own.
-  noRewindMinBuffer: 3,
-  noRewindJumpError: 0.5,
-  slowRoom: 2,
-  moveJump: 2,
-  learnedSteps: 300,
-  learnedMargin: 0.5,
-  probeSteps: 30,
-  // A real stream drifted back from a 0.6 s jump within about 4 s (2026-11-15).
-  jumpJudgeSteps: 5,
 };

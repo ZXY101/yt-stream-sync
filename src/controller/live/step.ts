@@ -1,20 +1,12 @@
 import { type PinnedInput, stepPinned } from "./pinned-step.ts";
-import { type PlannedInput, stepPlanned } from "./planned-step.ts";
 import { actionsFor, nextMode, releaseActions } from "./player-step.ts";
 import { computeErrors } from "./target.ts";
-import { DEFAULT_TUNING } from "./tuning.ts";
-import type {
-  Action,
-  ControllerState,
-  Mode,
-  PlayerSample,
-  StepResult,
-  SyncSettings,
-  Tuning,
-} from "./types.ts";
+import { LIVE_TUNING } from "./tuning.ts";
+import type { Action, SyncSettings } from "../types.ts";
+import type { LiveSample, LiveState, LiveStepResult, LiveTuning, Mode } from "./types.ts";
 
-export function initialState(): ControllerState {
-  return { modes: {}, cooldowns: {}, held: {}, ceilings: {}, floors: {}, reach: {} };
+export function initialLiveState(): LiveState {
+  return { modes: {}, cooldowns: {}, held: {}, ceilings: {}, floors: {} };
 }
 
 interface PlayerStep {
@@ -27,10 +19,10 @@ interface PlayerStep {
 }
 
 function pinnedInput(
-  sample: PlayerSample,
-  state: ControllerState,
+  sample: LiveSample,
+  state: LiveState,
   error: number,
-  tuning: Tuning,
+  tuning: LiveTuning,
 ): PinnedInput {
   return {
     sample,
@@ -49,10 +41,10 @@ function pinnedInput(
  * else goes through the normal modes.
  */
 function stepPlayer(
-  sample: PlayerSample,
-  state: ControllerState,
+  sample: LiveSample,
+  state: LiveState,
   error: number,
-  tuning: Tuning,
+  tuning: LiveTuning,
 ): PlayerStep {
   const previous = state.modes[sample.id] ?? "normal";
   const cooldown = Math.max(0, (state.cooldowns?.[sample.id] ?? 0) - 1);
@@ -64,15 +56,28 @@ function stepPlayer(
     actions.push({ type: "skip", id: sample.id, seconds: -error });
     return { mode: "normal", cooldown: tuning.jumpCooldown, actions };
   }
-  const mode = nextMode(previous, error, tuning);
+  const mode = modeFor(sample, previous, error, tuning);
   return { mode, cooldown, actions: actionsFor(sample, mode, tuning) };
+}
+
+/**
+ * A stream with rewind off is never paused: YouTube would send it back to the live edge and
+ * the sync would pause it again, forever (seen on real streams). It is slowed instead, which
+ * closes any gap, only slower: 8 s per 100 s.
+ */
+function modeFor(sample: LiveSample, previous: Mode, error: number, tuning: LiveTuning): Mode {
+  if (sample.noRewind !== true) {
+    return nextMode(previous, error, tuning);
+  }
+  const unpaused = previous === "paused" ? "normal" : previous;
+  return nextMode(unpaused, error, { ...tuning, pauseError: Infinity });
 }
 
 /**
  * Players the controller syncs. A player the user paused, or one that ended, is left alone;
  * one the controller paused itself stays in the group.
  */
-function isSynced(sample: PlayerSample, mode: Mode): boolean {
+function isSynced(sample: LiveSample, mode: Mode): boolean {
   if (sample.state === "ended") {
     return false;
   }
@@ -80,18 +85,17 @@ function isSynced(sample: PlayerSample, mode: Mode): boolean {
 }
 
 /** Hands players back unchanged. Used for players outside the group, or for all of them. */
-function release(state: ControllerState, samples: readonly PlayerSample[]): Action[] {
+function release(state: LiveState, samples: readonly LiveSample[]): Action[] {
   return samples.flatMap((sample) => releaseActions(sample, state.modes[sample.id] ?? "normal"));
 }
 
-function idle(state: ControllerState, samples: readonly PlayerSample[]): StepResult {
-  // Ceilings, floors and reach are learned per stream, so they outlive a pause in syncing.
-  const learned = {
+function idle(state: LiveState, samples: readonly LiveSample[]): LiveStepResult {
+  // Ceilings and floors are learned per stream, so they outlive a pause in syncing.
+  const next = {
+    ...initialLiveState(),
     ceilings: state.ceilings ?? {},
     floors: state.floors ?? {},
-    reach: state.reach ?? {},
   };
-  const next = { ...initialState(), ...learned };
   return { state: next, actions: release(state, samples), errors: {}, stuck: [] };
 }
 
@@ -101,12 +105,12 @@ function idle(state: ControllerState, samples: readonly PlayerSample[]): StepRes
  * there are two of them.
  * Pure: no clock, no browser APIs. The caller applies the actions and keeps the new state.
  */
-export function step(
-  state: ControllerState,
-  samples: readonly PlayerSample[],
+export function stepLive(
+  state: LiveState,
+  samples: readonly LiveSample[],
   settings: SyncSettings,
-  tuning: Tuning = DEFAULT_TUNING,
-): StepResult {
+  tuning: LiveTuning = LIVE_TUNING,
+): LiveStepResult {
   const members = samples.filter((sample) => settings.group.includes(sample.id));
   // During an ad the gap can't be measured; it is fixed once the ad ends.
   const onHold = members.some((sample) => sample.state === "ad");
@@ -119,23 +123,12 @@ export function step(
   }
   const others = samples.filter((sample) => !synced.includes(sample));
   const floors = updateFloors(state.floors ?? {}, synced);
-  const group = { state, synced, settings, tuning, floors };
-  // Streams without rewind need their own plan: see `planned-step.ts`.
-  const result = synced.some((sample) => sample.noRewind === true)
-    ? stepPlanned(group)
-    : stepHeldBack(group);
-  return { ...result, actions: [...release(state, others), ...result.actions] };
-}
-
-/** The usual step: the group waits for the player furthest behind (or meets pinned ones). */
-function stepHeldBack(group: PlannedInput): StepResult {
-  const { state, synced, settings, tuning, floors } = group;
   const minBuffer = tuning.minBuffer + settings.safetyMargin;
   const held = new Set(Object.keys(state.held ?? {}));
   const errors = computeErrors(synced, settings, { minBuffer, floors, held });
   const ceilings = { ...state.ceilings };
   const next: MutableState = { modes: {}, cooldowns: {}, held: {}, ceilings, floors };
-  const actions: Action[] = [];
+  const actions = release(state, others);
   const stuck: string[] = [];
   for (const sample of synced) {
     const result = stepPlayer(sample, state, errors[sample.id] ?? 0, tuning);
@@ -145,13 +138,13 @@ function stepHeldBack(group: PlannedInput): StepResult {
     }
     actions.push(...result.actions);
   }
-  return { state: { ...next, reach: state.reach }, actions, errors, stuck };
+  return { state: next, actions, errors, stuck };
 }
 
 /** The lowest latency each pinned player has shown: where its live edge is. */
 function updateFloors(
   floors: Readonly<Record<string, number>>,
-  samples: readonly PlayerSample[],
+  samples: readonly LiveSample[],
 ): Record<string, number> {
   const next = { ...floors };
   for (const sample of samples) {
@@ -163,10 +156,7 @@ function updateFloors(
 }
 
 type MutableState = {
-  [K in Exclude<keyof ControllerState, "reach" | "aim">]-?: Record<
-    string,
-    NonNullable<ControllerState[K]>[string]
-  >;
+  [K in keyof LiveState]-?: Record<string, NonNullable<LiveState[K]>[string]>;
 };
 
 function record(next: MutableState, id: string, result: PlayerStep) {

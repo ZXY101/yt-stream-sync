@@ -40,9 +40,7 @@ Nothing is sent to the add-on's authors or to any third party.
 
 ## Debug log
 
-The add-on keeps a short log of its recent decisions in memory. It holds no audio; the only
-addresses in it are the YouTube links of the streams you add to the sync group, so a log you
-share shows which streams it was about.
+The add-on keeps a short log of its recent decisions in memory (no audio, no page addresses).
 It leaves the browser only if you click "Copy debug log" and paste it somewhere yourself.
 
 ## Contact

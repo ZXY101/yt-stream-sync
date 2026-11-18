@@ -1,5 +1,6 @@
 import type { ArchiveSample } from "../controller/archive/types.ts";
-import type { Action, PlayerSample } from "../controller/types.ts";
+import type { LiveSample } from "../controller/live/types.ts";
+import type { Action } from "../controller/types.ts";
 import {
   tabOf,
   type ArchiveReport,
@@ -22,7 +23,7 @@ export function toCommand(action: Action): PlayerCommand {
   return { type: action.type };
 }
 
-export function toLiveSample(id: string, report: LiveReport): PlayerSample {
+export function toLiveSample(id: string, report: LiveReport): LiveSample {
   const { latency, bufferAhead, bufferLow, pinned, noRewind, state, playbackRate } = report;
   return { id, latency, bufferAhead, bufferLow, pinned, noRewind, state, playbackRate };
 }
@@ -68,11 +69,14 @@ export function assumeDone(report: PlayerReport, command: PlayerCommand): Player
   return report;
 }
 
-export type SyncInfo = Pick<PlayerStatus, "inGroup" | "offset" | "error" | "stuck" | "waveform">;
+export type SyncInfo = Pick<
+  PlayerStatus,
+  "inGroup" | "offset" | "error" | "stuck" | "waveform" | "health"
+>;
 
 function kindDetails(report: PlayerReport): Partial<PlayerStatus> {
   if (report.kind === "live") {
-    return { latency: report.latency, pinned: report.pinned, noRewind: report.noRewind };
+    return { latency: report.latency, pinned: report.pinned };
   }
   return { position: report.position, hasStartTime: report.startTime !== undefined };
 }

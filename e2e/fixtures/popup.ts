@@ -69,6 +69,11 @@ export async function showPopupForStreams(popup: Page, count: number): Promise<v
   await showPopupFor(popup, (first as StatusPlayer).tabId);
 }
 
+/** The sync group's progress line ("Lining the streams up, …"), or "" when there is none. */
+export function groupProgress(popup: Page): Promise<string> {
+  return popup.evaluate(() => document.querySelector("output")?.textContent ?? "");
+}
+
 /** Each sync-group row's text, sorted (streams are listed in the order they joined). */
 export function groupRows(popup: Page): Promise<string[]> {
   return popup.evaluate(() => {

@@ -4,7 +4,9 @@ import { Alert, AlertDescription } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
 
 import type { PlayerStatus } from "../lib/messages.ts";
-import { blockedNudge, describePlace, describeSync, lowLatencyGap } from "./format.ts";
+import { describePlace, describeSync, lowLatencyGap } from "./format.ts";
+import { GroupProgress } from "./group-progress.tsx";
+import { HealthNote } from "./health-note.tsx";
 import { LowLatencyNote } from "./low-latency-note.tsx";
 import { NudgeButtons } from "./nudge-buttons.tsx";
 import { StreamCard } from "./stream-card.tsx";
@@ -87,14 +89,10 @@ function MemberCard({ player, gap, waveformsAt, onRemove, onNudge }: MemberCardP
           No start time in embeds: aligned as it was when added.
         </p>
       )}
+      <HealthNote health={player.health} />
       <HearingNote hearing={player.hearing} />
       {waveformsAt !== undefined && <Waveform waveform={player.waveform} now={waveformsAt} />}
-      <NudgeButtons
-        title={title}
-        offset={player.offset}
-        onNudge={onNudge}
-        blocked={blockedNudge(player)}
-      />
+      <NudgeButtons title={title} offset={player.offset} onNudge={onNudge} />
     </StreamCard>
   );
 }
@@ -118,6 +116,7 @@ export function SyncGroup(props: SyncGroupProps) {
           </Button>
         )}
       </div>
+      {!mixed && <GroupProgress members={members} />}
       {members.length > 0 && (
         <ul className="flex flex-col gap-2" aria-label="Streams in sync">
           {members.map((player) => (

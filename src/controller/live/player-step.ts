@@ -1,10 +1,11 @@
-import type { Action, Mode, PlayerSample, Tuning } from "./types.ts";
+import type { Action } from "../types.ts";
+import type { LiveSample, LiveTuning, Mode } from "./types.ts";
 
 // Players report rates like 0.9200000001; anything closer than this counts as equal.
 const RATE_EPSILON = 0.001;
 
 /** The mode for a player that is `error` seconds ahead, with hysteresis around each switch. */
-export function nextMode(mode: Mode, error: number, tuning: Tuning): Mode {
+export function nextMode(mode: Mode, error: number, tuning: LiveTuning): Mode {
   if (mode === "paused" && error > tuning.resumeError) {
     return "paused";
   }
@@ -15,7 +16,7 @@ export function nextMode(mode: Mode, error: number, tuning: Tuning): Mode {
   return error > threshold ? "slowing" : "normal";
 }
 
-function rateFor(mode: Mode, tuning: Tuning): number {
+function rateFor(mode: Mode, tuning: LiveTuning): number {
   return mode === "slowing" ? tuning.slowRate : 1;
 }
 
@@ -23,7 +24,7 @@ function rateFor(mode: Mode, tuning: Tuning): number {
  * Commands that hand a player back as it was: normal speed, and playing again only if the
  * controller paused it. A player the user paused stays paused.
  */
-export function releaseActions(sample: PlayerSample, mode: Mode): Action[] {
+export function releaseActions(sample: LiveSample, mode: Mode): Action[] {
   const { id } = sample;
   const actions: Action[] = [];
   if (mode === "paused" && sample.state === "paused") {
@@ -39,7 +40,7 @@ export function releaseActions(sample: PlayerSample, mode: Mode): Action[] {
  * Commands that bring a player into `mode`. Rates are re-sent whenever the player reports a
  * different one, which also undoes YouTube's own low-latency catch-up speed changes.
  */
-export function actionsFor(sample: PlayerSample, mode: Mode, tuning: Tuning): Action[] {
+export function actionsFor(sample: LiveSample, mode: Mode, tuning: LiveTuning): Action[] {
   const { id } = sample;
   if (mode === "paused") {
     return sample.state === "paused" ? [] : [{ type: "pause", id }];
