@@ -11,7 +11,7 @@ and remembers groups of archives for later.
 [![checks](https://github.com/ZXY101/yt-stream-sync/actions/workflows/checks.yml/badge.svg)](https://github.com/ZXY101/yt-stream-sync/actions/workflows/checks.yml)
 [![release](https://img.shields.io/github/v/release/ZXY101/yt-stream-sync?sort=semver)](https://github.com/ZXY101/yt-stream-sync/releases)
 [![license: Unlicense](https://img.shields.io/badge/license-Unlicense-blue.svg)](LICENSE)
-[![Firefox 142+](https://img.shields.io/badge/firefox-142%2B-ff7139?logo=firefoxbrowser&logoColor=white)](#installation)
+[![Firefox 142+](https://img.shields.io/badge/firefox-142%2B-ff7139?logo=firefoxbrowser&logoColor=white)](https://addons.mozilla.org/en-US/firefox/addon/yt-stream-sync/)
 [![React + TypeScript](https://img.shields.io/badge/react-typescript-61dafb?logo=react&logoColor=white)](package.json)
 [![Conventional Commits](https://img.shields.io/badge/conventional%20commits-1.0.0-fe5196?logo=conventionalcommits&logoColor=white)](https://www.conventionalcommits.org/)
 
@@ -70,9 +70,13 @@ Needs **Firefox 142** or newer (desktop).
 
 ### From Firefox Add-ons
 
-Coming soon: the add-on is waiting for review on addons.mozilla.org.
+Install it from
+[addons.mozilla.org](https://addons.mozilla.org/en-US/firefox/addon/yt-stream-sync/). Firefox
+keeps it up to date.
 
 ### From a release
+
+For testing a build before it reaches addons.mozilla.org.
 
 1. Download `yt-stream-sync-<version>.zip` from the
    [latest release](https://github.com/ZXY101/yt-stream-sync/releases/latest).
