@@ -104,3 +104,25 @@ test("hands a stream back at normal speed when it's removed", async ({
   await expect.poll(() => groupRows(popup)).toEqual([expect.stringMatching(/^trail/)]);
   expect(await addButtons(popup)).toEqual(["Add lead to sync"]);
 });
+
+test("shows each stream's health once it has been in sync for 30 s", async ({
+  firefoxPage,
+  openPopup,
+}) => {
+  test.setTimeout(90_000);
+  await openMultiview(firefoxPage, [
+    { id: "calm-a", latency: 5 },
+    { id: "calm-b", latency: 5 },
+  ]);
+  const popup = await openPopup();
+  await addAllStreams(popup, 2);
+
+  await expect.poll(() => groupRows(popup)).toHaveLength(2);
+  expect((await groupRows(popup)).join()).not.toContain("Last 2 min");
+  await expect
+    .poll(async () => (await groupRows(popup)).toSorted(), { timeout: 45_000, intervals: [2_000] })
+    .toEqual([
+      expect.stringMatching(/^calm-a.*Steady.*Last 2 min: /),
+      expect.stringMatching(/^calm-b.*Steady.*Last 2 min: /),
+    ]);
+});

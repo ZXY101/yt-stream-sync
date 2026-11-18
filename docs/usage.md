@@ -27,6 +27,12 @@ Streams marked **Low latency** sit near the live edge and can only be held back 
 seconds, so the others jump ahead to meet them. If a gap remains, the popup says
 "Can't get closer".
 
+After 30 seconds in the group, each live stream shows how calm it has been over the last 2
+minutes: how often it buffered, how often YouTube moved it by itself (a jump or a speed change
+nobody asked for) and how often the sync had to correct it. **Steady** means little happened,
+**Shaky** some, **Unstable** a lot. It's only for you: the sync doesn't act on it. A stream
+that stays Unstable is the one most likely to drift out of sync.
+
 ## Archives
 
 Finished live streams are lined up by when each broadcast started. Seek, pause, play or

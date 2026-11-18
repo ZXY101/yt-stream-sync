@@ -301,6 +301,27 @@ describe("coordinator", () => {
     expect(third?.waveform).toBeUndefined();
   });
 
+  it("shows how calm each live stream has been once it's been in the group 30 s", () => {
+    const { coordinator, advance, join } = setup();
+    join({ "1:0": { latency: 5 }, "2:0": { latency: 5 } });
+    for (let second = 0; second < 31; second++) {
+      advance(1);
+      const state = second === 10 ? "buffering" : "playing";
+      coordinator.report("1:0", report({ latency: 5, state }));
+      coordinator.report("2:0", report({ latency: 5 }));
+      coordinator.tick();
+    }
+
+    const health = Object.fromEntries(
+      coordinator.status().players.map((player) => [player.id, player.health]),
+    );
+    expect(health).toEqual({
+      "1:0": { label: "steady", buffering: 1, moved: 0, corrections: 0 },
+      "2:0": { label: "steady", buffering: 0, moved: 0, corrections: 0 },
+    });
+    expect(coordinator.debugLog()).toContain("health 1:0: steady");
+  });
+
   it("clears the group and hands every player back at normal speed", () => {
     const { coordinator, send, join } = setup();
     join({ "1:0": { latency: 4 }, "2:0": { latency: 6 } });

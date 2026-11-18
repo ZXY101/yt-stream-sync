@@ -3,6 +3,8 @@ import { createDebugLog } from "./debug-log.ts";
 
 const LEVELS_EVERY = 5;
 
+type Send = (id: string, command: PlayerCommand) => void;
+
 function describe(report: PlayerReport): string {
   const where =
     report.kind === "live"
@@ -33,10 +35,11 @@ export function createDiagnostics(now: () => number, log = createDebugLog()) {
     }
   }
 
-  /** Every command sent through this is logged. */
-  function logged(send: (id: string, command: PlayerCommand) => void) {
+  /** Every command sent through this is logged, and shown to `watch` too. */
+  function logged(send: Send, watch: Send = () => {}) {
     return (id: string, command: PlayerCommand) => {
       onCommand(id, command);
+      watch(id, command);
       send(id, command);
     };
   }
@@ -68,5 +71,5 @@ export function createDiagnostics(now: () => number, log = createDebugLog()) {
     }
   }
 
-  return { logged, onReport, afterTick, text: log.text };
+  return { logged, onReport, afterTick, note: log.add, text: log.text };
 }

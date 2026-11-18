@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button.tsx";
 
 import type { PlayerStatus } from "../lib/messages.ts";
 import { describePlace, describeSync, lowLatencyGap } from "./format.ts";
+import { HealthNote } from "./health-note.tsx";
 import { LowLatencyNote } from "./low-latency-note.tsx";
 import { NudgeButtons } from "./nudge-buttons.tsx";
 import { StreamCard } from "./stream-card.tsx";
@@ -87,6 +88,7 @@ function MemberCard({ player, gap, waveformsAt, onRemove, onNudge }: MemberCardP
           No start time in embeds: aligned as it was when added.
         </p>
       )}
+      <HealthNote health={player.health} />
       <HearingNote hearing={player.hearing} />
       {waveformsAt !== undefined && <Waveform waveform={player.waveform} now={waveformsAt} />}
       <NudgeButtons title={title} offset={player.offset} onNudge={onNudge} />

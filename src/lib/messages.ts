@@ -181,6 +181,19 @@ export interface PlayerStatus {
   waveform?: Waveform;
   /** Whether the add-on can hear this player, while it listens. */
   hearing?: AudioReport["state"];
+  /** Live, in the group for 30 s or more: how calm the stream has been lately. */
+  health?: StreamHealth;
+}
+
+/** What a live stream went through in the last 2 minutes (display only; the sync ignores it). */
+export interface StreamHealth {
+  label: "steady" | "shaky" | "unstable";
+  /** Times it started buffering. */
+  buffering: number;
+  /** Times YouTube moved it by itself (a latency jump or speed change nobody asked for). */
+  moved: number;
+  /** Times the sync skipped, paused or slowed it. */
+  corrections: number;
 }
 
 /** Where audio matching is at, for the popup. */
