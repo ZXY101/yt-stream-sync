@@ -25,6 +25,15 @@ function progressText(members: readonly PlayerStatus[]): string {
 }
 
 /**
+ * Whether the cards show each stream's health. Not while the sync is still starting or lining
+ * the streams up: that busy start moves every stream, and a label then misleads (user, 11-19).
+ * A gap a low-latency stream keeps open is as settled as that group gets, so labels show.
+ */
+export function showsHealth(members: readonly PlayerStatus[]): boolean {
+  return lowLatencyGap(members) > 0 || progressText(members) === "Streams in sync";
+}
+
+/**
  * What the sync is doing for the group as a whole, so adding the second stream visibly
  * starts something: a spinner while the streams are still apart, a check once they meet.
  * Says nothing when a low-latency stream keeps a gap open: `LowLatencyNote` explains that.

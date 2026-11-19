@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 
 import type { PlayerStatus } from "../lib/messages.ts";
-import { GroupProgress } from "./group-progress.tsx";
+import { GroupProgress, showsHealth } from "./group-progress.tsx";
 
 function member(overrides: Partial<PlayerStatus> = {}): PlayerStatus {
   return {
@@ -65,5 +65,25 @@ describe("GroupProgress", () => {
     ];
     const { container } = render(<GroupProgress members={members} />);
     expect(container).toBeEmptyDOMElement();
+  });
+});
+
+describe("showsHealth", () => {
+  it("hides health while the sync is starting", () => {
+    expect(showsHealth([member(), member({ id: "2:0", error: undefined })])).toBe(false);
+  });
+
+  it("hides health while the streams are lining up", () => {
+    const members = [member({ error: 8, playbackRate: 0.92 }), member({ id: "2:0", error: 0 })];
+    expect(showsHealth(members)).toBe(false);
+  });
+
+  it("shows health once the streams are in sync", () => {
+    expect(showsHealth([member({ error: 0.4 }), member({ id: "2:0", error: 0 })])).toBe(true);
+  });
+
+  it("shows health while a low-latency stream keeps a gap the sync can't close", () => {
+    const pinned = member({ error: 3, pinned: true, stuck: true });
+    expect(showsHealth([pinned, member({ id: "2:0", error: 0 })])).toBe(true);
   });
 });
