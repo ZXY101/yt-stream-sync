@@ -20,13 +20,22 @@ function userActed(report: PlayerReport, previous: PlayerReport | undefined): bo
   return report.userActions > previous.userActions;
 }
 
+/** Readings without a latency mean YouTube's stats lacked it; none means the page didn't run. */
+function whyQuiet(report: PlayerReport | undefined): string {
+  const missed = report?.kind === "live" ? (report.missed ?? 0) : 0;
+  return missed > 0 ? ` (${missed} readings without a latency)` : " (the page didn't read it)";
+}
+
 /**
  * Logs a group member that stopped reporting, once, and when it's back. Its last report
  * still shows in the players line, so without this a silent stream looks merely calm.
  */
 function createStaleWatch(add: (line: string) => void) {
   let silent = new Set<string>();
-  return function noteStale(stale: readonly [string, number][]) {
+  return function noteStale(
+    stale: readonly [string, number][],
+    latest: (id: string) => PlayerReport | undefined,
+  ) {
     const current = new Set(stale.map(([id]) => id));
     for (const [id, seconds] of stale) {
       if (!silent.has(id)) {
@@ -35,7 +44,7 @@ function createStaleWatch(add: (line: string) => void) {
     }
     for (const id of silent) {
       if (!current.has(id)) {
-        add(`${id} reports again`);
+        add(`${id} reports again${whyQuiet(latest(id))}`);
       }
     }
     silent = current;

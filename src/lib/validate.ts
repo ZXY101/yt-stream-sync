@@ -70,7 +70,10 @@ function hasLiveFields(value: Fields): boolean {
     (flag) => flag === undefined || typeof flag === "boolean",
   );
   const timesOk = inRange(value.latency, MAX_SECONDS) && inRange(value.bufferAhead, MAX_SECONDS);
-  return timesOk && lowOk && flagsOk;
+  const missedOk =
+    value.missed === undefined ||
+    (Number.isSafeInteger(value.missed) && (value.missed as number) >= 0);
+  return timesOk && lowOk && flagsOk && missedOk;
 }
 
 function hasKindFields(value: Fields): boolean {
@@ -137,7 +140,7 @@ export function isPlayerCommand(value: unknown): value is PlayerCommand {
   if (value.type === "clip") {
     return Number.isSafeInteger(value.request) && inRange(value.seconds, MAX_CLIP_SECONDS);
   }
-  return value.type === "pause" || value.type === "play";
+  return value.type === "pause" || value.type === "play" || value.type === "report";
 }
 
 export function isPageMessage(value: unknown): value is PageMessage {

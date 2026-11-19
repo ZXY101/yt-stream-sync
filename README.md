@@ -120,8 +120,9 @@ Popup / saved groups page ──▶ Background script (sync, audio matching, sav
                               Content script  ──▶  Page script  ──▶  YouTube player
 ```
 
-Each YouTube frame reports its player's state about once a second. The background script
-decides what each added player should do (slow down, pause, seek, play) and sends commands
+Each YouTube frame reports its player's state about once a second; when a report is late
+(Firefox can slow timers in background tabs), the background asks that frame for one. The
+background script decides what each added player should do (slow down, pause, seek, play) and sends commands
 back. Messages from the page are checked before they're used, and only the popup can change
 the sync group. Audio is captured at 2 kHz and compared in memory to measure the delay between
 streams.

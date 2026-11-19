@@ -49,6 +49,19 @@ function sendAll(actions: Action[], send: CoordinatorOptions["send"], reports: R
   }
 }
 
+/** Players report every second; one this late is asked for its report. */
+const LATE_AFTER = 1.5;
+
+/**
+ * Asks each group member whose report is late for one. Sent unlogged and around the health
+ * tracker: it changes nothing on the player.
+ */
+function askLate(ids: readonly string[], reports: Reports, send: CoordinatorOptions["send"]) {
+  for (const [id] of reports.stale(ids, LATE_AFTER)) {
+    send(id, { type: "report" });
+  }
+}
+
 /**
  * A group member that stopped reporting is out of the controller's sight, so it would keep the
  * speed it last had: a slowed one drifts further behind, unseen (seen on a real collab). Hand
@@ -203,6 +216,7 @@ export function createCoordinator(options: CoordinatorOptions) {
   }
 
   function tick() {
+    askLate(group.ids(), reports, options.send);
     const { groupIds, settings } = stepSettings(group, reports, options.settings());
     health.follow(groupIds);
     const result = controllers.run(reports.fresh(), settings);
@@ -210,7 +224,7 @@ export function createCoordinator(options: CoordinatorOptions) {
     sendAll([...result.actions, ...releaseSilent(groupIds, reports)], send, reports);
     audio.afterTick(memberViews(groupIds, reports, outcome));
     align.tick();
-    diagnostics.noteStale(reports.stale(groupIds));
+    diagnostics.noteStale(reports.stale(groupIds), reports.get);
     diagnostics.afterTick(audio.status(), reports.all());
   }
 

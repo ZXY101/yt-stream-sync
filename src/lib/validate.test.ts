@@ -24,6 +24,7 @@ describe("isPlayerReport", () => {
   it("accepts a well-formed report", () => {
     expect(isPlayerReport(report)).toBe(true);
     expect(isPlayerReport({ ...report, bufferLow: 2, pinned: true, noRewind: true })).toBe(true);
+    expect(isPlayerReport({ ...report, missed: 3 })).toBe(true);
   });
 
   it.each([
@@ -40,6 +41,8 @@ describe("isPlayerReport", () => {
     ["a negative lowest buffer", { ...report, bufferLow: -1 }],
     ["a non-boolean pinned", { ...report, pinned: "yes" }],
     ["a non-boolean noRewind", { ...report, noRewind: 1 }],
+    ["a fractional missed count", { ...report, missed: 1.5 }],
+    ["a negative missed count", { ...report, missed: -1 }],
   ])("rejects %s", (_name, value) => {
     expect(isPlayerReport(value)).toBe(false);
   });
@@ -60,6 +63,7 @@ describe("isPlayerCommand", () => {
     [{ type: "setRate", rate: 0 }, false],
     [{ type: "pause" }, true],
     [{ type: "play" }, true],
+    [{ type: "report" }, true],
     [{ type: "seek" }, false],
     [null, false],
   ])("%j → %s", (value, expected) => {

@@ -32,7 +32,11 @@ function setup({ audio = false } = {}) {
       coordinator.setInGroup(id, true);
     }
   }
-  return { coordinator, send, advance, join };
+  /** What was sent, leaving out the requests for a late report. */
+  function commands() {
+    return send.mock.calls.filter(([, command]) => command.type !== "report");
+  }
+  return { coordinator, send, advance, join, commands };
 }
 
 describe("coordinator", () => {
@@ -74,14 +78,14 @@ describe("coordinator", () => {
   });
 
   it("leaves out players that stopped reporting", () => {
-    const { coordinator, send, advance, join } = setup();
+    const { coordinator, advance, join, commands } = setup();
     join({ "1:0": { latency: 4 } });
     advance(5);
     join({ "2:0": { latency: 6 } });
 
     coordinator.tick();
 
-    expect(send).not.toHaveBeenCalled();
+    expect(commands()).toEqual([]);
   });
 
   it("drops players that left or have no live video any more", () => {
@@ -336,12 +340,12 @@ describe("coordinator", () => {
     const lines = coordinator.debugLog().split("\n");
     expect(lines.filter((line) => /no readings|reports again/.test(line))).toEqual([
       expect.stringMatching(/no readings from 1:0 for 4 s: left out of the sync$/),
-      expect.stringMatching(/1:0 reports again$/),
+      expect.stringMatching(/1:0 reports again/),
     ]);
   });
 
   it("hands a slowed stream back at normal speed once it stops reporting", () => {
-    const { coordinator, send, advance, join } = setup();
+    const { coordinator, send, advance, join, commands } = setup();
     join({ "1:0": { latency: 4 }, "2:0": { latency: 6 } });
     coordinator.tick();
     expect(send.mock.calls).toEqual([["1:0", { type: "setRate", rate: 0.92 }]]);
@@ -354,7 +358,32 @@ describe("coordinator", () => {
     }
 
     // Once, not every second: it would otherwise drift further behind at 0.92x unseen.
-    expect(send.mock.calls).toEqual([["1:0", { type: "setRate", rate: 1 }]]);
+    expect(commands()).toEqual([["1:0", { type: "setRate", rate: 1 }]]);
+  });
+
+  it("asks a stream that's late with its report for one, without logging it", () => {
+    const { coordinator, send, advance, join } = setup();
+    join({ "1:0": { latency: 5 }, "2:0": { latency: 5 } });
+    advance(1);
+    coordinator.report("2:0", report({ latency: 5 }));
+    advance(1);
+    coordinator.report("2:0", report({ latency: 5 }));
+    coordinator.tick();
+
+    expect(send.mock.calls).toEqual([["1:0", { type: "report" }]]);
+    expect(coordinator.debugLog()).not.toContain('"report"');
+  });
+
+  it("says why a stream went quiet when it reports again", () => {
+    const { coordinator, advance, join } = setup();
+    join({ "1:0": { latency: 5 }, "2:0": { latency: 5 } });
+    advance(4);
+    coordinator.report("2:0", report({ latency: 5 }));
+    coordinator.tick();
+    coordinator.report("1:0", report({ latency: 5, missed: 4 }));
+    coordinator.tick();
+
+    expect(coordinator.debugLog()).toMatch(/1:0 reports again \(4 readings without a latency\)/);
   });
 
   it("clears the group and hands every player back at normal speed", () => {

@@ -49,6 +49,8 @@ export interface LiveReport extends ReportBase {
   pinned?: boolean;
   /** Rewind (DVR) is off: a pause or a seek back sends it to the live edge, so it's never paused. */
   noRewind?: boolean;
+  /** Readings in a row just before this one that got no latency from YouTube's stats. */
+  missed?: number;
 }
 
 /** What the page script reads from an archived stream's player. */
@@ -76,7 +78,12 @@ export type PlayerCommand =
   /** Start or stop listening to the player's audio. */
   | { type: "listen"; on: boolean }
   /** Send back the last `seconds` of audio heard. */
-  | { type: "clip"; request: number; seconds: number };
+  | { type: "clip"; request: number; seconds: number }
+  /**
+   * Read the player and report now. The background asks when a report is late: Firefox can
+   * slow the page's own once-a-second timer in a background tab, but not messages.
+   */
+  | { type: "report" };
 
 // window.postMessage between the page script (page world) and the content script.
 export const PAGE_TAG = "yt-stream-sync:page";

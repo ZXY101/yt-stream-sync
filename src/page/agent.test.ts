@@ -41,6 +41,7 @@ describe("page agent", () => {
         bufferLow: 3,
         pinned: false,
         noRewind: false,
+        missed: 0,
         state: "playing",
         playbackRate: 0.92,
         title: "Collab stream",
@@ -137,6 +138,27 @@ describe("page agent", () => {
     agent.tick();
 
     expect(posted).toEqual([]);
+  });
+
+  it("says how many readings in a row had no latency once it can read one again", () => {
+    const fake = createFakePlayer({ latencyShown: false });
+    const { agent, posted } = setup(fake.element);
+
+    agent.tick();
+    agent.tick();
+    fake.fake.latencyShown = true;
+    agent.tick();
+    agent.tick();
+
+    expect(posted.map((report) => report?.kind === "live" && report.missed)).toEqual([2, 0]);
+  });
+
+  it("reads the player right away when the background asks for a report", () => {
+    const { agent, posted } = setup(createFakePlayer().element);
+
+    agent.run({ type: "report" });
+
+    expect(posted).toHaveLength(1);
   });
 
   it("reports a growing latency while paused", () => {

@@ -1,4 +1,4 @@
-import type { PlayerCommand, PlayerReport } from "../lib/messages.ts";
+import type { LiveReport, PlayerCommand, PlayerReport } from "../lib/messages.ts";
 import { createBufferLowTracker } from "./buffer-low.ts";
 import { createLatencyTracker } from "./latency.ts";
 import { archiveReport, liveReport } from "./reports.ts";
@@ -53,6 +53,37 @@ function carryOut(player: YouTubePlayer, video: HTMLVideoElement, command: Playe
   }
 }
 
+/** Posts reports with the audio level; `null` (no stream player) only once in a row. */
+function createPoster(options: Pick<PageAgentOptions, "post" | "listener">) {
+  let reportedNone = false;
+  return function postReport(report: PlayerReport | null | undefined) {
+    if (report === null) {
+      // One "no stream player" message is enough; repeating it every second would be noise.
+      if (!reportedNone) {
+        options.post(null);
+      }
+      reportedNone = true;
+    } else if (report) {
+      reportedNone = false;
+      options.post({ ...report, audio: options.listener.audioReport() });
+    }
+  };
+}
+
+/** Adds to each live report how many readings before it had no latency. */
+function createMissCounter() {
+  let missed = 0;
+  return function countMissed(report: LiveReport | undefined): LiveReport | undefined {
+    if (!report) {
+      missed += 1;
+      return undefined;
+    }
+    const counted = { ...report, missed };
+    missed = 0;
+    return counted;
+  };
+}
+
 /**
  * Reads the frame's player once a second (live streams and archives) and carries out
  * commands for it. User actions on an archive are reported straight away, so the other
@@ -66,11 +97,12 @@ export function createPageAgent(options: PageAgentOptions) {
       tick();
     }
   });
-  let reportedNone = false;
+  const postReport = createPoster(options);
+  const countMissed = createMissCounter();
 
   function read(player: YouTubePlayer, video: HTMLVideoElement): PlayerReport | null | undefined {
     if (player.getVideoData().isLive) {
-      return liveReport(player, video, trackers, options.now());
+      return countMissed(liveReport(player, video, trackers, options.now()));
     }
     return isArchive(player) ? archiveReport(player, video, userActions.count()) : null;
   }
@@ -83,19 +115,14 @@ export function createPageAgent(options: PageAgentOptions) {
       media.watch(video);
     }
     options.listener.follow(video);
-    if (report === null) {
-      // One "no stream player" message is enough; repeating it every second would be noise.
-      if (!reportedNone) {
-        options.post(null);
-      }
-      reportedNone = true;
-    } else if (report) {
-      reportedNone = false;
-      options.post({ ...report, audio: options.listener.audioReport() });
-    }
+    postReport(report);
   }
 
   function run(command: PlayerCommand) {
+    if (command.type === "report") {
+      tick();
+      return;
+    }
     const player = options.findPlayer();
     const video = player && findVideo(player);
     if (runAudioCommand(options.listener, command, video) || !player || !video) {
