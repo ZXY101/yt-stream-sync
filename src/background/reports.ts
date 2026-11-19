@@ -36,8 +36,20 @@ export function createReportStore(now: () => number) {
       .map(([id, entry]) => [id, entry.report, time - entry.at]);
   }
 
+  /** Of `ids`, the players left out for not reporting: [player id, seconds since it last did]. */
+  function stale(ids: readonly string[]): [string, number][] {
+    const time = now();
+    return ids.flatMap((id) => {
+      const entry = entries.get(id);
+      return entry && time - entry.at > STALE_AFTER
+        ? [[id, time - entry.at] as [string, number]]
+        : [];
+    });
+  }
+
   return {
     set,
+    stale,
     assume,
     fresh,
     get: (id: string) => entries.get(id)?.report,

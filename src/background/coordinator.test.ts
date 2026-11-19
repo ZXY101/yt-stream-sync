@@ -322,6 +322,24 @@ describe("coordinator", () => {
     expect(coordinator.debugLog()).toContain("health 1:0: steady");
   });
 
+  it("logs when a stream in the group stops reporting, and when it's back", () => {
+    const { coordinator, advance, join } = setup();
+    join({ "1:0": { latency: 5 }, "2:0": { latency: 5 } });
+    for (let second = 0; second < 5; second++) {
+      advance(1);
+      coordinator.report("2:0", report({ latency: 5 }));
+      coordinator.tick();
+    }
+    coordinator.report("1:0", report({ latency: 5 }));
+    coordinator.tick();
+
+    const lines = coordinator.debugLog().split("\n");
+    expect(lines.filter((line) => /no readings|reports again/.test(line))).toEqual([
+      expect.stringMatching(/no readings from 1:0 for 4 s: left out of the sync$/),
+      expect.stringMatching(/1:0 reports again$/),
+    ]);
+  });
+
   it("clears the group and hands every player back at normal speed", () => {
     const { coordinator, send, join } = setup();
     join({ "1:0": { latency: 4 }, "2:0": { latency: 6 } });

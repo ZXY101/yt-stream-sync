@@ -21,6 +21,28 @@ function userActed(report: PlayerReport, previous: PlayerReport | undefined): bo
 }
 
 /**
+ * Logs a group member that stopped reporting, once, and when it's back. Its last report
+ * still shows in the players line, so without this a silent stream looks merely calm.
+ */
+function createStaleWatch(add: (line: string) => void) {
+  let silent = new Set<string>();
+  return function noteStale(stale: readonly [string, number][]) {
+    const current = new Set(stale.map(([id]) => id));
+    for (const [id, seconds] of stale) {
+      if (!silent.has(id)) {
+        add(`no readings from ${id} for ${Math.round(seconds)} s: left out of the sync`);
+      }
+    }
+    for (const id of silent) {
+      if (!current.has(id)) {
+        add(`${id} reports again`);
+      }
+    }
+    silent = current;
+  };
+}
+
+/**
  * Writes what the add-on decides and sees to the debug log: commands, the user's actions,
  * how audio matching goes, and how loud each player sounds (silence means it can't hear).
  */
@@ -28,6 +50,7 @@ export function createDiagnostics(now: () => number, log = createDebugLog()) {
   const loudest = new Map<string, number>();
   let lastAudio = "";
   let levelsAt = 0;
+  const noteStale = createStaleWatch(log.add);
 
   function onCommand(id: string, command: PlayerCommand) {
     if (command.type !== "clip") {
@@ -71,5 +94,5 @@ export function createDiagnostics(now: () => number, log = createDebugLog()) {
     }
   }
 
-  return { logged, onReport, afterTick, note: log.add, text: log.text };
+  return { logged, onReport, noteStale, afterTick, note: log.add, text: log.text };
 }
