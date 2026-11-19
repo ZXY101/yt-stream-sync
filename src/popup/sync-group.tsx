@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button.tsx";
 
 import type { PlayerStatus } from "../lib/messages.ts";
 import { describePlace, describeSync, lowLatencyGap } from "./format.ts";
-import { GroupProgress } from "./group-progress.tsx";
+import { GroupProgress, showsHealth } from "./group-progress.tsx";
 import { HealthNote } from "./health-note.tsx";
 import { LowLatencyNote } from "./low-latency-note.tsx";
 import { NudgeButtons } from "./nudge-buttons.tsx";
@@ -62,12 +62,15 @@ interface MemberCardProps {
   player: PlayerStatus;
   /** Seconds a low-latency stream stays ahead of the group, 0 if none. */
   gap: number;
+  /** Health labels only show once the group is in sync. */
+  showHealth: boolean;
   waveformsAt: number | undefined;
   onRemove: () => void;
   onNudge: (seconds: number) => void;
 }
 
-function MemberCard({ player, gap, waveformsAt, onRemove, onNudge }: MemberCardProps) {
+function MemberCard(props: MemberCardProps) {
+  const { player, gap, showHealth, waveformsAt, onRemove, onNudge } = props;
   const title = player.title || "Untitled stream";
   return (
     <StreamCard
@@ -89,7 +92,7 @@ function MemberCard({ player, gap, waveformsAt, onRemove, onNudge }: MemberCardP
           No start time in embeds: aligned as it was when added.
         </p>
       )}
-      <HealthNote health={player.health} />
+      <HealthNote health={showHealth ? player.health : undefined} />
       <HearingNote hearing={player.hearing} />
       {waveformsAt !== undefined && <Waveform waveform={player.waveform} now={waveformsAt} />}
       <NudgeButtons title={title} offset={player.offset} onNudge={onNudge} />
@@ -101,6 +104,7 @@ function MemberCard({ player, gap, waveformsAt, onRemove, onNudge }: MemberCardP
 export function SyncGroup(props: SyncGroupProps) {
   const { members, mixed, waveformsAt, onRemove, onNudge } = props;
   const gap = mixed ? 0 : lowLatencyGap(members);
+  const showHealth = !mixed && showsHealth(members);
   return (
     <section aria-labelledby="sync-group" className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
@@ -124,6 +128,7 @@ export function SyncGroup(props: SyncGroupProps) {
               key={player.id}
               player={player}
               gap={gap}
+              showHealth={showHealth}
               waveformsAt={waveformsAt}
               onRemove={() => onRemove(player.id)}
               onNudge={(seconds) => onNudge(player.id, seconds)}

@@ -22,7 +22,7 @@ function describeHealth({ buffering, moved, corrections }: StreamHealth): string
     moved > 0 ? `moved by YouTube ${moved}×` : "",
     corrections > 0 ? `corrected ${corrections}×` : "",
   ].filter(Boolean);
-  return `Last 2 min: ${parts.join(", ") || "nothing to fix"}`;
+  return `Last 2 min: ${parts.join(", ") || "no hiccups"}`;
 }
 
 const ROW = "mt-1 -mx-1 flex min-h-8 w-[calc(100%+0.5rem)] min-w-0 items-start gap-1.5 px-1 py-1.5";

@@ -21,7 +21,7 @@ describe("HealthNote", () => {
   it("says a calm stream is steady", () => {
     render(<HealthNote health={health()} />);
     expect(screen.getByText("Steady")).toBeInTheDocument();
-    expect(screen.getByText("Last 2 min: nothing to fix")).toBeInTheDocument();
+    expect(screen.getByText("Last 2 min: no hiccups")).toBeInTheDocument();
   });
 
   it("says what happened to a stream that isn't calm", () => {
