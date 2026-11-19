@@ -38,6 +38,11 @@ group up, and the buffering a skip itself causes, don't count against a stream. 
 **Shaky** some, **Unstable** a lot. It's only for you: the sync doesn't act on it. A stream
 that stays Unstable is the one most likely to drift out of sync.
 
+A stream that stops sending readings for 10 seconds, even though the add-on keeps asking,
+shows **Not responding** instead. The sync can't see it, so it leaves it out and hands it back
+at normal speed, and the other streams carry on without it. Refresh that stream's tab, then
+add it again.
+
 ## Archives
 
 Finished live streams are lined up by when each broadcast started. Seek, pause, play or

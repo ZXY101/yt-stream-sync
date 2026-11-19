@@ -7,7 +7,7 @@ import {
   showPopupForStreams,
 } from "../fixtures/popup.ts";
 import { expect, test } from "../fixtures/test.ts";
-import { openMultiview, readStream, streamFrame } from "../fixtures/youtube.ts";
+import { hideLatency, openMultiview, readStream, streamFrame } from "../fixtures/youtube.ts";
 
 test("offers this tab's streams and leaves them alone until added", async ({
   firefoxPage,
@@ -129,4 +129,26 @@ test("shows each stream's health once it has been in sync for 30 s", async ({
       expect.stringMatching(/^calm-a.*Steady.*Last 2 min: /),
       expect.stringMatching(/^calm-b.*Steady.*Last 2 min: /),
     ]);
+});
+
+test("says a stream stopped responding, and the others don't wait for it", async ({
+  firefoxPage,
+  openPopup,
+}) => {
+  test.setTimeout(60_000);
+  await openMultiview(firefoxPage, [
+    { id: "calm-a", latency: 5 },
+    { id: "calm-b", latency: 5 },
+    { id: "broken", latency: 5 },
+  ]);
+  const popup = await openPopup();
+  await addAllStreams(popup, 3);
+  await expect.poll(() => groupProgress(popup), { timeout: 10_000 }).toBe("Streams in sync");
+
+  await hideLatency(await streamFrame(firefoxPage, "broken"));
+
+  await expect
+    .poll(() => groupRows(popup), { timeout: 20_000 })
+    .toContainEqual(expect.stringMatching(/^broken.*Not responding.*Refresh its tab/));
+  expect(await groupProgress(popup)).toBe("Streams in sync");
 });

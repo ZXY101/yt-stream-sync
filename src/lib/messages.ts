@@ -190,6 +190,8 @@ export interface PlayerStatus {
   hearing?: AudioReport["state"];
   /** Live, in the group for 30 s or more: how calm the stream has been lately. */
   health?: StreamHealth;
+  /** In the group and silent this many seconds (10 or more): it needs a refresh. */
+  quiet?: number;
 }
 
 /** What a live stream went through in the last 2 minutes (display only; the sync ignores it). */

@@ -9,6 +9,7 @@ import { GroupProgress, showsHealth } from "./group-progress.tsx";
 import { HealthNote } from "./health-note.tsx";
 import { LowLatencyNote } from "./low-latency-note.tsx";
 import { NudgeButtons } from "./nudge-buttons.tsx";
+import { QuietNote } from "./quiet-note.tsx";
 import { StreamCard } from "./stream-card.tsx";
 import { Waveform } from "./waveform.tsx";
 
@@ -92,7 +93,8 @@ function MemberCard(props: MemberCardProps) {
           No start time in embeds: aligned as it was when added.
         </p>
       )}
-      <HealthNote health={showHealth ? player.health : undefined} />
+      <QuietNote quiet={player.quiet} />
+      {player.quiet === undefined && <HealthNote health={showHealth ? player.health : undefined} />}
       <HearingNote hearing={player.hearing} />
       {waveformsAt !== undefined && <Waveform waveform={player.waveform} now={waveformsAt} />}
       <NudgeButtons title={title} offset={player.offset} onNudge={onNudge} />

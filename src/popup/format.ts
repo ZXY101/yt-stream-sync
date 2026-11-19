@@ -78,6 +78,9 @@ export function describeSync(player: PlayerStatus, gap = 0): string {
   if (!player.inGroup) {
     return "Not synced";
   }
+  if (player.quiet !== undefined) {
+    return "Not responding";
+  }
   if (player.error === undefined) {
     return "Waiting";
   }

@@ -386,6 +386,23 @@ describe("coordinator", () => {
     expect(coordinator.debugLog()).toMatch(/1:0 reports again \(4 readings without a latency\)/);
   });
 
+  it("tells the popup when a stream in the group stopped responding", () => {
+    const { coordinator, advance, join } = setup();
+    join({ "1:0": { latency: 5 }, "2:0": { latency: 5 } });
+    advance(9);
+    coordinator.report("2:0", report({ latency: 5 }));
+    const early = coordinator.status().players.map((player) => player.quiet);
+    advance(2);
+    coordinator.report("2:0", report({ latency: 5 }));
+
+    const quiet = coordinator.status().players.map((player) => [player.id, player.quiet]);
+    expect(early).toEqual([undefined, undefined]);
+    expect(quiet).toEqual([
+      ["1:0", 11],
+      ["2:0", undefined],
+    ]);
+  });
+
   it("clears the group and hands every player back at normal speed", () => {
     const { coordinator, send, join } = setup();
     join({ "1:0": { latency: 4 }, "2:0": { latency: 6 } });

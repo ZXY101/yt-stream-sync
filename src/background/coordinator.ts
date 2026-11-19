@@ -49,6 +49,9 @@ function sendAll(actions: Action[], send: CoordinatorOptions["send"], reports: R
   }
 }
 
+/** A group member silent this long, though asked every second, needs the user's help. */
+const QUIET_SHOWN = 10;
+
 /** Players report every second; one this late is asked for its report. */
 const LATE_AFTER = 1.5;
 
@@ -124,7 +127,8 @@ function buildStatus(parts: StatusParts): CoordinatorStatus {
     const stuck = outcome.stuck.includes(id) || undefined;
     const streamHealth = inGroup ? health.get(id) : undefined;
     const offset = group.offset(id);
-    const sync: SyncInfo = { inGroup, offset, error, stuck, waveform, health: streamHealth };
+    const quiet = inGroup ? reports.stale([id], QUIET_SHOWN)[0]?.[1] : undefined;
+    const sync: SyncInfo = { inGroup, offset, error, stuck, waveform, health: streamHealth, quiet };
     return toStatus(id, report, sync);
   });
   const mixed = isMixed(group.ids(), reports);

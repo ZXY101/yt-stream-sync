@@ -15,6 +15,8 @@
       const STEP = 0.1;
       let latency = Number(params.get("latency") ?? "5");
       let stateCode = 1;
+      // YouTube sometimes stops giving a latency in its stats; a refresh brings it back.
+      let latencyShown = true;
 
       // Playing at rate r adds (1 - r) s of latency per second; paused adds 1 s per second.
       setInterval(() => {
@@ -23,7 +25,7 @@
 
       Object.assign(player, {
         getStatsForNerds: () => ({
-          live_latency_style: "",
+          live_latency_style: latencyShown ? "" : "display:none",
           // Like YouTube, report 0 while paused.
           live_latency_secs: stateCode === 2 ? "0.00s" : `${latency.toFixed(2)}s`,
           buffer_health_seconds: "5.00 s",
@@ -40,6 +42,7 @@
       });
       window.fakeLatency = () => latency;
       window.fakeState = () => stateCode;
+      window.fakeHideLatency = () => (latencyShown = false);
     </script>
   </body>
 </html>

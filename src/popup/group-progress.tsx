@@ -30,7 +30,13 @@ function progressText(members: readonly PlayerStatus[]): string {
  * A gap a low-latency stream keeps open is as settled as that group gets, so labels show.
  */
 export function showsHealth(members: readonly PlayerStatus[]): boolean {
-  return lowLatencyGap(members) > 0 || progressText(members) === "Streams in sync";
+  const responding = respondingOf(members);
+  return lowLatencyGap(responding) > 0 || progressText(responding) === "Streams in sync";
+}
+
+/** A stream that stopped responding has its own note; the others don't wait for it. */
+function respondingOf(members: readonly PlayerStatus[]): PlayerStatus[] {
+  return members.filter((member) => member.quiet === undefined);
 }
 
 /**
@@ -38,7 +44,8 @@ export function showsHealth(members: readonly PlayerStatus[]): boolean {
  * starts something: a spinner while the streams are still apart, a check once they meet.
  * Says nothing when a low-latency stream keeps a gap open: `LowLatencyNote` explains that.
  */
-export function GroupProgress({ members }: { members: readonly PlayerStatus[] }) {
+export function GroupProgress(props: { members: readonly PlayerStatus[] }) {
+  const members = respondingOf(props.members);
   if (members.length < 2 || lowLatencyGap(members) > 0) {
     return null;
   }

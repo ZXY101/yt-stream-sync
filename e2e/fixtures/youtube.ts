@@ -106,3 +106,10 @@ export function userAction(
     user[wanted.type]?.("position" in wanted ? wanted.position : undefined);
   }, action);
 }
+
+/** Makes the fake live player stop giving a latency, like YouTube sometimes does. */
+export function hideLatency(frame: Frame): Promise<void> {
+  return frame.evaluate(() => {
+    (window as unknown as { fakeHideLatency: () => void }).fakeHideLatency();
+  });
+}

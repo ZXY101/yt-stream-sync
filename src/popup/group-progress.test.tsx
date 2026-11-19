@@ -87,3 +87,16 @@ describe("showsHealth", () => {
     expect(showsHealth([pinned, member({ id: "2:0", error: 0 })])).toBe(true);
   });
 });
+
+describe("a stream that stopped responding", () => {
+  const quiet = member({ id: "3:0", error: undefined, quiet: 20 });
+
+  it("doesn't hold the others at starting", () => {
+    render(<GroupProgress members={[member({ error: 0.4 }), member({ id: "2:0" }), quiet]} />);
+    expect(screen.getByRole("status")).toHaveTextContent("Streams in sync");
+  });
+
+  it("doesn't keep the others' health hidden", () => {
+    expect(showsHealth([member({ error: 0.4 }), member({ id: "2:0" }), quiet])).toBe(true);
+  });
+});
