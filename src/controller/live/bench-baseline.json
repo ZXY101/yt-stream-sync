@@ -103,5 +103,26 @@
     "settleTime": 96,
     "moves": 5,
     "stalls": 0
+  },
+  "rewind-off: one stream's readings jump ±2 s": {
+    "spread": 0.16,
+    "worstSpread": 0.32,
+    "settleTime": 19,
+    "moves": 74,
+    "stalls": 0
+  },
+  "one stream's readings jump ±2 s": {
+    "spread": 0.16,
+    "worstSpread": 0.32,
+    "settleTime": 19,
+    "moves": 74,
+    "stalls": 0
+  },
+  "rewind-off: YouTube moves one stream twice": {
+    "spread": 0.32,
+    "worstSpread": 4.12,
+    "settleTime": 237,
+    "moves": 4,
+    "stalls": 0
   }
 }

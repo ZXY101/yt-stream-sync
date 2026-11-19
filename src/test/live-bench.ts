@@ -56,6 +56,12 @@ function shakyTwo(players: SimulatedPlayer[]) {
   };
 }
 
+/** YouTube moves the first stream 5 s towards live, twice. */
+function movedTwice(players: SimulatedPlayer[]) {
+  const first = players[0] as SimulatedPlayer;
+  return { 90: () => first.movedByYouTube(5), 180: () => first.movedByYouTube(5) };
+}
+
 function adOnFirst(players: SimulatedPlayer[]) {
   return { 60: () => (players[0] as SimulatedPlayer).showAd(15) };
 }
@@ -76,6 +82,15 @@ const REWIND_OFF: Scenario[] = [
     events: shakyTwo,
   },
   { name: "rewind-off: ad on one stream", players: [off(5), off(6)], events: adOnFirst },
+  {
+    name: "rewind-off: YouTube moves one stream twice",
+    players: [off(12), off(12), off(12)],
+    events: movedTwice,
+  },
+  {
+    name: "rewind-off: one stream's readings jump ±2 s",
+    players: [off(8), off(9), { ...off(10), readingNoise: 2 }],
+  },
   { name: "mixed: rewind-off leader 12 s ahead", players: [off(4), { latency: 16 }] },
   {
     name: "mixed: rewind-off pair, rewindable far ahead",
@@ -98,6 +113,10 @@ const REWINDABLE: Scenario[] = [
     events: shakyTwo,
   },
   { name: "ad on one stream", players: [{ latency: 5 }, { latency: 6 }], events: adOnFirst },
+  {
+    name: "one stream's readings jump ±2 s",
+    players: [{ latency: 8 }, { latency: 9 }, { latency: 10, readingNoise: 2 }],
+  },
 ];
 
 export const SCENARIOS: Scenario[] = [...REWIND_OFF, ...REWINDABLE];

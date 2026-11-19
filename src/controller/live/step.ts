@@ -1,5 +1,6 @@
 import { type PinnedInput, stepPinned } from "./pinned-step.ts";
 import { actionsFor, nextMode, releaseActions } from "./player-step.ts";
+import { ageHistory, smoothLatencies } from "./smoothing.ts";
 import { computeErrors } from "./target.ts";
 import { LIVE_TUNING } from "./tuning.ts";
 import type { Action, SyncSettings } from "../types.ts";
@@ -99,6 +100,22 @@ function idle(state: LiveState, samples: readonly LiveSample[]): LiveStepResult 
   return { state: next, actions: release(state, samples), errors: {}, stuck: [] };
 }
 
+/** The group members to sync this step, or undefined while there's nothing to sync. */
+function playersToSync(
+  state: LiveState,
+  samples: readonly LiveSample[],
+  settings: SyncSettings,
+): LiveSample[] | undefined {
+  const members = samples.filter((sample) => settings.group.includes(sample.id));
+  // During an ad the gap can't be measured; it is fixed once the ad ends.
+  const onHold = members.some((sample) => sample.state === "ad");
+  if (!settings.enabled || onHold) {
+    return undefined;
+  }
+  const read = members.filter((sample) => isSynced(sample, state.modes[sample.id] ?? "normal"));
+  return read.length < 2 ? undefined : read;
+}
+
 /**
  * One control step, run about once a second: player readings in, commands out.
  * Only players in `settings.group` (the ones the user opted in) are synced, and only once
@@ -111,23 +128,19 @@ export function stepLive(
   settings: SyncSettings,
   tuning: LiveTuning = LIVE_TUNING,
 ): LiveStepResult {
-  const members = samples.filter((sample) => settings.group.includes(sample.id));
-  // During an ad the gap can't be measured; it is fixed once the ad ends.
-  const onHold = members.some((sample) => sample.state === "ad");
-  if (!settings.enabled || onHold) {
+  const read = playersToSync(state, samples, settings);
+  if (!read) {
     return idle(state, samples);
   }
-  const synced = members.filter((sample) => isSynced(sample, state.modes[sample.id] ?? "normal"));
-  if (synced.length < 2) {
-    return idle(state, samples);
-  }
-  const others = samples.filter((sample) => !synced.includes(sample));
+  const others = samples.filter((sample) => !read.includes(sample));
+  const smoothed = smoothLatencies(state.readings ?? {}, read);
+  const synced = smoothed.samples;
   const floors = updateFloors(state.floors ?? {}, synced);
   const minBuffer = tuning.minBuffer + settings.safetyMargin;
   const held = new Set(Object.keys(state.held ?? {}));
   const errors = computeErrors(synced, settings, { minBuffer, floors, held });
   const ceilings = { ...state.ceilings };
-  const next: MutableState = { modes: {}, cooldowns: {}, held: {}, ceilings, floors };
+  const next: MutableState = { modes: {}, cooldowns: {}, held: {}, ceilings, floors, readings: {} };
   const actions = release(state, others);
   const stuck: string[] = [];
   for (const sample of synced) {
@@ -138,6 +151,7 @@ export function stepLive(
     }
     actions.push(...result.actions);
   }
+  next.readings = ageHistory(smoothed.history, synced, actions);
   return { state: next, actions, errors, stuck };
 }
 

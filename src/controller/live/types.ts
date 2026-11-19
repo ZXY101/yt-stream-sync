@@ -66,6 +66,8 @@ export interface LiveState {
   ceilings?: Readonly<Record<string, number>>;
   /** Pinned players: the lowest latency each has shown, i.e. its live edge. */
   floors?: Readonly<Record<string, number>>;
+  /** Each player's last few latency readings, moved on to now (see `smoothing.ts`). */
+  readings?: Readonly<Record<string, readonly number[]>>;
 }
 
 export interface LiveStepResult {

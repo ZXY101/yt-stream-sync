@@ -1,5 +1,6 @@
 import type { LiveSample } from "../controller/live/types.ts";
 import type { Action, PlayerState } from "../controller/types.ts";
+import { noise } from "./noise.ts";
 
 export interface SimulatedPlayerOptions {
   id: string;
@@ -16,7 +17,15 @@ export interface SimulatedPlayerOptions {
    * its starting latency (seen on real streams).
    */
   rewind?: boolean;
+  /**
+   * The latency YouTube's stats show is off by up to this many seconds each reading, while the
+   * stream itself plays smoothly (seen on a real collab: one stream read 7.3, 11.7, 10.2 s
+   * within seconds).
+   */
+  readingNoise?: number;
 }
+
+const NOISE_READINGS = 4096;
 
 /**
  * A YouTube live player, close enough for the controller: the live edge moves at 1 s/s,
@@ -37,6 +46,9 @@ export class SimulatedPlayer {
   private readonly rebuffer: number;
   private readonly rewind: boolean;
   private readonly home: number;
+  private readonly readingNoise: number;
+  private readonly noise: Float32Array;
+  private readings = 0;
 
   constructor(options: SimulatedPlayerOptions) {
     this.id = options.id;
@@ -45,6 +57,8 @@ export class SimulatedPlayer {
     this.rebuffer = options.rebuffer ?? 1;
     this.rewind = options.rewind ?? true;
     this.home = options.latency;
+    this.readingNoise = options.readingNoise ?? 0;
+    this.noise = noise(NOISE_READINGS, options.latency * 1000);
     this.position = -options.latency;
     this.downloaded = this.availableUntil();
   }
@@ -58,8 +72,15 @@ export class SimulatedPlayer {
   }
 
   sample(): LiveSample {
-    const { id, latency, bufferAhead, state, playbackRate } = this;
+    const { id, bufferAhead, state, playbackRate } = this;
+    const latency = this.latency + this.readingError();
     return { id, latency, bufferAhead, state, playbackRate, noRewind: !this.rewind };
+  }
+
+  private readingError(): number {
+    const index = this.readings % NOISE_READINGS;
+    this.readings += 1;
+    return (this.noise[index] ?? 0) * this.readingNoise;
   }
 
   apply(action: Action): void {
@@ -95,6 +116,11 @@ export class SimulatedPlayer {
   /** No new video for `seconds`, like a streamer's upload hiccup or a slow connection. */
   dropNetwork(seconds: number): void {
     this.networkDownUntil = this.clock + seconds;
+  }
+
+  /** YouTube moves the stream this many seconds closer to live by itself (seen on real streams). */
+  movedByYouTube(seconds: number): void {
+    this.position = Math.min(this.position + seconds, this.downloaded);
   }
 
   /** A mid-roll ad: the stream itself stops for `seconds`. */
