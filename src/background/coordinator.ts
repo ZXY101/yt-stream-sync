@@ -49,6 +49,19 @@ function sendAll(actions: Action[], send: CoordinatorOptions["send"], reports: R
   }
 }
 
+/**
+ * A group member that stopped reporting is out of the controller's sight, so it would keep the
+ * speed it last had: a slowed one drifts further behind, unseen (seen on a real collab). Hand
+ * it back at normal speed; commands still reach a tab that has gone quiet.
+ */
+function releaseSilent(ids: readonly string[], reports: Reports): Action[] {
+  return reports.stale(ids).flatMap(([id]) => {
+    const report = reports.get(id);
+    const slowed = report?.kind === "live" && report.playbackRate < 1 - 0.001;
+    return slowed ? [{ type: "setRate" as const, id, rate: 1 }] : [];
+  });
+}
+
 /** This step's settings; nobody is synced while live streams and archives are mixed. */
 function stepSettings(
   group: ReturnType<typeof createGroup>,
@@ -194,7 +207,7 @@ export function createCoordinator(options: CoordinatorOptions) {
     health.follow(groupIds);
     const result = controllers.run(reports.fresh(), settings);
     outcome = { errors: result.errors, stuck: result.stuck };
-    sendAll(result.actions, send, reports);
+    sendAll([...result.actions, ...releaseSilent(groupIds, reports)], send, reports);
     audio.afterTick(memberViews(groupIds, reports, outcome));
     align.tick();
     diagnostics.noteStale(reports.stale(groupIds));

@@ -340,6 +340,23 @@ describe("coordinator", () => {
     ]);
   });
 
+  it("hands a slowed stream back at normal speed once it stops reporting", () => {
+    const { coordinator, send, advance, join } = setup();
+    join({ "1:0": { latency: 4 }, "2:0": { latency: 6 } });
+    coordinator.tick();
+    expect(send.mock.calls).toEqual([["1:0", { type: "setRate", rate: 0.92 }]]);
+    send.mockClear();
+
+    for (let second = 0; second < 6; second++) {
+      advance(1);
+      coordinator.report("2:0", report({ latency: 6 }));
+      coordinator.tick();
+    }
+
+    // Once, not every second: it would otherwise drift further behind at 0.92x unseen.
+    expect(send.mock.calls).toEqual([["1:0", { type: "setRate", rate: 1 }]]);
+  });
+
   it("clears the group and hands every player back at normal speed", () => {
     const { coordinator, send, join } = setup();
     join({ "1:0": { latency: 4 }, "2:0": { latency: 6 } });
