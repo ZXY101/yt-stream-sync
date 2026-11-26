@@ -1,5 +1,53 @@
 # Changelog
 
+## [0.1.3](https://github.com/ZXY101/yt-stream-sync/compare/yt-stream-sync-v0.1.2...yt-stream-sync-v0.1.3) (2026-11-19)
+
+
+### Features
+
+* **background:** log where the sync has each stream and how long it's been steady ([9be9d6a](https://github.com/ZXY101/yt-stream-sync/commit/9be9d6a19117e19c45de9a02c0afd9e1c6f50545))
+* line no-rewind groups up where YouTube lets most streams stay ([75560b7](https://github.com/ZXY101/yt-stream-sync/commit/75560b7e88f19c6ee3eec2c5cf3857a85daddfb8))
+* live groups sync by latency only; audio matching is for archives ([41ad2bc](https://github.com/ZXY101/yt-stream-sync/commit/41ad2bc3e45aade7f56266d42a81912645450cc6))
+* live sync for streams with rewind off; faster audio matching ([f9e47c9](https://github.com/ZXY101/yt-stream-sync/commit/f9e47c95ec450764c592369c1fec8d79afeaf0cd))
+* **popup:** add a light/dark theme toggle ([a1fddd3](https://github.com/ZXY101/yt-stream-sync/commit/a1fddd33be6242e6ae0a6cf3532fa836fa4f2d26))
+* **popup:** add a light/dark theme toggle ([8f1b1b4](https://github.com/ZXY101/yt-stream-sync/commit/8f1b1b43e178e4f1b10f0c78f76ec60b35998ada))
+* **popup:** add a light/dark theme toggle ([836f09b](https://github.com/ZXY101/yt-stream-sync/commit/836f09b985b27a79863818a67a73361191e413db))
+* **popup:** keep a stream's health to one line, click for the rest ([a46decc](https://github.com/ZXY101/yt-stream-sync/commit/a46decccea556566dc8204c971b4e4f4c81b0f27))
+* **popup:** pick the theme in the settings instead of a popup button ([5c5aa6e](https://github.com/ZXY101/yt-stream-sync/commit/5c5aa6e84f568bfe2f9999493ccc3c6d3f83211e))
+* **popup:** pick the theme in the settings instead of a popup button ([f0429f9](https://github.com/ZXY101/yt-stream-sync/commit/f0429f9561a893564b96dc0dd4deef25f9040d44))
+* **popup:** pick the theme in the settings instead of a popup button ([34aa412](https://github.com/ZXY101/yt-stream-sync/commit/34aa412da24d8d164c75da51e3b0fb7446e461a2))
+* **popup:** show how steady each live stream has been ([b1a2d30](https://github.com/ZXY101/yt-stream-sync/commit/b1a2d30fe13134877573cf66fd261acdcd907322))
+* **popup:** show the group lining up after the second stream joins ([c96c788](https://github.com/ZXY101/yt-stream-sync/commit/c96c7888afe9504ec0895f8405c99f5c2d988157))
+* v0.1.2 live sync with health labels, rewind-off handling and a progress line ([db68ee4](https://github.com/ZXY101/yt-stream-sync/commit/db68ee47922d2a9d9f3e24dbca7c1999d69c26f6))
+
+
+### Bug Fixes
+
+* audio matching with no-rewind groups; log every comparison ([c435c42](https://github.com/ZXY101/yt-stream-sync/commit/c435c42a7b24ada7de5ae4d2e7d9e7ec913436e8))
+* **background:** don't blame a stream for the sync's own skips ([c880bdd](https://github.com/ZXY101/yt-stream-sync/commit/c880bdda3f938630267266adca3132b29fe3b009))
+* **background:** log when a group member stops reporting ([19df62a](https://github.com/ZXY101/yt-stream-sync/commit/19df62a1d483a8973104bbccf1240478996ce1ca))
+* **background:** match audio for a stream held up to 5 s from the group ([6660c57](https://github.com/ZXY101/yt-stream-sync/commit/6660c57dc7cf28a8ad985a31cb81a587c92ba69f))
+* **controller:** never pause a live stream with rewind turned off ([a189896](https://github.com/ZXY101/yt-stream-sync/commit/a1898968a999270cb0d845f305cfce3e292f23b1))
+* **controller:** stop yanking a stream between two groups of streams ([7495a34](https://github.com/ZXY101/yt-stream-sync/commit/7495a34ab894f25c6e86967e24713189bb8c2c17))
+* hide health labels until the group is in sync; log silent streams ([bd245d9](https://github.com/ZXY101/yt-stream-sync/commit/bd245d948bfd8459366b850ac36dbb6cec2dcb84))
+* never pause live streams with rewind turned off ([cb76a0b](https://github.com/ZXY101/yt-stream-sync/commit/cb76a0bcd7ad86a6e13bedce8002e2cf5aca83c8))
+* **popup:** hide health labels until the group is in sync ([c4fb8ef](https://github.com/ZXY101/yt-stream-sync/commit/c4fb8efa1179a8c9f96e4ebe529dbcd6201b7f1e))
+* **popup:** only offer to expand a health line that doesn't fit ([f3d01bb](https://github.com/ZXY101/yt-stream-sync/commit/f3d01bb8cb25079538e92b1bb17ffda3145f46ad))
+* **popup:** show a stream's whole status instead of cutting it off ([667540c](https://github.com/ZXY101/yt-stream-sync/commit/667540c562b97e690365c3f1a409cb1ef589a013))
+* **popup:** tell keyboard and screen-reader users why a nudge is off ([8dc7d4a](https://github.com/ZXY101/yt-stream-sync/commit/8dc7d4ab1b5d29e050ef23d4fcbf5f72faa58e9d))
+* stop no-rewind groups chasing the live edge; re-listen after reloads ([38ca3d6](https://github.com/ZXY101/yt-stream-sync/commit/38ca3d6bef65c6905084d45514310f650495968d))
+* stop the aim flapping between pairings; match audio for held-back streams ([8e1866b](https://github.com/ZXY101/yt-stream-sync/commit/8e1866b259612703cec6d9963196ed20d77b2c13))
+
+
+### Performance Improvements
+
+* 5x faster audio matching; lighter test runs; tooltip on disabled nudges ([4fd8cca](https://github.com/ZXY101/yt-stream-sync/commit/4fd8cca9d153f7fe551e7cad5e1d4b110d024a41))
+
+
+### Reverts
+
+* go back to v0.1.2's live sync ([4d47121](https://github.com/ZXY101/yt-stream-sync/commit/4d47121b96589c1063a49040e7c224a8e32965d1))
+
 ## [0.1.2](https://github.com/ZXY101/yt-stream-sync/compare/yt-stream-sync-v0.1.1...yt-stream-sync-v0.1.2) (2026-11-12)
 
 
